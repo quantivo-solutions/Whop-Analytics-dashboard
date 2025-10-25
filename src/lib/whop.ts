@@ -99,55 +99,73 @@ export async function getWhopClient() {
  * @throws Error if token is invalid (only when actually calling Whop API)
  * 
  * TODO: Implement actual Whop API integration
- * For now, returns fake data for testing (no validation needed)
+ * For now, returns zero values when no data is found
  */
 export async function fetchDailySummary(date?: string): Promise<WhopDailySummary> {
+  const dateString = date || new Date().toISOString().split('T')[0]
+  
   // Check if we have a valid token
   const token = await getWhopToken()
 
   if (!token) {
-    console.warn('No Whop token available, returning fake data')
-    return generateFakeData()
+    console.log('No Whop token available, returning zero values for', dateString)
+    return generateZeroData()
   }
 
   try {
-    // TODO: Replace with actual Whop API endpoint
-    // When implementing real API calls, use whopFetch which handles validation:
-    // const data = await whopFetch<WhopDailySummary>('/v1/metrics/daily?date=' + (date || new Date().toISOString().split('T')[0]))
-    // return data || generateFakeData()
+    // TODO: Replace with actual Whop SDK calls
+    // Example implementation:
+    // const client = await getWhopClient()
+    // if (!client) {
+    //   console.log('No live Whop data found for', dateString)
+    //   return generateZeroData()
+    // }
+    // 
+    // // Fetch payments and memberships for the date range
+    // const payments = await client.GET('/payments', { params: { date: dateString } })
+    // const memberships = await client.GET('/memberships', { params: { date: dateString } })
+    // 
+    // if (!payments.data || payments.data.length === 0) {
+    //   console.log('No live Whop data found for', dateString)
+    //   return generateZeroData()
+    // }
+    // 
+    // // Calculate metrics from API response
+    // return {
+    //   grossRevenue: calculateRevenue(payments.data),
+    //   activeMembers: memberships.data?.active_count || 0,
+    //   newMembers: memberships.data?.new_count || 0,
+    //   cancellations: memberships.data?.cancelled_count || 0,
+    //   trialsStarted: memberships.data?.trials_started || 0,
+    //   trialsPaid: memberships.data?.trials_converted || 0,
+    // }
     
-    // For now, return fake data WITHOUT validation (since we're not calling the API)
-    console.warn('Whop API integration not yet implemented, returning fake data')
-    return generateFakeData()
+    // For now, return zero values (no live data available yet)
+    console.log('No live Whop data found for', dateString)
+    return generateZeroData()
   } catch (error) {
     if (error instanceof Error && error.message.includes('Invalid Whop API key')) {
       throw error
     }
     console.error('Error fetching daily summary from Whop:', error)
-    return generateFakeData()
+    console.log('No live Whop data found for', dateString)
+    return generateZeroData()
   }
 }
 
 /**
- * Generate fake data for testing
- * @returns Fake daily metrics
+ * Generate zero values for all metrics
+ * Used when no Whop data is available for a given date
+ * @returns Zero metrics
  */
-function generateFakeData(): WhopDailySummary {
-  // Generate realistic fake data with some variation
-  const baseGrossRevenue = 1200 + Math.random() * 600 // 1200-1800
-  const baseActiveMembers = 80 + Math.floor(Math.random() * 20) // 80-100
-  const baseNewMembers = 8 + Math.floor(Math.random() * 8) // 8-16
-  const baseCancellations = 2 + Math.floor(Math.random() * 4) // 2-6
-  const baseTrialsStarted = 12 + Math.floor(Math.random() * 8) // 12-20
-  const baseTrialsPaid = 3 + Math.floor(Math.random() * 5) // 3-8
-
+function generateZeroData(): WhopDailySummary {
   return {
-    grossRevenue: Math.round(baseGrossRevenue * 100) / 100,
-    activeMembers: baseActiveMembers,
-    newMembers: baseNewMembers,
-    cancellations: baseCancellations,
-    trialsStarted: baseTrialsStarted,
-    trialsPaid: baseTrialsPaid,
+    grossRevenue: 0,
+    activeMembers: 0,
+    newMembers: 0,
+    cancellations: 0,
+    trialsStarted: 0,
+    trialsPaid: 0,
   }
 }
 
