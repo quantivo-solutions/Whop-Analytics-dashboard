@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { WhopServerSdk } from '@whop/api'
+import { whopGET } from './whop-rest'
 
 /**
  * Whop API Client
@@ -13,6 +14,36 @@ export interface WhopDailySummary {
   cancellations: number
   trialsStarted: number
   trialsPaid: number
+}
+
+/**
+ * Type alias for daily summary (preferred for external use)
+ */
+export type DailySummary = {
+  grossRevenue: number
+  activeMembers: number
+  newMembers: number
+  cancellations: number
+  trialsStarted: number
+  trialsPaid: number
+}
+
+/**
+ * Date utility: Get start of UTC day (00:00:00Z)
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns ISO string at start of day (00:00:00.000Z)
+ */
+export function startOfUtcDay(dateStr: string): string {
+  return `${dateStr}T00:00:00.000Z`
+}
+
+/**
+ * Date utility: Get end of UTC day (23:59:59Z)
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns ISO string at end of day (23:59:59.999Z)
+ */
+export function endOfUtcDay(dateStr: string): string {
+  return `${dateStr}T23:59:59.999Z`
 }
 
 /**
@@ -237,6 +268,105 @@ export async function testWhopConnection(): Promise<boolean> {
   } catch (error) {
     console.warn('Error testing Whop connection:', error)
     return false
+  }
+}
+
+/**
+ * Sum paid revenue for a specific day using Whop REST API
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns Total revenue for the day (in dollars)
+ * 
+ * @example
+ * const revenue = await sumPaidRevenueForDay('2025-10-24')
+ * console.log(`Revenue: $${revenue.toFixed(2)}`)
+ */
+export async function sumPaidRevenueForDay(dateStr: string): Promise<number> {
+  try {
+    console.log(`💰 Calculating paid revenue for ${dateStr}...`)
+    
+    const startTime = startOfUtcDay(dateStr)
+    const endTime = endOfUtcDay(dateStr)
+    
+    let totalRevenue = 0
+    let page = 1
+    let hasMorePages = true
+    const limit = 100
+    
+    while (hasMorePages) {
+      console.log(`  Fetching page ${page} of payments...`)
+      
+      // Fetch payments for the date range
+      const response = await whopGET<{ 
+        data?: any[]
+        pagination?: { 
+          current_page?: number
+          total_pages?: number
+          next?: string | null
+        }
+      }>('/payments', {
+        status: 'paid',
+        created_after: startTime,
+        created_before: endTime,
+        limit,
+        page,
+      })
+      
+      const payments = response.data || []
+      console.log(`  Found ${payments.length} payments on page ${page}`)
+      
+      // Sum up revenue from this page
+      for (const payment of payments) {
+        // Try to find the revenue field (could be 'amount', 'final_amount', 'total', etc.)
+        let amount = 0
+        
+        if (typeof payment.final_amount === 'number') {
+          // Whop typically uses cents, convert to dollars
+          amount = payment.final_amount / 100
+        } else if (typeof payment.amount === 'number') {
+          amount = payment.amount / 100
+        } else if (typeof payment.total === 'number') {
+          amount = payment.total / 100
+        } else {
+          // Unknown field structure, log for debugging
+          console.warn(`  ⚠️  Unknown payment structure, available keys:`, Object.keys(payment))
+          amount = 0
+        }
+        
+        totalRevenue += amount
+      }
+      
+      // Check if there are more pages
+      if (response.pagination) {
+        const { current_page, total_pages, next } = response.pagination
+        
+        // Determine if we should continue paginating
+        if (next !== null && next !== undefined) {
+          hasMorePages = true
+          page++
+        } else if (current_page && total_pages && current_page < total_pages) {
+          hasMorePages = true
+          page++
+        } else {
+          hasMorePages = false
+        }
+      } else {
+        // No pagination info, assume single page
+        hasMorePages = false
+      }
+      
+      // Safety check: don't paginate more than 100 pages
+      if (page > 100) {
+        console.warn('  ⚠️  Reached max pagination limit (100 pages)')
+        hasMorePages = false
+      }
+    }
+    
+    console.log(`✅ Total paid revenue for ${dateStr}: $${totalRevenue.toFixed(2)}`)
+    return totalRevenue
+  } catch (error) {
+    console.error(`❌ Error calculating revenue for ${dateStr}:`, error)
+    return 0
   }
 }
 
