@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { fetchDailySummary } from '@/lib/whop'
+import { env } from '@/lib/env'
 
 export const runtime = 'nodejs'
 
@@ -16,47 +17,48 @@ export async function POST(request: Request) {
     const { searchParams } = new URL(request.url)
     const secret = searchParams.get('secret')
 
-    if (!secret || secret !== process.env.CRON_SECRET) {
-      console.error('Unauthorized Whop backfill request - invalid or missing secret')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+    if (!secret || secret !== env.CRON_SECRET) {
+      console.warn('Unauthorized backfill request - invalid or missing secret')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get number of days to backfill (default 30, max 90)
     const daysParam = searchParams.get('days')
-    let days = daysParam ? parseInt(daysParam, 10) : 30
-    
-    // Validate days parameter
-    if (isNaN(days) || days < 1) {
-      days = 30
-    }
-    if (days > 90) {
-      days = 90
+    const daysToBackfill = daysParam ? parseInt(daysParam, 10) : 30
+
+    if (isNaN(daysToBackfill) || daysToBackfill <= 0 || daysToBackfill > 365) {
+      return NextResponse.json({ error: 'Invalid "days" parameter. Must be a number between 1 and 365.' }, { status: 400 })
     }
 
-    console.log(`📥 Starting Whop backfill for last ${days} days...`)
+    // For now, assume a default company ID or fetch the first one
+    const whopInstallation = await prisma.whopInstallation.findFirst()
+    if (!whopInstallation) {
+      console.warn('No Whop installation found. Skipping backfill.')
+      return NextResponse.json({ ok: false, message: 'No Whop installation found' }, { status: 404 })
+    }
+
+    const companyId = whopInstallation.companyId
+    const accessToken = whopInstallation.accessToken
+
+    console.log(`🚀 Starting Whop data backfill for company ${companyId} for the last ${daysToBackfill} days...`)
 
     let daysWritten = 0
+    const today = new Date()
 
-    // Loop through each day and upsert
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date()
-      date.setUTCDate(date.getUTCDate() - i)
-      date.setUTCHours(0, 0, 0, 0)
-      const dateString = date.toISOString().split('T')[0]
+    for (let i = daysToBackfill - 1; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(today.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
 
       try {
-        console.log(`  Processing ${dateString}...`)
+        console.log(`  Processing ${dateStr}...`)
+        const summary = await fetchDailySummary(dateStr, accessToken)
 
-        // Fetch data from Whop using fetchDailySummary
-        const summary = await fetchDailySummary(dateString)
-
-        // Always upsert into database, even if all zeros
         await prisma.metricsDaily.upsert({
           where: {
-            date: date,
+            companyId_date: {
+              companyId: companyId,
+              date: new Date(dateStr),
+            },
           },
           update: {
             grossRevenue: summary.grossRevenue,
@@ -67,7 +69,8 @@ export async function POST(request: Request) {
             trialsPaid: summary.trialsPaid,
           },
           create: {
-            date: date,
+            companyId: companyId,
+            date: new Date(dateStr),
             grossRevenue: summary.grossRevenue,
             activeMembers: summary.activeMembers,
             newMembers: summary.newMembers,
@@ -78,24 +81,18 @@ export async function POST(request: Request) {
         })
 
         daysWritten++
-        console.log(`  ✅ ${dateString}: $${summary.grossRevenue.toFixed(2)}, ${summary.activeMembers} active, ${summary.newMembers} new`)
+        console.log(`  ✅ ${dateStr}: $${summary.grossRevenue.toFixed(2)}, ${summary.activeMembers} active, ${summary.newMembers} new`)
 
         // Small delay to avoid rate limiting (100ms between requests)
         await new Promise(resolve => setTimeout(resolve, 100))
       } catch (error) {
-        console.error(`  ❌ Error processing ${dateString}:`, error)
+        console.error(`  ❌ Error processing ${dateStr}:`, error)
         // Continue processing remaining days even if one fails
       }
     }
 
-    console.log(`✅ Backfill complete: ${daysWritten}/${days} days written`)
-
-    return NextResponse.json({
-      ok: true,
-      daysWritten,
-      totalDays: days,
-      message: `Backfilled ${daysWritten} out of ${days} days`,
-    })
+    console.log(`🎉 Backfill complete for company ${companyId}. Wrote ${daysWritten} out of ${daysToBackfill} days.`)
+    return NextResponse.json({ ok: true, daysWritten, totalDays: daysToBackfill, message: `Backfilled ${daysWritten} out of ${daysToBackfill} days` })
   } catch (error) {
     console.error('Error during Whop backfill:', error)
     return NextResponse.json(

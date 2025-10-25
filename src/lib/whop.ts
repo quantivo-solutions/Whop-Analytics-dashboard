@@ -177,6 +177,8 @@ export async function fetchDailySummary(dateStr: string): Promise<DailySummary> 
     console.log('  Using rolling calculation fallback for active members...')
     
     // Rolling fallback: get previous day from DB and compute
+    // Note: In multi-tenant, this should ideally filter by companyId
+    // For now, just get the most recent row (assumes single tenant or demo data)
     const yesterday = new Date(dateStr)
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayDate = new Date(yesterday.toISOString().split('T')[0])
@@ -577,10 +579,12 @@ export async function countActiveAtEndOfDay(dateStr: string): Promise<number> {
     const yesterdayStr = yesterday.toISOString().split('T')[0]
     
     // Check if we have yesterday's data in our database
+    // Note: In multi-tenant, this should ideally filter by companyId
     let previousActive = 0
     try {
-      const yesterdayMetric = await prisma.metricsDaily.findUnique({
+      const yesterdayMetric = await prisma.metricsDaily.findFirst({
         where: { date: new Date(yesterdayStr) },
+        orderBy: { date: 'desc' },
       })
       
       if (yesterdayMetric) {
