@@ -1,11 +1,13 @@
 /**
  * Whop REST API Client
  * 
- * Simple wrapper for making authenticated requests to Whop's REST API v2
+ * Simple wrapper for making authenticated requests to Whop's REST API v5
  * Uses direct fetch calls with API key authentication
+ * 
+ * Updated to use v5 API which supports the new Company API key format
  */
 
-const BASE = "https://api.whop.com/api/v2"
+const BASE = "https://api.whop.com/api/v5"
 
 /**
  * Make an authenticated GET request to the Whop API
