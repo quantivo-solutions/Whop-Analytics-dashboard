@@ -12,9 +12,13 @@ export default async function Dashboard() {
   // Check if Whop app is installed for any company
   const whopInstallation = await prisma.whopInstallation.findFirst()
   const isWhopConnected = !!whopInstallation
+  
+  // Use the first available company (demo or real installation)
+  const companyId = whopInstallation?.companyId || 'demo_company'
 
-  // Get latest metrics from database
+  // Get latest metrics from database for this company
   const latestMetric = await prisma.metricsDaily.findFirst({
+    where: { companyId },
     orderBy: { date: 'desc' }
   })
 
@@ -31,6 +35,7 @@ export default async function Dashboard() {
 
   // Get last 30 days for chart (ordered by date ASC for chronological display)
   const chartData = await prisma.metricsDaily.findMany({
+    where: { companyId },
     orderBy: { date: 'asc' },
     take: 30
   })
@@ -51,7 +56,7 @@ export default async function Dashboard() {
   const statsData = [
     {
       title: "Gross Revenue",
-      value: `$${latestMetric.grossRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: `$${Number(latestMetric.grossRevenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       description: `as of ${new Date(latestMetric.date).toLocaleDateString()}`,
       icon: DollarSign,
       trend: "up"

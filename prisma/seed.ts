@@ -5,17 +5,38 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Starting seed...')
 
-  // Clear existing data
-  await prisma.metricsDaily.deleteMany()
-  console.log('🗑️  Cleared existing metrics data')
+  // Create demo WhopInstallation
+  const demoInstallation = await prisma.whopInstallation.upsert({
+    where: { companyId: 'demo_company' },
+    update: {
+      experienceId: 'demo_experience',
+      accessToken: process.env.WHOP_API_KEY || process.env.WHOP_APP_SERVER_KEY || 'demo_token',
+      plan: 'demo',
+    },
+    create: {
+      companyId: 'demo_company',
+      experienceId: 'demo_experience',
+      accessToken: process.env.WHOP_API_KEY || process.env.WHOP_APP_SERVER_KEY || 'demo_token',
+      plan: 'demo',
+    },
+  })
 
-  // Generate 30 days of fake data
+  console.log('✅ Created demo WhopInstallation:', demoInstallation.companyId)
+
+  // Clear existing metrics for demo company
+  await prisma.metricsDaily.deleteMany({
+    where: { companyId: 'demo_company' },
+  })
+  console.log('🗑️  Cleared existing metrics for demo company')
+
+  // Generate 30 days of fake data for demo company
   const today = new Date()
   const metricsData = []
 
   for (let i = 29; i >= 0; i--) {
     const date = new Date(today)
     date.setDate(date.getDate() - i)
+    date.setHours(0, 0, 0, 0) // Set to start of day
     
     // Generate realistic fake data with some variation
     const baseGrossRevenue = 1200 + Math.random() * 600 // 1200-1800
@@ -26,6 +47,7 @@ async function main() {
     const baseTrialsPaid = 3 + Math.floor(Math.random() * 5) // 3-8
 
     metricsData.push({
+      companyId: 'demo_company',
       date: date,
       grossRevenue: Math.round(baseGrossRevenue * 100) / 100,
       activeMembers: baseActiveMembers,
@@ -41,16 +63,17 @@ async function main() {
     data: metricsData,
   })
 
-  console.log(`✅ Seeded ${metricsData.length} days of metrics data`)
+  console.log(`✅ Seeded ${metricsData.length} days of metrics data for demo company`)
   
   // Show sample data
   const sampleData = await prisma.metricsDaily.findMany({
+    where: { companyId: 'demo_company' },
     take: 5,
-    orderBy: { date: 'desc' }
+    orderBy: { date: 'desc' },
   })
   
   console.log('📊 Sample data:')
-  sampleData.forEach((metric: any) => {
+  sampleData.forEach((metric) => {
     console.log(`${metric.date.toISOString().split('T')[0]}: Revenue: $${metric.grossRevenue}, Active: ${metric.activeMembers}, New: ${metric.newMembers}, Cancellations: ${metric.cancellations}`)
   })
 }
