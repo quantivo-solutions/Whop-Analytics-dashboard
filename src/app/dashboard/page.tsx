@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button"
 import { DollarSign, Users, UserPlus, UserMinus, CheckCircle, TrendingUp, TrendingDown, Settings } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 
+// Disable caching for this page to ensure Whop badge updates
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function Dashboard() {
   // Check if Whop account is connected
   const whopAccount = await prisma.workspaceSettings.findFirst({
