@@ -163,66 +163,78 @@ export async function getWhopClient() {
 }
 
 /**
- * Fetch daily summary metrics from Whop
- * @param date - Optional date string (YYYY-MM-DD), defaults to today
- * @returns Daily metrics summary
- * @throws Error if token is invalid (only when actually calling Whop API)
+ * Fetch daily summary metrics from Whop using REST API
  * 
- * TODO: Implement actual Whop SDK integration
- * The Whop SDK uses GraphQL queries/mutations, not REST endpoints.
- * We need to use queries like GetCompanyQuery, ListReceiptsForCompanyQuery, etc.
- * For now, this returns zero values to allow the app to build and deploy.
+ * This function orchestrates multiple API calls to gather all metrics for a specific day:
+ * - Revenue from payments
+ * - New memberships created
+ * - Memberships canceled
+ * - Active member count (with fallback to calculation)
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format (required)
+ * @returns Complete daily metrics summary
+ * 
+ * @example
+ * const summary = await fetchDailySummary('2025-10-24')
+ * console.log(`Revenue: $${summary.grossRevenue}, Active: ${summary.activeMembers}`)
  */
-export async function fetchDailySummary(date?: string): Promise<WhopDailySummary> {
-  const dateString = date || new Date().toISOString().split('T')[0]
+export async function fetchDailySummary(dateStr: string): Promise<DailySummary> {
+  console.log(`📊 Fetching complete daily summary for ${dateStr}...`)
   
-  // Check if we have a valid token
-  const client = await getWhopClient()
+  // Fetch revenue with error handling
+  const grossRevenue = await sumPaidRevenueForDay(dateStr).catch(() => 0)
 
-  if (!client) {
-    console.log('No Whop token available, returning zero values for', dateString)
-    return generateZeroData()
-  }
+  // Fetch new memberships and cancellations with error handling
+  const newMembersArr = await listMembershipsForDay(dateStr).catch(() => [])
+  const cancelsArr = await listCancellationsForDay(dateStr).catch(() => [])
 
+  const newMembers = newMembersArr.length || 0
+  const cancellations = cancelsArr.length || 0
+
+  // Active snapshot (try API-based, else rolling calculation)
+  let activeMembers = 0
   try {
-    console.log(`📊 Whop SDK is connected for ${dateString}`)
-    console.log('   Note: Live data fetching requires GraphQL query implementation')
-    console.log('   Returning zero values for now - implement with GetCompanyQuery, ListReceiptsForCompanyQuery, etc.')
-    
-    // TODO: Implement actual Whop GraphQL queries
-    // Example structure (needs actual implementation):
-    // 
-    // 1. Get company info
-    // const companyData = await client.query(GetCompanyQuery)
-    //
-    // 2. Get receipts for date range
-    // const receiptsData = await client.query(ListReceiptsForCompanyQuery, {
-    //   companyId: companyData.id,
-    //   createdAfter: startOfDay,
-    //   createdBefore: endOfDay
-    // })
-    //
-    // 3. Get memberships for date range
-    // const membershipsData = await client.query(ListMembershipsQuery, {
-    //   companyId: companyData.id,
-    //   createdAfter: startOfDay,
-    //   createdBefore: endOfDay
-    // })
-    //
-    // 4. Calculate metrics from the data
-    // return calculateMetrics(receiptsData, membershipsData)
-    
-    // For now, return zero values
-    console.log('No live Whop data found for', dateString)
-    return generateZeroData()
+    activeMembers = await countActiveAtEndOfDay(dateStr)
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Invalid Whop API key')) {
-      throw error
-    }
-    console.error('Error fetching daily summary from Whop:', error)
-    console.log('No live Whop data found for', dateString)
-    return generateZeroData()
+    console.log('  Using rolling calculation fallback for active members...')
+    
+    // Rolling fallback: get previous day from DB and compute
+    const yesterday = new Date(dateStr)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayDate = new Date(yesterday.toISOString().split('T')[0])
+    
+    const prev = await prisma.metricsDaily.findFirst({
+      where: { date: yesterdayDate },
+      orderBy: { date: 'desc' },
+    })
+    
+    const prevActive = prev?.activeMembers ?? 0
+    activeMembers = Math.max(0, prevActive + newMembers - cancellations)
+    
+    console.log(`  Calculated active: ${prevActive} + ${newMembers} - ${cancellations} = ${activeMembers}`)
   }
+
+  // Trials (set 0 for now; add real mapping later)
+  const trialsStarted = 0
+  const trialsPaid = 0
+
+  // If absolutely no live data, log it (but still return the structure)
+  if (!grossRevenue && !newMembers && !cancellations) {
+    console.log('⚠️  No live Whop data found for', dateStr)
+  }
+
+  const summary = {
+    grossRevenue,
+    activeMembers,
+    newMembers,
+    cancellations,
+    trialsStarted,
+    trialsPaid,
+  }
+  
+  console.log(`✅ Daily summary for ${dateStr}:`, JSON.stringify(summary, null, 2))
+  
+  return summary
 }
 
 /**
