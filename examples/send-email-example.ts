@@ -61,8 +61,6 @@ async function sendWithErrorHandling() {
     
     console.log('✅ Success!')
     console.log('Email ID:', result.data?.id)
-    console.log('From:', result.data?.from)
-    console.log('To:', result.data?.to)
     
   } catch (error) {
     if (error instanceof Error) {
