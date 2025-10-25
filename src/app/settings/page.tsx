@@ -95,11 +95,16 @@ export default function SettingsPage() {
       if (!response.ok) {
         // Handle specific error messages from the API
         if (data.error === 'Invalid Whop API Key') {
-          toast.error('Invalid Whop API key')
-        } else if (data.error === 'Verification timed out') {
+          const message = data.details ? `Invalid Whop API key (${data.details})` : 'Invalid Whop API key'
+          toast.error(message)
+          console.error('Whop connection failed:', data)
+        } else if (data.error?.includes('Verification timed out')) {
           toast.error('Verification timed out. Please try again.')
+          console.error('Whop connection timeout:', data)
         } else {
-          toast.error(data.error || 'Failed to connect Whop account')
+          const message = data.details ? `${data.error}: ${data.details}` : (data.error || 'Failed to connect Whop account')
+          toast.error(message)
+          console.error('Whop connection error:', data)
         }
         return
       }

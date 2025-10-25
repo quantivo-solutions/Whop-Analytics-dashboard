@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     // Verify the API key before saving
     console.log('Verifying Whop API key...')
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3000)
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // Increased to 5 seconds for production
 
     try {
       const verifyResponse = await fetch('https://api.whop.com/api/v2/me', {
@@ -32,9 +32,11 @@ export async function POST(request: Request) {
       clearTimeout(timeoutId)
 
       if (!verifyResponse.ok) {
-        console.error(`Whop API key verification failed: ${verifyResponse.status}`)
+        const errorText = await verifyResponse.text().catch(() => 'No error body')
+        console.error(`Whop API key verification failed: ${verifyResponse.status} ${verifyResponse.statusText}`)
+        console.error(`Response body: ${errorText}`)
         return NextResponse.json(
-          { ok: false, error: 'Invalid Whop API Key' },
+          { ok: false, error: 'Invalid Whop API Key', details: `Status: ${verifyResponse.status}` },
           { status: 400 }
         )
       }
@@ -42,17 +44,19 @@ export async function POST(request: Request) {
       console.log('✅ Whop API key verified successfully')
     } catch (verifyError) {
       clearTimeout(timeoutId)
-      console.error('Error verifying Whop API key:', verifyError)
+      const errorMessage = verifyError instanceof Error ? verifyError.message : String(verifyError)
+      console.error('Error verifying Whop API key:', errorMessage)
       
       if (verifyError instanceof Error && verifyError.name === 'AbortError') {
+        console.error('Verification timed out after 5 seconds')
         return NextResponse.json(
-          { ok: false, error: 'Verification timed out' },
+          { ok: false, error: 'Verification timed out (5s)' },
           { status: 408 }
         )
       }
       
       return NextResponse.json(
-        { ok: false, error: 'Failed to verify API key' },
+        { ok: false, error: 'Failed to verify API key', details: errorMessage },
         { status: 503 }
       )
     }
