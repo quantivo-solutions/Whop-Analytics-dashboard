@@ -45,7 +45,7 @@ async function main() {
   console.log(`  - Company ID: ${installation.companyId}`)
   console.log(`  - Experience ID: ${installation.experienceId}`)
   console.log(`  - Plan: ${installation.plan}`)
-  console.log(`  - Installed at: ${installation.installedAt}`)
+  console.log(`  - Installed at: ${installation.createdAt}`)
   console.log('')
   console.log('🎉 Your app is now "installed" and ready to fetch Whop data!')
 }

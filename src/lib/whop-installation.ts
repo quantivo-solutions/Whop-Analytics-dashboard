@@ -48,7 +48,7 @@ export async function isWhopInstalled(companyId?: string): Promise<boolean> {
 export async function getAllInstallations() {
   try {
     return await prisma.whopInstallation.findMany({
-      orderBy: { installedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     })
   } catch (error) {
     console.error('Error fetching installations:', error)

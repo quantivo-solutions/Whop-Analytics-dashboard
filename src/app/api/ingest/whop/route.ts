@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { fetchDailySummary } from '@/lib/whop'
 import { sendDailyReportEmail } from '@/lib/email'
 import { postToDiscord, formatDailySummary } from '@/lib/discord'
+import { env } from '@/lib/env'
+import { getWhopToken } from '@/lib/whop-installation'
 
 export const runtime = 'nodejs'
 
@@ -19,29 +21,38 @@ export async function POST(request: Request) {
     const { searchParams } = new URL(request.url)
     const secret = searchParams.get('secret')
 
-    if (!secret || secret !== process.env.CRON_SECRET) {
-      console.error('Unauthorized Whop ingest request - invalid or missing secret')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+    if (!secret || secret !== env.CRON_SECRET) {
+      console.warn('Unauthorized ingestion request - invalid or missing secret')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Calculate yesterday's date in UTC
+    // For now, assume a default company ID or fetch the first one
+    const whopInstallation = await prisma.whopInstallation.findFirst()
+    if (!whopInstallation) {
+      console.warn('No Whop installation found. Skipping daily ingest.')
+      return NextResponse.json({ ok: false, message: 'No Whop installation found' }, { status: 404 })
+    }
+
+    const companyId = whopInstallation.companyId
+    const accessToken = whopInstallation.accessToken
+
+    // Determine yesterday's date in UTC (YYYY-MM-DD)
     const yesterday = new Date()
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
-    yesterday.setUTCHours(0, 0, 0, 0)
-    const dateString = yesterday.toISOString().split('T')[0] // YYYY-MM-DD
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayUTC = yesterday.toISOString().split('T')[0]
 
-    console.log(`📥 Starting Whop data ingestion for ${dateString}...`)
+    console.log(`🚀 Starting daily Whop data ingestion for company ${companyId} for date: ${yesterdayUTC}`)
 
-    // Fetch data from Whop using the new fetchDailySummary function
-    const summary = await fetchDailySummary(dateString)
+    // Fetch daily summary from Whop
+    const summary = await fetchDailySummary(yesterdayUTC, accessToken)
 
-    // Always upsert into database, even if all zeros
+    // Upsert into MetricsDaily
     const metric = await prisma.metricsDaily.upsert({
       where: {
-        date: yesterday,
+        companyId_date: {
+          companyId: companyId,
+          date: new Date(yesterdayUTC),
+        },
       },
       update: {
         grossRevenue: summary.grossRevenue,
@@ -52,7 +63,8 @@ export async function POST(request: Request) {
         trialsPaid: summary.trialsPaid,
       },
       create: {
-        date: yesterday,
+        companyId: companyId,
+        date: new Date(yesterdayUTC),
         grossRevenue: summary.grossRevenue,
         activeMembers: summary.activeMembers,
         newMembers: summary.newMembers,
@@ -62,8 +74,9 @@ export async function POST(request: Request) {
       },
     })
 
-    console.log(`✅ Successfully wrote Whop data for ${dateString}`)
-    console.log(`   Revenue: $${summary.grossRevenue}, Active: ${summary.activeMembers}, New: ${summary.newMembers}, Cancellations: ${summary.cancellations}`)
+    console.log(`✅ Successfully ingested data for ${yesterdayUTC} for company ${companyId}.`)
+
+    // --- Post-ingestion actions (Daily Report) ---
 
     // After ingesting data, automatically send daily report if enabled
     let emailSent = false

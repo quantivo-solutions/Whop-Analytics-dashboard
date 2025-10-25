@@ -415,10 +415,10 @@ export async function sendWeeklySummaryEmail(to: string | string[]) {
       `Churn rate at ${churnRate.toFixed(1)}% ${churnRate > 5 ? '(needs attention)' : '(healthy)'}`
     ]
 
-    // Prepare series data
+    // Prepare series data (convert Decimal to number)
     const series: DayData[] = metrics.map(m => ({
       date: m.date.toISOString(),
-      revenue: m.grossRevenue,
+      revenue: Number(m.grossRevenue),
       newMembers: m.newMembers,
       cancellations: m.cancellations
     }))
@@ -480,8 +480,8 @@ export async function sendDailyReportEmail(to: string | string[], metric: any) {
       day: 'numeric'
     })
 
-    // Format currency
-    const revenue = `$${metric.grossRevenue.toLocaleString('en-US', {
+    // Format currency (convert Decimal to number)
+    const revenue = `$${Number(metric.grossRevenue).toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })}`
