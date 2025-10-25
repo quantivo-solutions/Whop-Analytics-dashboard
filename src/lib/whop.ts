@@ -44,12 +44,12 @@ export async function validateWhopKey(apiKey: string): Promise<boolean> {
     console.log('🔍 Validating Whop API key with real API call...')
     
     // Make a real API call to validate the key
-    // Using /me endpoint which should work with any valid API key
+    // Using /company endpoint which accepts API keys
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 5000)
 
     try {
-      const response = await fetch('https://api.whop.com/api/v5/me', {
+      const response = await fetch('https://api.whop.com/api/v5/company', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
