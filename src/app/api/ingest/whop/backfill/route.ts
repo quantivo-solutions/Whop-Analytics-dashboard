@@ -6,7 +6,7 @@ import { env } from '@/lib/env'
 export const runtime = 'nodejs'
 
 /**
- * POST /api/ingest/whop/backfill?secret=CRON_SECRET&days=30
+ * POST /api/ingest/whop/backfill?secret=CRON_SECRET&days=30&companyId=xyz
  * 
  * Backfill historical Whop metrics for the last N days
  * Protected endpoint - requires CRON_SECRET
@@ -29,11 +29,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid "days" parameter. Must be a number between 1 and 365.' }, { status: 400 })
     }
 
-    // For now, assume a default company ID or fetch the first one
-    const whopInstallation = await prisma.whopInstallation.findFirst()
-    if (!whopInstallation) {
-      console.warn('No Whop installation found. Skipping backfill.')
-      return NextResponse.json({ ok: false, message: 'No Whop installation found' }, { status: 404 })
+    // Get companyId from query param or use the first installation
+    const companyIdParam = searchParams.get('companyId')
+    let whopInstallation
+
+    if (companyIdParam) {
+      whopInstallation = await prisma.whopInstallation.findUnique({
+        where: { companyId: companyIdParam },
+      })
+      if (!whopInstallation) {
+        console.warn(`No Whop installation found for companyId: ${companyIdParam}`)
+        return NextResponse.json({ ok: false, message: `No Whop installation found for companyId: ${companyIdParam}` }, { status: 404 })
+      }
+    } else {
+      whopInstallation = await prisma.whopInstallation.findFirst()
+      if (!whopInstallation) {
+        console.warn('No Whop installation found. Skipping backfill.')
+        return NextResponse.json({ ok: false, message: 'No Whop installation found' }, { status: 404 })
+      }
     }
 
     const companyId = whopInstallation.companyId
