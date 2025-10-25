@@ -18,7 +18,14 @@
     "email:test": "tsx scripts/send-weekly-report.ts",
     "email:send": "tsx scripts/send-weekly-report.ts",
     "test:integration": "tsx examples/test-integration.ts",
-    "test:email": "tsx examples/test-integration.ts --send"
+    "test:email": "tsx examples/test-integration.ts --send",
+    "test:webhook:install": "node scripts/send-whop-webhook.mjs app.installed biz_test_company_123",
+    "test:webhook:plan": "node scripts/send-whop-webhook.mjs app.plan.updated biz_test_company_123",
+    "test:webhook:uninstall": "node scripts/send-whop-webhook.mjs app.uninstalled biz_test_company_123",
+    "test:webhook:valid": "node scripts/send-whop-webhook.mjs membership_went_valid biz_test_company_123",
+    "test:webhook:cancel": "node scripts/send-whop-webhook.mjs membership_went_invalid biz_test_company_123",
+    "test:webhook:pay": "node scripts/send-whop-webhook.mjs payment_succeeded biz_test_company_123 1299",
+    "test:webhook:refund": "node scripts/send-whop-webhook.mjs refund_created biz_test_company_123 1299"
   },
   "keywords": [],
   "author": "",
