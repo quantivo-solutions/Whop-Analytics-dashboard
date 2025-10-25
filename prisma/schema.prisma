@@ -21,11 +21,21 @@ model MetricsDaily {
 }
 
 model WorkspaceSettings {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   reportEmail    String
-  weeklyEmail    Boolean  @default(true)
-  dailyEmail     Boolean  @default(false)
+  weeklyEmail    Boolean       @default(true)
+  dailyEmail     Boolean       @default(false)
   discordWebhook String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  whopAccount    WhopAccount?
+}
+
+model WhopAccount {
+  id                  String            @id @default(cuid())
+  workspaceSettingsId String            @unique
+  workspaceSettings   WorkspaceSettings @relation(fields: [workspaceSettingsId], references: [id], onDelete: Cascade)
+  accessToken         String
+  connectedAt         DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 }

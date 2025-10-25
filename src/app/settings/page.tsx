@@ -8,13 +8,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Save, Mail, Bell, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Save, Mail, Bell, MessageSquare, Link as LinkIcon } from 'lucide-react'
 
 interface Settings {
   reportEmail: string
   weeklyEmail: boolean
   dailyEmail: boolean
   discordWebhook: string
+}
+
+interface WhopConnection {
+  connected: boolean
+  connectedAt?: string
 }
 
 export default function SettingsPage() {
@@ -27,10 +32,16 @@ export default function SettingsPage() {
     dailyEmail: false,
     discordWebhook: '',
   })
+  
+  // Whop connection state
+  const [whopConnection, setWhopConnection] = useState<WhopConnection>({ connected: false })
+  const [whopApiKey, setWhopApiKey] = useState('')
+  const [connectingWhop, setConnectingWhop] = useState(false)
 
-  // Fetch settings on mount
+  // Fetch settings and Whop connection on mount
   useEffect(() => {
     fetchSettings()
+    fetchWhopConnection()
   }, [])
 
   const fetchSettings = async () => {
@@ -49,6 +60,66 @@ export default function SettingsPage() {
       toast.error('Failed to load settings')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchWhopConnection = async () => {
+    try {
+      const response = await fetch('/api/whop/connect')
+      if (!response.ok) throw new Error('Failed to fetch Whop connection')
+      const data = await response.json()
+      setWhopConnection(data)
+    } catch (error) {
+      console.error('Error fetching Whop connection:', error)
+    }
+  }
+
+  const handleWhopConnect = async () => {
+    if (!whopApiKey.trim()) {
+      toast.error('Please enter a Whop API key')
+      return
+    }
+
+    setConnectingWhop(true)
+    try {
+      const response = await fetch('/api/whop/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accessToken: whopApiKey }),
+      })
+
+      if (!response.ok) throw new Error('Failed to connect Whop')
+
+      const data = await response.json()
+      setWhopConnection(data)
+      setWhopApiKey('') // Clear the input
+      toast.success('Whop account connected successfully!')
+    } catch (error) {
+      console.error('Error connecting Whop:', error)
+      toast.error('Failed to connect Whop account')
+    } finally {
+      setConnectingWhop(false)
+    }
+  }
+
+  const handleWhopDisconnect = async () => {
+    setConnectingWhop(true)
+    try {
+      const response = await fetch('/api/whop/connect', {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) throw new Error('Failed to disconnect Whop')
+
+      setWhopConnection({ connected: false })
+      toast.success('Whop account disconnected')
+    } catch (error) {
+      console.error('Error disconnecting Whop:', error)
+      toast.error('Failed to disconnect Whop account')
+    } finally {
+      setConnectingWhop(false)
     }
   }
 
@@ -162,6 +233,83 @@ export default function SettingsPage() {
                   A one-line summary will be posted to Discord after each email report is sent
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Whop Connection Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LinkIcon className="h-5 w-5" />
+                Whop Connection
+              </CardTitle>
+              <CardDescription>
+                Connect your Whop account to sync data and analytics
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {whopConnection.connected ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div>
+                      <p className="font-medium text-green-900 dark:text-green-100">
+                        ✓ Connected
+                      </p>
+                      {whopConnection.connectedAt && (
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          Connected on {new Date(whopConnection.connectedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleWhopDisconnect}
+                      disabled={connectingWhop}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      Not connected
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="whopApiKey">Whop API Key</Label>
+                    <Input
+                      id="whopApiKey"
+                      type="password"
+                      placeholder="whop_••••••••••••••••"
+                      value={whopApiKey}
+                      onChange={(e) => setWhopApiKey(e.target.value)}
+                      disabled={connectingWhop}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Your API key will be encrypted and stored securely
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleWhopConnect}
+                    disabled={connectingWhop || !whopApiKey.trim()}
+                  >
+                    {connectingWhop ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                        Connect Whop
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
