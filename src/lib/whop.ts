@@ -29,7 +29,7 @@ function createWhopClient(apiKey: string) {
 
 /**
  * Validate a Whop API key by testing it against the Whop API
- * Uses Whop SDK to verify the key
+ * Makes a real API call to verify the key works
  * @param apiKey - The Whop API key to validate
  * @returns true if the key is valid, false otherwise
  */
@@ -41,18 +41,45 @@ export async function validateWhopKey(apiKey: string): Promise<boolean> {
       return false
     }
     
-    // Create SDK client - if this works, the key format is valid
-    const client = createWhopClient(apiKey)
+    console.log('🔍 Validating Whop API key with real API call...')
     
-    // TODO: Once we implement actual API calls, we can validate by making a real request
-    // For now, just check if the client was created successfully
-    if (!client) {
-      console.warn('Failed to create Whop client')
+    // Make a real API call to validate the key
+    // Using /me endpoint which should work with any valid API key
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+    try {
+      const response = await fetch('https://api.whop.com/api/v5/me', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (response.ok) {
+        console.log('✅ Whop API key validated successfully')
+        return true
+      }
+
+      const errorText = await response.text().catch(() => 'No error body')
+      console.warn(`❌ Whop API key validation failed: ${response.status} ${response.statusText}`)
+      console.warn(`Response: ${errorText}`)
+      return false
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.warn('❌ Whop API key validation timed out')
+        return false
+      }
+      
+      console.warn('❌ Error validating Whop API key:', fetchError)
       return false
     }
-    
-    console.log('✅ Whop API key format validated')
-    return true
   } catch (error) {
     console.warn('Whop API key validation failed:', error)
     return false
