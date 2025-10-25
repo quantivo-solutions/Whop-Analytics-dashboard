@@ -226,8 +226,8 @@ async function getWeeklySummary(): Promise<WeeklySummary> {
     throw new Error('No metrics data available for the last 7 days')
   }
 
-  // Calculate totals
-  const totalRevenue = metrics.reduce((sum, m) => sum + m.grossRevenue, 0)
+  // Calculate totals (convert Decimal to number)
+  const totalRevenue = metrics.reduce((sum, m) => sum + Number(m.grossRevenue), 0)
   const totalNewMembers = metrics.reduce((sum, m) => sum + m.newMembers, 0)
   const totalCancellations = metrics.reduce((sum, m) => sum + m.cancellations, 0)
   const totalTrialsPaid = metrics.reduce((sum, m) => sum + m.trialsPaid, 0)
@@ -388,8 +388,8 @@ export async function sendWeeklySummaryEmail(to: string | string[]) {
       throw new Error('No metrics data available for the last 7 days')
     }
 
-    // Calculate KPIs
-    const totalRevenue = metrics.reduce((sum, m) => sum + m.grossRevenue, 0)
+    // Calculate KPIs (convert Decimal to number)
+    const totalRevenue = metrics.reduce((sum, m) => sum + Number(m.grossRevenue), 0)
     const totalNewMembers = metrics.reduce((sum, m) => sum + m.newMembers, 0)
     const totalCancellations = metrics.reduce((sum, m) => sum + m.cancellations, 0)
     const avgActiveMembers = metrics.reduce((sum, m) => sum + m.activeMembers, 0) / metrics.length

@@ -46,8 +46,8 @@ export function exampleFromDatabase() {
     // ... more metrics
   ]
 
-  // Calculate KPIs
-  const totalRevenue = metrics.reduce((sum, m) => sum + m.grossRevenue, 0)
+  // Calculate KPIs (handle both number and Decimal types)
+  const totalRevenue = metrics.reduce((sum, m) => sum + Number(m.grossRevenue), 0)
   const totalNewMembers = metrics.reduce((sum, m) => sum + m.newMembers, 0)
   const totalCancellations = metrics.reduce((sum, m) => sum + m.cancellations, 0)
   const avgActiveMembers = metrics.reduce((sum, m) => sum + m.activeMembers, 0) / metrics.length
