@@ -24,11 +24,15 @@ export async function whopGET<T>(
   params?: Record<string, string | number>
 ): Promise<T> {
   // Ensure API key is available
-  const apiKey = process.env.WHOP_API_KEY
+  // Try both WHOP_API_KEY and WHOP_SK for compatibility
+  const apiKey = process.env.WHOP_API_KEY || process.env.WHOP_SK
   
   if (!apiKey) {
+    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('WHOP')))
     throw new Error('WHOP_API_KEY environment variable is not set')
   }
+  
+  console.log('✅ Whop API key found, length:', apiKey.length)
 
   // Build URL with query parameters
   const url = new URL(path, BASE)
