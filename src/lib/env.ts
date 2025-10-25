@@ -18,6 +18,19 @@ export const REPORT_EMAIL = process.env.REPORT_EMAIL || ''
 export const NEXT_PUBLIC_WHOP_APP_ID = process.env.NEXT_PUBLIC_WHOP_APP_ID || ''
 export const NEXT_PUBLIC_WHOP_AGENT_USER_ID = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID || ''
 
+// Convenience object export for easier imports
+export const env = {
+  WHOP_APP_SERVER_KEY,
+  WHOP_WEBHOOK_SECRET,
+  DATABASE_URL,
+  CRON_SECRET,
+  RESEND_API_KEY,
+  RESEND_FROM_EMAIL,
+  REPORT_EMAIL,
+  NEXT_PUBLIC_WHOP_APP_ID,
+  NEXT_PUBLIC_WHOP_AGENT_USER_ID,
+}
+
 /**
  * Validate that required server environment variables are set
  * Call this in API routes to ensure proper configuration

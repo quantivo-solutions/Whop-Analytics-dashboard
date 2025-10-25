@@ -150,21 +150,22 @@ export async function getWhopClient() {
  * - Active member count (with fallback to calculation)
  * 
  * @param dateStr - Date string in YYYY-MM-DD format (required)
+ * @param accessToken - The access token to use for Whop API calls
  * @returns Complete daily metrics summary
  * 
  * @example
- * const summary = await fetchDailySummary('2025-10-24')
+ * const summary = await fetchDailySummary('2025-10-24', 'whop_access_token')
  * console.log(`Revenue: $${summary.grossRevenue}, Active: ${summary.activeMembers}`)
  */
-export async function fetchDailySummary(dateStr: string): Promise<DailySummary> {
+export async function fetchDailySummary(dateStr: string, accessToken: string): Promise<DailySummary> {
   console.log(`📊 Fetching complete daily summary for ${dateStr}...`)
   
   // Fetch revenue with error handling
-  const grossRevenue = await sumPaidRevenueForDay(dateStr).catch(() => 0)
+  const grossRevenue = await sumPaidRevenueForDay(dateStr, accessToken).catch(() => 0)
 
   // Fetch new memberships and cancellations with error handling
-  const newMembersArr = await listMembershipsForDay(dateStr).catch(() => [])
-  const cancelsArr = await listCancellationsForDay(dateStr).catch(() => [])
+  const newMembersArr = await listMembershipsForDay(dateStr, accessToken).catch(() => [])
+  const cancelsArr = await listCancellationsForDay(dateStr, accessToken).catch(() => [])
 
   const newMembers = newMembersArr.length || 0
   const cancellations = cancelsArr.length || 0
@@ -172,7 +173,7 @@ export async function fetchDailySummary(dateStr: string): Promise<DailySummary> 
   // Active snapshot (try API-based, else rolling calculation)
   let activeMembers = 0
   try {
-    activeMembers = await countActiveAtEndOfDay(dateStr)
+    activeMembers = await countActiveAtEndOfDay(dateStr, accessToken)
   } catch (error) {
     console.log('  Using rolling calculation fallback for active members...')
     
@@ -364,15 +365,16 @@ export async function sumPaidRevenueForDay(dateStr: string): Promise<number> {
 
 /**
  * List all memberships created on a specific day
- * 
+ *
  * @param dateStr - Date string in YYYY-MM-DD format
+ * @param accessToken - The access token to use for Whop API calls
  * @returns Array of membership objects
- * 
+ *
  * @example
- * const newMembers = await listMembershipsForDay('2025-10-24')
+ * const newMembers = await listMembershipsForDay('2025-10-24', 'whop_access_token')
  * console.log(`New memberships: ${newMembers.length}`)
  */
-export async function listMembershipsForDay(dateStr: string): Promise<any[]> {
+export async function listMembershipsForDay(dateStr: string, accessToken: string): Promise<any[]> {
   try {
     console.log(`👥 Fetching memberships created on ${dateStr}...`)
     
@@ -441,15 +443,16 @@ export async function listMembershipsForDay(dateStr: string): Promise<any[]> {
 
 /**
  * List all memberships canceled on a specific day
- * 
+ *
  * @param dateStr - Date string in YYYY-MM-DD format
+ * @param accessToken - The access token to use for Whop API calls
  * @returns Array of canceled membership objects
- * 
+ *
  * @example
- * const canceledMembers = await listCancellationsForDay('2025-10-24')
+ * const canceledMembers = await listCancellationsForDay('2025-10-24', 'whop_access_token')
  * console.log(`Cancellations: ${canceledMembers.length}`)
  */
-export async function listCancellationsForDay(dateStr: string): Promise<any[]> {
+export async function listCancellationsForDay(dateStr: string, accessToken: string): Promise<any[]> {
   try {
     console.log(`❌ Fetching cancellations on ${dateStr}...`)
     
@@ -524,13 +527,14 @@ export async function listCancellationsForDay(dateStr: string): Promise<any[]> {
  * 2. If that's not supported, falls back to calculation: previousActive + newMembers - cancellations
  * 
  * @param dateStr - Date string in YYYY-MM-DD format
+ * @param accessToken - The access token to use for Whop API calls
  * @returns Number of active memberships at end of day
  * 
  * @example
- * const activeCount = await countActiveAtEndOfDay('2025-10-24')
+ * const activeCount = await countActiveAtEndOfDay('2025-10-24', 'whop_access_token')
  * console.log(`Active members: ${activeCount}`)
  */
-export async function countActiveAtEndOfDay(dateStr: string): Promise<number> {
+export async function countActiveAtEndOfDay(dateStr: string, accessToken: string): Promise<number> {
   try {
     console.log(`🔢 Counting active memberships at end of ${dateStr}...`)
     
@@ -598,8 +602,8 @@ export async function countActiveAtEndOfDay(dateStr: string): Promise<number> {
     }
     
     // Get today's new members and cancellations
-    const newMembers = await listMembershipsForDay(dateStr)
-    const cancellations = await listCancellationsForDay(dateStr)
+    const newMembers = await listMembershipsForDay(dateStr, accessToken)
+    const cancellations = await listCancellationsForDay(dateStr, accessToken)
     
     // Calculate: previousActive + new - canceled
     const activeCount = Math.max(0, previousActive + newMembers.length - cancellations.length)

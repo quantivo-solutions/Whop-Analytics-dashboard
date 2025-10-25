@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       wrote: true,
-      date: dateString,
+      date: yesterdayUTC,
       summary: {
         grossRevenue: summary.grossRevenue,
         activeMembers: summary.activeMembers,
