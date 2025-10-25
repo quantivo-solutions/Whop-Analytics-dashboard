@@ -16,15 +16,16 @@ export interface WhopDailySummary {
 
 /**
  * Validate a Whop API key by testing it against the Whop API
+ * Uses /api/v5/company endpoint which supports API key authentication
  * @param apiKey - The Whop API key to validate
  * @returns true if the key is valid (returns 200 OK), false otherwise
  */
 export async function validateWhopKey(apiKey: string): Promise<boolean> {
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 3000)
 
-    const response = await fetch('https://api.whop.com/api/v2/me', {
+    const response = await fetch('https://api.whop.com/api/v5/company', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,

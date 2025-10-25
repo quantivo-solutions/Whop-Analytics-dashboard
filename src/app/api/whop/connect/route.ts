@@ -15,12 +15,13 @@ export async function POST(request: Request) {
     }
 
     // Verify the API key before saving
+    // Use /api/v5/company endpoint which supports API key authentication
     console.log('Verifying Whop API key...')
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000) // Increased to 5 seconds for production
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
 
     try {
-      const verifyResponse = await fetch('https://api.whop.com/api/v2/me', {
+      const verifyResponse = await fetch('https://api.whop.com/api/v5/company', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
