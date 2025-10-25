@@ -136,52 +136,146 @@ export async function getWhopClient() {
  * @param date - Optional date string (YYYY-MM-DD), defaults to today
  * @returns Daily metrics summary
  * @throws Error if token is invalid (only when actually calling Whop API)
- * 
- * TODO: Implement actual Whop API integration
- * For now, returns zero values when no data is found
  */
 export async function fetchDailySummary(date?: string): Promise<WhopDailySummary> {
   const dateString = date || new Date().toISOString().split('T')[0]
   
   // Check if we have a valid token
-  const token = await getWhopToken()
+  const client = await getWhopClient()
 
-  if (!token) {
+  if (!client) {
     console.log('No Whop token available, returning zero values for', dateString)
     return generateZeroData()
   }
 
   try {
-    // TODO: Replace with actual Whop SDK calls
-    // Example implementation:
-    // const client = await getWhopClient()
-    // if (!client) {
-    //   console.log('No live Whop data found for', dateString)
-    //   return generateZeroData()
-    // }
-    // 
-    // // Fetch payments and memberships for the date range
-    // const payments = await client.GET('/payments', { params: { date: dateString } })
-    // const memberships = await client.GET('/memberships', { params: { date: dateString } })
-    // 
-    // if (!payments.data || payments.data.length === 0) {
-    //   console.log('No live Whop data found for', dateString)
-    //   return generateZeroData()
-    // }
-    // 
-    // // Calculate metrics from API response
-    // return {
-    //   grossRevenue: calculateRevenue(payments.data),
-    //   activeMembers: memberships.data?.active_count || 0,
-    //   newMembers: memberships.data?.new_count || 0,
-    //   cancellations: memberships.data?.cancelled_count || 0,
-    //   trialsStarted: memberships.data?.trials_started || 0,
-    //   trialsPaid: memberships.data?.trials_converted || 0,
-    // }
+    console.log(`📊 Fetching live Whop data for ${dateString}...`)
     
-    // For now, return zero values (no live data available yet)
-    console.log('No live Whop data found for', dateString)
-    return generateZeroData()
+    // Parse the date string to create start and end timestamps
+    const targetDate = new Date(dateString + 'T00:00:00Z')
+    const startOfDay = Math.floor(targetDate.getTime() / 1000) // Unix timestamp
+    const endOfDay = startOfDay + 86400 // Add 24 hours in seconds
+    
+    console.log(`  Date range: ${new Date(startOfDay * 1000).toISOString()} to ${new Date(endOfDay * 1000).toISOString()}`)
+
+    // Fetch company info to get the company ID
+    const companyResult = await client.GET('/company')
+    
+    if (companyResult.error || !companyResult.data) {
+      console.warn('Failed to fetch company info:', companyResult.error)
+      console.log('No live Whop data found for', dateString)
+      return generateZeroData()
+    }
+
+    const companyId = companyResult.data.id
+    console.log(`  Company ID: ${companyId}`)
+
+    // Fetch receipts (payments) for the date range
+    const receiptsResult = await client.GET('/company/receipts', {
+      params: {
+        query: {
+          company: companyId,
+          created_after: startOfDay,
+          created_before: endOfDay,
+          per: 100, // Max per page
+        }
+      }
+    })
+
+    if (receiptsResult.error) {
+      console.warn('Failed to fetch receipts:', receiptsResult.error)
+      console.log('No live Whop data found for', dateString)
+      return generateZeroData()
+    }
+
+    const receipts = receiptsResult.data?.data || []
+    console.log(`  Found ${receipts.length} receipts`)
+
+    // Fetch memberships for the date range
+    const membershipsResult = await client.GET('/company/memberships', {
+      params: {
+        query: {
+          company: companyId,
+          created_after: startOfDay,
+          created_before: endOfDay,
+          per: 100, // Max per page
+        }
+      }
+    })
+
+    if (membershipsResult.error) {
+      console.warn('Failed to fetch memberships:', membershipsResult.error)
+    }
+
+    const memberships = membershipsResult.data?.data || []
+    console.log(`  Found ${memberships.length} new memberships`)
+
+    // Calculate metrics from the fetched data
+    let grossRevenue = 0
+    let trialsPaid = 0
+
+    receipts.forEach((receipt: any) => {
+      // Sum up the final amount (in cents) and convert to dollars
+      if (receipt.final_amount) {
+        grossRevenue += receipt.final_amount / 100
+      }
+      
+      // Count conversions from trial to paid
+      if (receipt.billing_reason === 'subscription_trial_ending' || 
+          receipt.billing_reason === 'subscription_cycle') {
+        trialsPaid++
+      }
+    })
+
+    // Count new memberships and cancellations
+    let newMembers = memberships.length
+    let cancellations = 0
+    let trialsStarted = 0
+    let activeMembers = 0
+
+    memberships.forEach((membership: any) => {
+      if (membership.status === 'trialing') {
+        trialsStarted++
+      }
+      if (membership.status === 'active' || membership.status === 'trialing') {
+        activeMembers++
+      }
+      if (membership.status === 'cancelled' || membership.status === 'expired') {
+        cancellations++
+      }
+    })
+
+    // Fetch all active memberships to get total active count
+    const allMembershipsResult = await client.GET('/company/memberships', {
+      params: {
+        query: {
+          company: companyId,
+          status: 'active,trialing',
+          per: 1, // We only need the count
+        }
+      }
+    })
+
+    if (!allMembershipsResult.error && allMembershipsResult.data?.pagination?.total) {
+      activeMembers = allMembershipsResult.data.pagination.total
+    }
+
+    console.log(`✅ Whop data fetched:`)
+    console.log(`   Revenue: $${grossRevenue.toFixed(2)}`)
+    console.log(`   Active Members: ${activeMembers}`)
+    console.log(`   New Members: ${newMembers}`)
+    console.log(`   Cancellations: ${cancellations}`)
+    console.log(`   Trials Started: ${trialsStarted}`)
+    console.log(`   Trials Paid: ${trialsPaid}`)
+
+    return {
+      grossRevenue,
+      activeMembers,
+      newMembers,
+      cancellations,
+      trialsStarted,
+      trialsPaid,
+    }
   } catch (error) {
     if (error instanceof Error && error.message.includes('Invalid Whop API key')) {
       throw error
