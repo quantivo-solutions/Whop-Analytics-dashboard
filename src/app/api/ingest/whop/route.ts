@@ -4,6 +4,8 @@ import { fetchDailySummary } from '@/lib/whop'
 import { sendDailyReportEmail } from '@/lib/email'
 import { postToDiscord, formatDailySummary } from '@/lib/discord'
 
+export const runtime = 'nodejs'
+
 /**
  * POST /api/ingest/whop?secret=CRON_SECRET
  * 

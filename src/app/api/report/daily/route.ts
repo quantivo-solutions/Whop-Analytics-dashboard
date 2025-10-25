@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { sendDailyReportEmail } from '@/lib/email'
 import { postToDiscord, formatDailySummary } from '@/lib/discord'
 
+export const runtime = 'nodejs'
+
 export async function GET(request: Request) {
   try {
     // Extract secret from query params

@@ -3,6 +3,8 @@ import { sendWeeklySummaryEmail } from '@/lib/email'
 import { prisma } from '@/lib/prisma'
 import { postToDiscord, formatWeeklySummary } from '@/lib/discord'
 
+export const runtime = 'nodejs'
+
 /**
  * API route for automated weekly report sending
  * 

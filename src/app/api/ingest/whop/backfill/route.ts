@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { fetchDailySummary } from '@/lib/whop'
 
+export const runtime = 'nodejs'
+
 /**
  * POST /api/ingest/whop/backfill?secret=CRON_SECRET&days=30
  * 

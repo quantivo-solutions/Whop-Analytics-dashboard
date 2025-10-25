@@ -28,14 +28,14 @@ model WorkspaceSettings {
   discordWebhook String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  whopAccount    WhopAccount?
 }
 
-model WhopAccount {
-  id                  String            @id @default(cuid())
-  workspaceSettingsId String            @unique
-  workspaceSettings   WorkspaceSettings @relation(fields: [workspaceSettingsId], references: [id], onDelete: Cascade)
-  accessToken         String
-  connectedAt         DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+model WhopInstallation {
+  id           String   @id @default(cuid())
+  companyId    String   @unique
+  experienceId String
+  accessToken  String
+  plan         String?
+  installedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
