@@ -406,7 +406,7 @@ export async function sendWeeklySummaryEmail(to: string | string[]) {
     // Generate insights
     const avgDailyRevenue = totalRevenue / metrics.length
     const revenueChange = metrics.length > 1 
-      ? ((metrics[metrics.length - 1].grossRevenue - metrics[0].grossRevenue) / metrics[0].grossRevenue * 100)
+      ? ((Number(metrics[metrics.length - 1].grossRevenue) - Number(metrics[0].grossRevenue)) / Number(metrics[0].grossRevenue) * 100)
       : 0
     
     const insights: [string, string, string] = [
