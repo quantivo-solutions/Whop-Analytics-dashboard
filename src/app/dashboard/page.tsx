@@ -9,13 +9,9 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function Dashboard() {
-  // Check if Whop account is connected
-  const whopAccount = await prisma.workspaceSettings.findFirst({
-    include: {
-      whopAccount: true,
-    },
-  })
-  const isWhopConnected = !!whopAccount?.whopAccount
+  // Check if Whop app is installed for any company
+  const whopInstallation = await prisma.whopInstallation.findFirst()
+  const isWhopConnected = !!whopInstallation
 
   // Get latest metrics from database
   const latestMetric = await prisma.metricsDaily.findFirst({

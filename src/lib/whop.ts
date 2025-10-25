@@ -124,28 +124,23 @@ export async function validateWhopKey(apiKey: string): Promise<boolean> {
 
 /**
  * Get Whop access token from database
- * @param workspaceSettingsId - The workspace settings ID (optional, defaults to first)
+ * @param companyId - The company ID (optional, defaults to first installation)
  * @returns Access token or null if not found
  */
-export async function getWhopToken(workspaceSettingsId?: string): Promise<string | null> {
+export async function getWhopToken(companyId?: string): Promise<string | null> {
   try {
-    let whopAccount
+    let installation
 
-    if (workspaceSettingsId) {
-      whopAccount = await prisma.whopAccount.findUnique({
-        where: { workspaceSettingsId },
+    if (companyId) {
+      installation = await prisma.whopInstallation.findUnique({
+        where: { companyId },
       })
     } else {
-      // Get the first workspace settings with a connected Whop account
-      const settings = await prisma.workspaceSettings.findFirst({
-        include: {
-          whopAccount: true,
-        },
-      })
-      whopAccount = settings?.whopAccount
+      // Get the first installation (for single-company setups)
+      installation = await prisma.whopInstallation.findFirst()
     }
 
-    return whopAccount?.accessToken || null
+    return installation?.accessToken || null
   } catch (error) {
     console.error('Error fetching Whop token:', error)
     return null
