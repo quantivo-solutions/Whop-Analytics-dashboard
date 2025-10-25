@@ -178,32 +178,28 @@ async function handlePlanUpdated(data: any) {
 
 /**
  * Trigger a 7-day backfill for a newly installed company
- * Calls our own backfill endpoint internally
+ * Calls the backfill function directly to avoid Vercel auth issues
  */
 async function triggerBackfill(companyId: string) {
   try {
     console.log(`📊 Starting 7-day backfill for companyId=${companyId}`)
     
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000'
-    
-    const url = `${baseUrl}/api/ingest/whop/backfill?companyId=${companyId}&days=7&secret=${env.CRON_SECRET}`
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    // Get the installation to fetch the access token
+    const installation = await prisma.whopInstallation.findUnique({
+      where: { companyId },
     })
     
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Backfill request failed: ${response.status} ${error}`)
+    if (!installation) {
+      throw new Error(`No installation found for companyId=${companyId}`)
     }
     
-    const result = await response.json()
-    console.log(`✅ Backfill complete for companyId=${companyId}: ${result.daysWritten || 0} days`)
+    // Import the backfill function dynamically to avoid circular dependencies
+    const { performBackfill } = await import('@/lib/backfill')
+    
+    // Perform backfill directly (no HTTP request needed)
+    const result = await performBackfill(companyId, installation.accessToken, 7)
+    
+    console.log(`✅ Backfill complete for companyId=${companyId}: ${result.daysWritten} days`)
   } catch (error) {
     console.error(`❌ Backfill error for companyId=${companyId}:`, error)
     throw error

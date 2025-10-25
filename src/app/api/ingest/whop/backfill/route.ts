@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { fetchDailySummary } from '@/lib/whop'
+import { performBackfill } from '@/lib/backfill'
 import { env } from '@/lib/env'
 
 export const runtime = 'nodejs'
@@ -52,60 +52,15 @@ export async function POST(request: Request) {
     const companyId = whopInstallation.companyId
     const accessToken = whopInstallation.accessToken
 
-    console.log(`🚀 Starting Whop data backfill for company ${companyId} for the last ${daysToBackfill} days...`)
+    // Use the shared backfill function
+    const result = await performBackfill(companyId, accessToken, daysToBackfill)
 
-    let daysWritten = 0
-    const today = new Date()
-
-    for (let i = daysToBackfill - 1; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(today.getDate() - i)
-      const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
-
-      try {
-        console.log(`  Processing ${dateStr}...`)
-        const summary = await fetchDailySummary(dateStr, accessToken)
-
-        await prisma.metricsDaily.upsert({
-          where: {
-            companyId_date: {
-              companyId: companyId,
-              date: new Date(dateStr),
-            },
-          },
-          update: {
-            grossRevenue: summary.grossRevenue,
-            activeMembers: summary.activeMembers,
-            newMembers: summary.newMembers,
-            cancellations: summary.cancellations,
-            trialsStarted: summary.trialsStarted,
-            trialsPaid: summary.trialsPaid,
-          },
-          create: {
-            companyId: companyId,
-            date: new Date(dateStr),
-            grossRevenue: summary.grossRevenue,
-            activeMembers: summary.activeMembers,
-            newMembers: summary.newMembers,
-            cancellations: summary.cancellations,
-            trialsStarted: summary.trialsStarted,
-            trialsPaid: summary.trialsPaid,
-          },
-        })
-
-        daysWritten++
-        console.log(`  ✅ ${dateStr}: $${summary.grossRevenue.toFixed(2)}, ${summary.activeMembers} active, ${summary.newMembers} new`)
-
-        // Small delay to avoid rate limiting (100ms between requests)
-        await new Promise(resolve => setTimeout(resolve, 100))
-      } catch (error) {
-        console.error(`  ❌ Error processing ${dateStr}:`, error)
-        // Continue processing remaining days even if one fails
-      }
-    }
-
-    console.log(`🎉 Backfill complete for company ${companyId}. Wrote ${daysWritten} out of ${daysToBackfill} days.`)
-    return NextResponse.json({ ok: true, daysWritten, totalDays: daysToBackfill, message: `Backfilled ${daysWritten} out of ${daysToBackfill} days` })
+    return NextResponse.json({
+      ok: true,
+      daysWritten: result.daysWritten,
+      totalDays: result.totalDays,
+      message: `Backfilled ${result.daysWritten} out of ${result.totalDays} days`
+    })
   } catch (error) {
     console.error('Error during Whop backfill:', error)
     return NextResponse.json(
