@@ -15,6 +15,43 @@ export interface WhopDailySummary {
 }
 
 /**
+ * Validate a Whop API key by testing it against the Whop API
+ * @param apiKey - The Whop API key to validate
+ * @returns true if the key is valid (returns 200 OK), false otherwise
+ */
+export async function validateWhopKey(apiKey: string): Promise<boolean> {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
+
+    const response = await fetch('https://api.whop.com/api/v2/me', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (response.ok) {
+      return true
+    }
+
+    console.warn(`Whop API key validation failed: ${response.status} ${response.statusText}`)
+    return false
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn('Whop API key validation timed out')
+    } else {
+      console.warn('Error validating Whop API key:', error)
+    }
+    return false
+  }
+}
+
+/**
  * Get Whop access token from database
  * @param workspaceSettingsId - The workspace settings ID (optional, defaults to first)
  * @returns Access token or null if not found
@@ -49,6 +86,7 @@ export async function getWhopToken(workspaceSettingsId?: string): Promise<string
  * @param path - API endpoint path (e.g., '/v1/company')
  * @param options - Fetch options
  * @returns Response data or null on error
+ * @throws Error if token is invalid
  */
 export async function whopFetch<T = any>(
   path: string,
@@ -60,6 +98,13 @@ export async function whopFetch<T = any>(
     if (!token) {
       console.error('No Whop token available')
       return null
+    }
+
+    // Validate token before using it
+    const isValid = await validateWhopKey(token)
+    if (!isValid) {
+      console.warn('Whop API key validation failed in whopFetch')
+      throw new Error('Invalid Whop API key — please reconnect Whop')
     }
 
     const response = await fetch(`https://api.whop.com${path}`, {
@@ -79,6 +124,9 @@ export async function whopFetch<T = any>(
     const data = await response.json()
     return data as T
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Invalid Whop API key')) {
+      throw error
+    }
     console.error('Error calling Whop API:', error)
     return null
   }
@@ -88,6 +136,7 @@ export async function whopFetch<T = any>(
  * Fetch daily summary metrics from Whop
  * @param date - Optional date string (YYYY-MM-DD), defaults to today
  * @returns Daily metrics summary
+ * @throws Error if token is invalid
  * 
  * TODO: Implement actual Whop API integration
  * For now, returns fake data for testing
@@ -102,6 +151,13 @@ export async function fetchDailySummary(date?: string): Promise<WhopDailySummary
   }
 
   try {
+    // Validate token before using it
+    const isValid = await validateWhopKey(token)
+    if (!isValid) {
+      console.warn('Whop API key validation failed in fetchDailySummary')
+      throw new Error('Invalid Whop API key — please reconnect Whop')
+    }
+
     // TODO: Replace with actual Whop API endpoint
     // Example: const data = await whopFetch<WhopDailySummary>('/v1/metrics/daily?date=' + (date || new Date().toISOString().split('T')[0]))
     
@@ -109,6 +165,9 @@ export async function fetchDailySummary(date?: string): Promise<WhopDailySummary
     console.warn('Whop API integration not yet implemented, returning fake data')
     return generateFakeData()
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Invalid Whop API key')) {
+      throw error
+    }
     console.error('Error fetching daily summary from Whop:', error)
     return generateFakeData()
   }
@@ -147,25 +206,28 @@ export async function isWhopConnected(): Promise<boolean> {
 }
 
 /**
- * Test Whop API connection
- * @returns true if connection is successful
+ * Test Whop API connection by validating the stored token
+ * @returns true if connection is successful and token is valid
  */
 export async function testWhopConnection(): Promise<boolean> {
   try {
     const token = await getWhopToken()
     
     if (!token) {
+      console.warn('No Whop token available for connection test')
       return false
     }
 
-    // TODO: Replace with actual Whop API health check endpoint
-    // Example: const response = await whopFetch('/v1/company')
-    // return response !== null
+    // Validate the token
+    const isValid = await validateWhopKey(token)
     
-    // For now, just check if token exists
-    return true
+    if (!isValid) {
+      console.warn('Whop API key validation failed in testWhopConnection')
+    }
+    
+    return isValid
   } catch (error) {
-    console.error('Error testing Whop connection:', error)
+    console.warn('Error testing Whop connection:', error)
     return false
   }
 }
