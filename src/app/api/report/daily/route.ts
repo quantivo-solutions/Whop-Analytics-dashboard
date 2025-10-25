@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendDailyReportEmail } from '@/lib/email'
 import { postToDiscord, formatDailySummary } from '@/lib/discord'
+import { getPlanForCompany, hasPro } from '@/lib/plan'
 
 export const runtime = 'nodejs'
 
@@ -45,6 +46,20 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { ok: false, message: 'No report email address configured' },
         { status: 200 }
+      )
+    }
+
+    // Get the first installation to determine companyId and check plan
+    const installation = await prisma.whopInstallation.findFirst()
+    const companyId = installation?.companyId || 'demo_company'
+    
+    // Check if company has Pro plan (daily reports are Pro-only)
+    const plan = await getPlanForCompany(companyId)
+    if (!hasPro(plan)) {
+      console.log(`⚠️  Daily reports require Pro plan. Current plan: ${plan} for company: ${companyId}`)
+      return NextResponse.json(
+        { ok: false, error: 'Daily reports require Pro plan. Upgrade to enable daily email reports.' },
+        { status: 402 }
       )
     }
 

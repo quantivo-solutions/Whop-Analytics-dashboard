@@ -9,6 +9,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries, getInstallationByCompany } from '@/lib/metrics'
+import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
+import { PlanBadge } from '@/components/plan-badge'
+import { UpgradeButton } from '@/components/upgrade-button'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,29 +26,38 @@ interface PageProps {
 export default async function CompanyDashboardPage({ params }: PageProps) {
   const { companyId } = params
 
-  // Check if installation exists
-  const installation = await getInstallationByCompany(companyId)
+  // Fetch installation, dashboard data, and plan
+  const [installation, dashboardData, plan] = await Promise.all([
+    getInstallationByCompany(companyId),
+    getCompanySeries(companyId, 30),
+    getPlanForCompany(companyId),
+  ])
 
-  // Fetch dashboard data (even if no installation, show what data we have)
-  const dashboardData = await getCompanySeries(companyId, 30)
+  const upgradeUrl = getUpgradeUrl()
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6">
         {/* Navigation */}
         <div className="mb-4 flex items-center justify-between">
-          <Link href="/dashboard">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Main Dashboard
-            </Button>
-          </Link>
-          <Link href="/settings">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            </Link>
+            <PlanBadge plan={plan} />
+          </div>
+          <div className="flex items-center gap-2">
+            {plan === 'free' && <UpgradeButton upgradeUrl={upgradeUrl} size="sm" variant="outline" />}
+            <Link href="/settings">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Warning if no installation */}
@@ -60,7 +72,7 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
         )}
 
         {/* Dashboard view */}
-        <DashboardView data={dashboardData} showBadge={true} />
+        <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
 
         {/* Company info (for debugging/support) */}
         <div className="mt-8 text-xs text-muted-foreground text-center">

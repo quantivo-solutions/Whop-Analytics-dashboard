@@ -165,15 +165,30 @@ async function handlePlanUpdated(data: any) {
     throw new Error('Missing company_id')
   }
 
+  // Normalize plan name to lowercase (free|pro|business)
+  let normalizedPlan = null
+  if (plan) {
+    const planLower = plan.toLowerCase()
+    if (planLower === 'pro' || planLower === 'professional') {
+      normalizedPlan = 'pro'
+    } else if (planLower === 'business' || planLower === 'enterprise') {
+      normalizedPlan = 'business'
+    } else if (planLower === 'free') {
+      normalizedPlan = 'free'
+    } else {
+      normalizedPlan = planLower
+    }
+  }
+
   await prisma.whopInstallation.update({
     where: { companyId: company_id },
     data: {
-      plan: plan || null,
+      plan: normalizedPlan,
       updatedAt: new Date(),
     },
   })
 
-  console.log(`Plan updated companyId=${company_id}, plan=${plan || 'none'}`)
+  console.log(`[WHOP] plan update company=${company_id} plan=${normalizedPlan || 'free'}`)
 }
 
 /**

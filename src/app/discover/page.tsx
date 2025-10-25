@@ -89,6 +89,134 @@ export default function DiscoverPage() {
           </Card>
         </div>
 
+        {/* Pricing */}
+        <div className="max-w-4xl mx-auto mt-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Simple, transparent pricing</h2>
+          
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Free Plan */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold mb-2">Free</h3>
+                  <div className="text-3xl font-bold">£0</div>
+                  <p className="text-sm text-muted-foreground">per month</p>
+                </div>
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Weekly email reports
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Basic analytics dashboard
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    30-day history
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Pro Plan */}
+            <Card className="border-primary shadow-lg relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
+                  POPULAR
+                </span>
+              </div>
+              <CardContent className="pt-6">
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold mb-2">Pro</h3>
+                  <div className="text-3xl font-bold">£12</div>
+                  <p className="text-sm text-muted-foreground">per month</p>
+                </div>
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Everything in Free
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Daily email reports
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Discord alerts
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Advanced insights
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Business Plan */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold mb-2">Business</h3>
+                  <div className="text-3xl font-bold">£39</div>
+                  <p className="text-sm text-muted-foreground">per month</p>
+                </div>
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Everything in Pro
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Priority support
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Extended history (90 days)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </div>
+                    Data exports
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Upgrade CTA */}
+          {whopInstallUrl && (
+            <div className="text-center mt-8">
+              <a href={whopInstallUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="lg" variant="outline" className="gap-2">
+                  View plans on Whop <ExternalLink className="h-4 w-4" />
+                </Button>
+              </a>
+            </div>
+          )}
+        </div>
+
         {/* Footer */}
         <div className="text-center mt-16 text-sm text-muted-foreground">
           <p>Built for Whop creators who want better insights</p>

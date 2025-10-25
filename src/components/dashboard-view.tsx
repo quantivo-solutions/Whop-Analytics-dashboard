@@ -4,20 +4,29 @@
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, Users, UserPlus, UserMinus, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react'
+import { DollarSign, Users, UserPlus, UserMinus, CheckCircle, TrendingUp, TrendingDown, Info } from 'lucide-react'
 import type { DashboardData } from '@/lib/metrics'
+import type { Plan } from '@/lib/plan'
+import { getPlanFeatures, hasPro } from '@/lib/plan'
+import { ProFeatureLock } from './pro-feature-lock'
 
 interface DashboardViewProps {
   data: DashboardData
   showBadge?: boolean
   badgeType?: 'live' | 'stale'
+  plan?: Plan
+  upgradeUrl?: string
 }
 
-export function DashboardView({ data, showBadge = true, badgeType }: DashboardViewProps) {
+export function DashboardView({ data, showBadge = true, badgeType, plan = 'free', upgradeUrl }: DashboardViewProps) {
   const { kpis, series, hasData } = data
 
   // Determine badge type if not explicitly provided
   const effectiveBadgeType = badgeType ?? (kpis.isDataFresh ? 'live' : 'stale')
+  
+  // Get plan features
+  const features = getPlanFeatures(plan)
+  const isPro = hasPro(plan)
 
   // Format date range for display
   const dateRange = series.length > 0
@@ -162,6 +171,29 @@ export function DashboardView({ data, showBadge = true, badgeType }: DashboardVi
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pro features section */}
+      {hasData && !isPro && upgradeUrl && (
+        <div className="mt-8">
+          <ProFeatureLock
+            title="Daily Trend Breakdown"
+            description="Unlock daily email reports, Discord alerts, and advanced insights with Pro."
+            upgradeUrl={upgradeUrl}
+          />
+        </div>
+      )}
+
+      {/* Feature availability note */}
+      {hasData && (
+        <div className="mt-4 text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
+          <Info className="h-3 w-3" />
+          {features.dailyEmail ? (
+            <span>Daily reports enabled (Pro)</span>
+          ) : (
+            <span>Daily reports are Pro-only. Weekly reports are free for all users.</span>
+          )}
+        </div>
       )}
     </div>
   )
