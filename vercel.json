@@ -5,10 +5,6 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/report/daily?secret=${CRON_SECRET}",
-      "schedule": "5 9 * * *"
-    },
-    {
       "path": "/api/report/weekly?secret=${CRON_SECRET}",
       "schedule": "10 9 * * 1"
     }

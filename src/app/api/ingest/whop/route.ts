@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { fetchDailySummary } from '@/lib/whop'
+import { sendDailyReportEmail } from '@/lib/email'
+import { postToDiscord, formatDailySummary } from '@/lib/discord'
 
 /**
  * POST /api/ingest/whop?secret=CRON_SECRET
  * 
  * Ingest yesterday's Whop metrics into the database
+ * Then automatically send daily report if enabled
  * Protected endpoint - requires CRON_SECRET
  */
 export async function POST(request: Request) {
@@ -68,6 +71,43 @@ export async function POST(request: Request) {
     console.log(`✅ Successfully ingested Whop data for ${dateString}`)
     console.log(`   Revenue: $${summary.grossRevenue}, Members: ${summary.activeMembers}, New: ${summary.newMembers}`)
 
+    // After ingesting data, automatically send daily report if enabled
+    let emailSent = false
+    let discordSent = false
+
+    try {
+      const settings = await prisma.workspaceSettings.findFirst()
+
+      if (settings && settings.dailyEmail && settings.reportEmail) {
+        console.log('📧 Sending daily report email...')
+        const emailResult = await sendDailyReportEmail(settings.reportEmail)
+        
+        if (emailResult.error) {
+          console.error('Failed to send daily report email:', emailResult.error)
+        } else {
+          console.log('✅ Daily report email sent successfully')
+          emailSent = true
+        }
+
+        // Send to Discord if webhook is configured
+        if (settings.discordWebhook) {
+          console.log('📢 Posting daily summary to Discord...')
+          const discordMessage = formatDailySummary(metric)
+          const discordResult = await postToDiscord(settings.discordWebhook, discordMessage)
+          
+          if (discordResult.success) {
+            console.log('✅ Posted to Discord successfully')
+            discordSent = true
+          } else {
+            console.error('Failed to post to Discord:', discordResult.error)
+          }
+        }
+      }
+    } catch (reportError) {
+      console.error('Error sending daily report:', reportError)
+      // Don't fail the ingestion if report fails
+    }
+
     return NextResponse.json({
       ok: true,
       date: dateString,
@@ -78,6 +118,10 @@ export async function POST(request: Request) {
         cancellations: metric.cancellations,
         trialsStarted: metric.trialsStarted,
         trialsPaid: metric.trialsPaid,
+      },
+      report: {
+        emailSent,
+        discordSent,
       },
     })
   } catch (error) {
