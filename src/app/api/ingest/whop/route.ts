@@ -33,18 +33,10 @@ export async function POST(request: Request) {
 
     console.log(`📥 Starting Whop data ingestion for ${dateString}...`)
 
-    // Fetch data from Whop
+    // Fetch data from Whop using the new fetchDailySummary function
     const summary = await fetchDailySummary(dateString)
 
-    if (!summary) {
-      console.error('Failed to fetch data from Whop')
-      return NextResponse.json(
-        { error: 'Failed to fetch data from Whop' },
-        { status: 500 }
-      )
-    }
-
-    // Upsert into database
+    // Always upsert into database, even if all zeros
     const metric = await prisma.metricsDaily.upsert({
       where: {
         date: yesterday,
@@ -68,8 +60,8 @@ export async function POST(request: Request) {
       },
     })
 
-    console.log(`✅ Successfully ingested Whop data for ${dateString}`)
-    console.log(`   Revenue: $${summary.grossRevenue}, Members: ${summary.activeMembers}, New: ${summary.newMembers}`)
+    console.log(`✅ Successfully wrote Whop data for ${dateString}`)
+    console.log(`   Revenue: $${summary.grossRevenue}, Active: ${summary.activeMembers}, New: ${summary.newMembers}, Cancellations: ${summary.cancellations}`)
 
     // After ingesting data, automatically send daily report if enabled
     let emailSent = false
@@ -110,14 +102,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
+      wrote: true,
       date: dateString,
-      data: {
-        grossRevenue: metric.grossRevenue,
-        activeMembers: metric.activeMembers,
-        newMembers: metric.newMembers,
-        cancellations: metric.cancellations,
-        trialsStarted: metric.trialsStarted,
-        trialsPaid: metric.trialsPaid,
+      summary: {
+        grossRevenue: summary.grossRevenue,
+        activeMembers: summary.activeMembers,
+        newMembers: summary.newMembers,
+        cancellations: summary.cancellations,
+        trialsStarted: summary.trialsStarted,
+        trialsPaid: summary.trialsPaid,
       },
       report: {
         emailSent,

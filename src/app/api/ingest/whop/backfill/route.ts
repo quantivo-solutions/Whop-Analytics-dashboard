@@ -36,12 +36,9 @@ export async function POST(request: Request) {
 
     console.log(`📥 Starting Whop backfill for last ${days} days...`)
 
-    const results = []
-    const errors = []
-    let successCount = 0
-    let errorCount = 0
+    let daysWritten = 0
 
-    // Loop through each day
+    // Loop through each day and upsert
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date()
       date.setUTCDate(date.getUTCDate() - i)
@@ -51,17 +48,10 @@ export async function POST(request: Request) {
       try {
         console.log(`  Processing ${dateString}...`)
 
-        // Fetch data from Whop
+        // Fetch data from Whop using fetchDailySummary
         const summary = await fetchDailySummary(dateString)
 
-        if (!summary) {
-          console.error(`  ❌ Failed to fetch data for ${dateString}`)
-          errors.push({ date: dateString, error: 'Failed to fetch data' })
-          errorCount++
-          continue
-        }
-
-        // Upsert into database
+        // Always upsert into database, even if all zeros
         await prisma.metricsDaily.upsert({
           where: {
             date: date,
@@ -85,39 +75,24 @@ export async function POST(request: Request) {
           },
         })
 
-        results.push({
-          date: dateString,
-          status: 'success',
-          revenue: summary.grossRevenue,
-          members: summary.activeMembers,
-        })
-        successCount++
-        console.log(`  ✅ ${dateString}: $${summary.grossRevenue}, ${summary.activeMembers} members`)
+        daysWritten++
+        console.log(`  ✅ ${dateString}: $${summary.grossRevenue.toFixed(2)}, ${summary.activeMembers} active, ${summary.newMembers} new`)
 
-        // Small delay to avoid rate limiting (50ms between requests)
-        await new Promise(resolve => setTimeout(resolve, 50))
+        // Small delay to avoid rate limiting (100ms between requests)
+        await new Promise(resolve => setTimeout(resolve, 100))
       } catch (error) {
         console.error(`  ❌ Error processing ${dateString}:`, error)
-        errors.push({
-          date: dateString,
-          error: error instanceof Error ? error.message : String(error),
-        })
-        errorCount++
+        // Continue processing remaining days even if one fails
       }
     }
 
-    console.log(`✅ Backfill complete: ${successCount} success, ${errorCount} errors`)
+    console.log(`✅ Backfill complete: ${daysWritten}/${days} days written`)
 
     return NextResponse.json({
       ok: true,
-      message: `Backfilled ${successCount} days of data`,
-      summary: {
-        totalDays: days,
-        successCount,
-        errorCount,
-      },
-      results,
-      errors: errors.length > 0 ? errors : undefined,
+      daysWritten,
+      totalDays: days,
+      message: `Backfilled ${daysWritten} out of ${days} days`,
     })
   } catch (error) {
     console.error('Error during Whop backfill:', error)
