@@ -370,3 +370,253 @@ export async function sumPaidRevenueForDay(dateStr: string): Promise<number> {
   }
 }
 
+/**
+ * List all memberships created on a specific day
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns Array of membership objects
+ * 
+ * @example
+ * const newMembers = await listMembershipsForDay('2025-10-24')
+ * console.log(`New memberships: ${newMembers.length}`)
+ */
+export async function listMembershipsForDay(dateStr: string): Promise<any[]> {
+  try {
+    console.log(`👥 Fetching memberships created on ${dateStr}...`)
+    
+    const startTime = startOfUtcDay(dateStr)
+    const endTime = endOfUtcDay(dateStr)
+    
+    let allMemberships: any[] = []
+    let page = 1
+    let hasMorePages = true
+    const limit = 100
+    
+    while (hasMorePages) {
+      console.log(`  Fetching page ${page} of memberships...`)
+      
+      // Fetch memberships for the date range
+      const response = await whopGET<{ 
+        data?: any[]
+        pagination?: { 
+          current_page?: number
+          total_pages?: number
+          next?: string | null
+        }
+      }>('/memberships', {
+        created_after: startTime,
+        created_before: endTime,
+        limit,
+        page,
+      })
+      
+      const memberships = response.data || []
+      console.log(`  Found ${memberships.length} memberships on page ${page}`)
+      
+      allMemberships = allMemberships.concat(memberships)
+      
+      // Check if there are more pages
+      if (response.pagination) {
+        const { current_page, total_pages, next } = response.pagination
+        
+        if (next !== null && next !== undefined) {
+          hasMorePages = true
+          page++
+        } else if (current_page && total_pages && current_page < total_pages) {
+          hasMorePages = true
+          page++
+        } else {
+          hasMorePages = false
+        }
+      } else {
+        hasMorePages = false
+      }
+      
+      // Safety check: don't paginate more than 100 pages
+      if (page > 100) {
+        console.warn('  ⚠️  Reached max pagination limit (100 pages)')
+        hasMorePages = false
+      }
+    }
+    
+    console.log(`✅ Total memberships created on ${dateStr}: ${allMemberships.length}`)
+    return allMemberships
+  } catch (error) {
+    console.error(`❌ Error fetching memberships for ${dateStr}:`, error)
+    return []
+  }
+}
+
+/**
+ * List all memberships canceled on a specific day
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns Array of canceled membership objects
+ * 
+ * @example
+ * const canceledMembers = await listCancellationsForDay('2025-10-24')
+ * console.log(`Cancellations: ${canceledMembers.length}`)
+ */
+export async function listCancellationsForDay(dateStr: string): Promise<any[]> {
+  try {
+    console.log(`❌ Fetching cancellations on ${dateStr}...`)
+    
+    const startTime = startOfUtcDay(dateStr)
+    const endTime = endOfUtcDay(dateStr)
+    
+    let allCancellations: any[] = []
+    let page = 1
+    let hasMorePages = true
+    const limit = 100
+    
+    while (hasMorePages) {
+      console.log(`  Fetching page ${page} of cancellations...`)
+      
+      // Fetch canceled memberships for the date range
+      const response = await whopGET<{ 
+        data?: any[]
+        pagination?: { 
+          current_page?: number
+          total_pages?: number
+          next?: string | null
+        }
+      }>('/memberships', {
+        canceled_after: startTime,
+        canceled_before: endTime,
+        limit,
+        page,
+      })
+      
+      const cancellations = response.data || []
+      console.log(`  Found ${cancellations.length} cancellations on page ${page}`)
+      
+      allCancellations = allCancellations.concat(cancellations)
+      
+      // Check if there are more pages
+      if (response.pagination) {
+        const { current_page, total_pages, next } = response.pagination
+        
+        if (next !== null && next !== undefined) {
+          hasMorePages = true
+          page++
+        } else if (current_page && total_pages && current_page < total_pages) {
+          hasMorePages = true
+          page++
+        } else {
+          hasMorePages = false
+        }
+      } else {
+        hasMorePages = false
+      }
+      
+      // Safety check: don't paginate more than 100 pages
+      if (page > 100) {
+        console.warn('  ⚠️  Reached max pagination limit (100 pages)')
+        hasMorePages = false
+      }
+    }
+    
+    console.log(`✅ Total cancellations on ${dateStr}: ${allCancellations.length}`)
+    return allCancellations
+  } catch (error) {
+    console.error(`❌ Error fetching cancellations for ${dateStr}:`, error)
+    return []
+  }
+}
+
+/**
+ * Count active memberships at the end of a specific day
+ * 
+ * This function attempts multiple strategies:
+ * 1. First tries to query Whop API with status filters (active, trialing, past_due)
+ * 2. If that's not supported, falls back to calculation: previousActive + newMembers - cancellations
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns Number of active memberships at end of day
+ * 
+ * @example
+ * const activeCount = await countActiveAtEndOfDay('2025-10-24')
+ * console.log(`Active members: ${activeCount}`)
+ */
+export async function countActiveAtEndOfDay(dateStr: string): Promise<number> {
+  try {
+    console.log(`🔢 Counting active memberships at end of ${dateStr}...`)
+    
+    const endTime = endOfUtcDay(dateStr)
+    
+    // Strategy 1: Try to query with status filters
+    try {
+      console.log('  Attempting to fetch active memberships with status filters...')
+      
+      const response = await whopGET<{ 
+        data?: any[]
+        pagination?: { 
+          total?: number
+          total_count?: number
+        }
+      }>('/memberships', {
+        status: 'active,trialing,past_due', // Common active statuses
+        created_before: endTime,
+        limit: 1, // We only need the count
+      })
+      
+      // Check if API provides a total count
+      if (response.pagination?.total !== undefined) {
+        const count = response.pagination.total
+        console.log(`✅ Active memberships via API: ${count}`)
+        return count
+      } else if (response.pagination?.total_count !== undefined) {
+        const count = response.pagination.total_count
+        console.log(`✅ Active memberships via API: ${count}`)
+        return count
+      } else if (response.data) {
+        // If no count provided, we'd need to paginate through all - skip this approach
+        console.log('  ⚠️  API does not provide total count, falling back to calculation...')
+        throw new Error('No total count available')
+      }
+    } catch (statusError) {
+      console.log('  ℹ️  Status filter approach not available, using calculation fallback')
+    }
+    
+    // Strategy 2: Fallback to calculation
+    console.log('  Calculating active count: previousActive + newMembers - cancellations')
+    
+    // Get yesterday's active count (if exists)
+    const yesterday = new Date(dateStr)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    
+    // Check if we have yesterday's data in our database
+    let previousActive = 0
+    try {
+      const yesterdayMetric = await prisma.metricsDaily.findUnique({
+        where: { date: new Date(yesterdayStr) },
+      })
+      
+      if (yesterdayMetric) {
+        previousActive = yesterdayMetric.activeMembers
+        console.log(`  Previous active (${yesterdayStr}): ${previousActive}`)
+      } else {
+        console.log(`  No previous data found for ${yesterdayStr}, starting from 0`)
+      }
+    } catch (dbError) {
+      console.log('  Could not fetch previous day data, starting from 0')
+    }
+    
+    // Get today's new members and cancellations
+    const newMembers = await listMembershipsForDay(dateStr)
+    const cancellations = await listCancellationsForDay(dateStr)
+    
+    // Calculate: previousActive + new - canceled
+    const activeCount = Math.max(0, previousActive + newMembers.length - cancellations.length)
+    
+    console.log(`  Calculation: ${previousActive} + ${newMembers.length} - ${cancellations.length} = ${activeCount}`)
+    console.log(`✅ Active memberships at end of ${dateStr}: ${activeCount}`)
+    
+    return activeCount
+  } catch (error) {
+    console.error(`❌ Error counting active memberships for ${dateStr}:`, error)
+    return 0
+  }
+}
+
