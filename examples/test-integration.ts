@@ -76,8 +76,8 @@ async function testWeeklyQuery() {
     
     console.log(`   ✅ Found ${metrics.length} days of data`)
     
-    // Calculate summary
-    const totalRevenue = metrics.reduce((sum, m) => sum + m.grossRevenue, 0)
+    // Calculate summary (convert Decimal to number)
+    const totalRevenue = metrics.reduce((sum, m) => sum + Number(m.grossRevenue), 0)
     const totalNewMembers = metrics.reduce((sum, m) => sum + m.newMembers, 0)
     const totalCancellations = metrics.reduce((sum, m) => sum + m.cancellations, 0)
     
