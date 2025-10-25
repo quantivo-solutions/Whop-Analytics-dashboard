@@ -35,9 +35,9 @@ function createWhopClient(apiKey: string) {
  */
 export async function validateWhopKey(apiKey: string): Promise<boolean> {
   try {
-    // Validate key format (should start with whop_)
-    if (!apiKey || !apiKey.startsWith('whop_')) {
-      console.warn('Invalid Whop API key format')
+    // Basic validation - just check if key exists and has reasonable length
+    if (!apiKey || apiKey.trim().length < 10) {
+      console.warn('Invalid Whop API key: too short or empty')
       return false
     }
     
@@ -47,9 +47,11 @@ export async function validateWhopKey(apiKey: string): Promise<boolean> {
     // TODO: Once we implement actual API calls, we can validate by making a real request
     // For now, just check if the client was created successfully
     if (!client) {
+      console.warn('Failed to create Whop client')
       return false
     }
     
+    console.log('✅ Whop API key format validated')
     return true
   } catch (error) {
     console.warn('Whop API key validation failed:', error)
