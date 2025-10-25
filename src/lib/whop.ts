@@ -5,6 +5,11 @@ import { whopGET } from './whop-rest'
 /**
  * Whop API Client
  * Now using official Whop SDK instead of manual fetch calls
+ * 
+ * NOTE: Ensure your Whop app has read scopes for payments & memberships:
+ * - payment:basic:read
+ * - member:basic:read (and others if needed)
+ * See docs: https://docs.whop.com/api-reference/payments/list-payments and https://docs.whop.com/apps/permissions
  */
 
 export interface WhopDailySummary {

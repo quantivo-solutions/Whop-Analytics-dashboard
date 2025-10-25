@@ -22,6 +22,17 @@ export default async function Dashboard() {
     orderBy: { date: 'desc' }
   })
 
+  // Check if data is fresh (within last 24 hours)
+  const now = new Date()
+  const latestDate = latestMetric ? new Date(latestMetric.date) : null
+  const hoursSinceLastSync = latestDate 
+    ? (now.getTime() - latestDate.getTime()) / (1000 * 60 * 60)
+    : null
+  const isDataFresh = hoursSinceLastSync !== null && hoursSinceLastSync <= 24
+  const lastSyncText = latestDate 
+    ? `${latestDate.toLocaleDateString()} ${latestDate.toLocaleTimeString()}`
+    : 'Never'
+
   // Get last 30 days for chart (ordered by date ASC for chronological display)
   const chartData = await prisma.metricsDaily.findMany({
     orderBy: { date: 'asc' },
@@ -86,12 +97,28 @@ export default async function Dashboard() {
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
               {isWhopConnected && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-950 px-3 py-1 text-xs font-medium text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                  </span>
-                  LIVE: Whop data
+                <span 
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border ${
+                    isDataFresh 
+                      ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
+                  }`}
+                  title={`Data from Whop v2 API. Last sync: ${lastSyncText}`}
+                >
+                  {isDataFresh ? (
+                    <>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                      </span>
+                      LIVE (Whop)
+                    </>
+                  ) : (
+                    <>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-400"></span>
+                      STALE
+                    </>
+                  )}
                 </span>
               )}
             </div>
