@@ -136,10 +136,10 @@ export async function whopFetch<T = any>(
  * Fetch daily summary metrics from Whop
  * @param date - Optional date string (YYYY-MM-DD), defaults to today
  * @returns Daily metrics summary
- * @throws Error if token is invalid
+ * @throws Error if token is invalid (only when actually calling Whop API)
  * 
  * TODO: Implement actual Whop API integration
- * For now, returns fake data for testing
+ * For now, returns fake data for testing (no validation needed)
  */
 export async function fetchDailySummary(date?: string): Promise<WhopDailySummary> {
   // Check if we have a valid token
@@ -151,17 +151,12 @@ export async function fetchDailySummary(date?: string): Promise<WhopDailySummary
   }
 
   try {
-    // Validate token before using it
-    const isValid = await validateWhopKey(token)
-    if (!isValid) {
-      console.warn('Whop API key validation failed in fetchDailySummary')
-      throw new Error('Invalid Whop API key — please reconnect Whop')
-    }
-
     // TODO: Replace with actual Whop API endpoint
-    // Example: const data = await whopFetch<WhopDailySummary>('/v1/metrics/daily?date=' + (date || new Date().toISOString().split('T')[0]))
+    // When implementing real API calls, use whopFetch which handles validation:
+    // const data = await whopFetch<WhopDailySummary>('/v1/metrics/daily?date=' + (date || new Date().toISOString().split('T')[0]))
+    // return data || generateFakeData()
     
-    // For now, return fake data
+    // For now, return fake data WITHOUT validation (since we're not calling the API)
     console.warn('Whop API integration not yet implemented, returning fake data')
     return generateFakeData()
   } catch (error) {
