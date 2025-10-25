@@ -2,10 +2,12 @@
  * Whop REST API Client
  * 
  * Simple wrapper for making authenticated requests to Whop's REST API v5
- * Uses direct fetch calls with API key authentication
+ * Uses direct fetch calls with token authentication from WhopInstallation
  * 
  * Updated to use v5 API which supports the new Company API key format
  */
+
+import { getWhopToken } from './whop-installation'
 
 const BASE = "https://api.whop.com/api/v5"
 
@@ -14,8 +16,9 @@ const BASE = "https://api.whop.com/api/v5"
  * 
  * @param path - API path (e.g., "/company", "/memberships")
  * @param params - Optional query parameters
+ * @param companyId - Optional company ID to get specific installation token
  * @returns Parsed JSON response
- * @throws Error if API key is missing, unauthorized, or request fails
+ * @throws Error if token is missing, unauthorized, or request fails
  * 
  * @example
  * const company = await whopGET<CompanyData>("/company")
@@ -23,18 +26,17 @@ const BASE = "https://api.whop.com/api/v5"
  */
 export async function whopGET<T>(
   path: string,
-  params?: Record<string, string | number>
+  params?: Record<string, string | number>,
+  companyId?: string
 ): Promise<T> {
-  // Ensure API key is available
-  // Try both WHOP_API_KEY and WHOP_SK for compatibility
-  const apiKey = process.env.WHOP_API_KEY || process.env.WHOP_SK
+  // Get token from database (installation-based)
+  const token = await getWhopToken(companyId)
   
-  if (!apiKey) {
-    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('WHOP')))
-    throw new Error('WHOP_API_KEY environment variable is not set')
+  if (!token) {
+    throw new Error('No Whop installation found. Please install the app via Whop.')
   }
   
-  console.log('✅ Whop API key found, length:', apiKey.length)
+  console.log('✅ Whop token retrieved from installation, length:', token.length)
 
   // Build URL with query parameters
   const url = new URL(path, BASE)
@@ -52,7 +54,7 @@ export async function whopGET<T>(
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     })

@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
 import { WhopServerSdk } from '@whop/api'
 import { whopGET } from './whop-rest'
+import { getWhopToken } from './whop-installation'
 
 /**
  * Whop API Client
@@ -122,30 +123,7 @@ export async function validateWhopKey(apiKey: string): Promise<boolean> {
   }
 }
 
-/**
- * Get Whop access token from database
- * @param companyId - The company ID (optional, defaults to first installation)
- * @returns Access token or null if not found
- */
-export async function getWhopToken(companyId?: string): Promise<string | null> {
-  try {
-    let installation
-
-    if (companyId) {
-      installation = await prisma.whopInstallation.findUnique({
-        where: { companyId },
-      })
-    } else {
-      // Get the first installation (for single-company setups)
-      installation = await prisma.whopInstallation.findFirst()
-    }
-
-    return installation?.accessToken || null
-  } catch (error) {
-    console.error('Error fetching Whop token:', error)
-    return null
-  }
-}
+// getWhopToken is now imported from './whop-installation'
 
 /**
  * Get an authenticated Whop SDK client
