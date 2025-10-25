@@ -32,8 +32,8 @@ export async function GET(req: Request) {
           count = await prisma.metricsDaily.count()
         } else if (table.tablename === 'WorkspaceSettings') {
           count = await prisma.workspaceSettings.count()
-        } else if (table.tablename === 'WhopAccount') {
-          count = await prisma.whopAccount.count()
+        } else if (table.tablename === 'WhopInstallation') {
+          count = await prisma.whopInstallation.count()
         }
       } catch (e) {
         count = -1
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
       tables: tableInfo,
       summary: {
         totalTables: tableInfo.length,
-        whopAccountExists: tableInfo.some((t) => t.name === 'WhopAccount'),
+        whopInstallationExists: tableInfo.some((t) => t.name === 'WhopInstallation'),
       },
     })
   } catch (error) {
