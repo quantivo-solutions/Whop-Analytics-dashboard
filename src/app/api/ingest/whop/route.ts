@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
       if (settings && settings.dailyEmail && settings.reportEmail) {
         console.log('📧 Sending daily report email...')
-        const emailResult = await sendDailyReportEmail(settings.reportEmail)
+        const emailResult = await sendDailyReportEmail(settings.reportEmail, metric)
         
         if (emailResult.error) {
           console.error('Failed to send daily report email:', emailResult.error)
