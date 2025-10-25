@@ -90,12 +90,24 @@ export default function SettingsPage() {
         body: JSON.stringify({ accessToken: whopApiKey }),
       })
 
-      if (!response.ok) throw new Error('Failed to connect Whop')
-
       const data = await response.json()
+
+      if (!response.ok) {
+        // Handle specific error messages from the API
+        if (data.error === 'Invalid Whop API Key') {
+          toast.error('Invalid Whop API key')
+        } else if (data.error === 'Verification timed out') {
+          toast.error('Verification timed out. Please try again.')
+        } else {
+          toast.error(data.error || 'Failed to connect Whop account')
+        }
+        return
+      }
+
+      // Success!
       setWhopConnection(data)
       setWhopApiKey('') // Clear the input
-      toast.success('Whop account connected successfully!')
+      toast.success('Whop connected successfully')
     } catch (error) {
       console.error('Error connecting Whop:', error)
       toast.error('Failed to connect Whop account')

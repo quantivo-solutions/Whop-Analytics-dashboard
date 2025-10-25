@@ -9,8 +9,51 @@ export async function POST(request: Request) {
 
     if (!accessToken || typeof accessToken !== 'string') {
       return NextResponse.json(
-        { error: 'Access token is required' },
+        { ok: false, error: 'Access token is required' },
         { status: 400 }
+      )
+    }
+
+    // Verify the API key before saving
+    console.log('Verifying Whop API key...')
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 3000)
+
+    try {
+      const verifyResponse = await fetch('https://api.whop.com/api/v2/me', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!verifyResponse.ok) {
+        console.error(`Whop API key verification failed: ${verifyResponse.status}`)
+        return NextResponse.json(
+          { ok: false, error: 'Invalid Whop API Key' },
+          { status: 400 }
+        )
+      }
+
+      console.log('✅ Whop API key verified successfully')
+    } catch (verifyError) {
+      clearTimeout(timeoutId)
+      console.error('Error verifying Whop API key:', verifyError)
+      
+      if (verifyError instanceof Error && verifyError.name === 'AbortError') {
+        return NextResponse.json(
+          { ok: false, error: 'Verification timed out' },
+          { status: 408 }
+        )
+      }
+      
+      return NextResponse.json(
+        { ok: false, error: 'Failed to verify API key' },
+        { status: 503 }
       )
     }
 
@@ -54,6 +97,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
+      ok: true,
       success: true,
       connected: true,
       connectedAt: whopAccount.connectedAt,
@@ -61,7 +105,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error connecting Whop account:', error)
     return NextResponse.json(
-      { error: 'Failed to connect Whop account' },
+      { ok: false, error: 'Failed to connect Whop account' },
       { status: 500 }
     )
   }
