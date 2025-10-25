@@ -266,15 +266,16 @@ export async function testWhopConnection(): Promise<boolean> {
 
 /**
  * Sum paid revenue for a specific day using Whop REST API
- * 
+ *
  * @param dateStr - Date string in YYYY-MM-DD format
+ * @param accessToken - The access token to use for Whop API calls
  * @returns Total revenue for the day (in dollars)
- * 
+ *
  * @example
- * const revenue = await sumPaidRevenueForDay('2025-10-24')
+ * const revenue = await sumPaidRevenueForDay('2025-10-24', 'whop_access_token')
  * console.log(`Revenue: $${revenue.toFixed(2)}`)
  */
-export async function sumPaidRevenueForDay(dateStr: string): Promise<number> {
+export async function sumPaidRevenueForDay(dateStr: string, accessToken: string): Promise<number> {
   try {
     console.log(`💰 Calculating paid revenue for ${dateStr}...`)
     

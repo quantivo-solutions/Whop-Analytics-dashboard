@@ -99,7 +99,10 @@ export async function POST(request: Request) {
         // Send to Discord if webhook is configured
         if (settings.discordWebhook) {
           console.log('📢 Posting daily summary to Discord...')
-          const discordMessage = formatDailySummary(metric)
+          const discordMessage = formatDailySummary({
+            ...metric,
+            grossRevenue: Number(metric.grossRevenue)
+          })
           const discordResult = await postToDiscord(settings.discordWebhook, discordMessage)
           
           if (discordResult.success) {
