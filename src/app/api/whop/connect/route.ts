@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validateWhopKey } from '@/lib/whop'
 
 // POST /api/whop/connect
 export async function POST(request: Request) {
@@ -14,53 +15,20 @@ export async function POST(request: Request) {
       )
     }
 
-    // Verify the API key before saving
-    // Use /api/v5/company endpoint which supports API key authentication
+    // Verify the API key before saving using the Whop SDK
     console.log('Verifying Whop API key...')
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000)
-
-    try {
-      const verifyResponse = await fetch('https://api.whop.com/api/v5/company', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!verifyResponse.ok) {
-        const errorText = await verifyResponse.text().catch(() => 'No error body')
-        console.error(`Whop API key verification failed: ${verifyResponse.status} ${verifyResponse.statusText}`)
-        console.error(`Response body: ${errorText}`)
-        return NextResponse.json(
-          { ok: false, error: 'Invalid Whop API Key', details: `Status: ${verifyResponse.status}` },
-          { status: 400 }
-        )
-      }
-
-      console.log('✅ Whop API key verified successfully')
-    } catch (verifyError) {
-      clearTimeout(timeoutId)
-      const errorMessage = verifyError instanceof Error ? verifyError.message : String(verifyError)
-      console.error('Error verifying Whop API key:', errorMessage)
-      
-      if (verifyError instanceof Error && verifyError.name === 'AbortError') {
-        console.error('Verification timed out after 5 seconds')
-        return NextResponse.json(
-          { ok: false, error: 'Verification timed out (5s)' },
-          { status: 408 }
-        )
-      }
-      
+    
+    const isValid = await validateWhopKey(accessToken)
+    
+    if (!isValid) {
+      console.error('Whop API key verification failed')
       return NextResponse.json(
-        { ok: false, error: 'Failed to verify API key', details: errorMessage },
-        { status: 503 }
+        { ok: false, error: 'Invalid Whop API Key' },
+        { status: 400 }
       )
     }
+
+    console.log('✅ Whop API key verified successfully')
 
     // Get or create workspace settings
     let settings = await prisma.workspaceSettings.findFirst()
