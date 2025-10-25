@@ -50,34 +50,53 @@ export async function whopGET<T>(
   console.log(`🌐 Whop API: GET ${url.pathname}${url.search}`)
 
   try {
-    // Make authenticated request
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    })
+    // Create timeout controller (5 second timeout)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-    // Handle unauthorized responses
-    if (response.status === 401 || response.status === 403) {
-      const errorBody = await response.text().catch(() => 'No error body')
-      console.error(`❌ Whop API unauthorized (${response.status}):`, errorBody)
-      throw new Error('Unauthorized to Whop API')
+    try {
+      // Make authenticated request with timeout
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      // Handle unauthorized responses
+      if (response.status === 401 || response.status === 403) {
+        const errorBody = await response.text().catch(() => 'No error body')
+        console.error(`❌ Whop API unauthorized (${response.status}):`, errorBody)
+        throw new Error('Unauthorized to Whop API')
+      }
+
+      // Handle other errors
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => 'No error body')
+        console.error(`❌ Whop API error (${response.status} ${response.statusText}):`, errorBody)
+        throw new Error(`Whop API request failed: ${response.status} ${response.statusText}`)
+      }
+
+      // Parse and return JSON response
+      const data = await response.json()
+      console.log(`✅ Whop API: Success`)
+      
+      return data as T
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      
+      // Handle timeout specifically
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('❌ Whop API request timed out after 5 seconds')
+        throw new Error('Whop API request timed out')
+      }
+      
+      throw fetchError
     }
-
-    // Handle other errors
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => 'No error body')
-      console.error(`❌ Whop API error (${response.status} ${response.statusText}):`, errorBody)
-      throw new Error(`Whop API request failed: ${response.status} ${response.statusText}`)
-    }
-
-    // Parse and return JSON response
-    const data = await response.json()
-    console.log(`✅ Whop API: Success`)
-    
-    return data as T
   } catch (error) {
     // Re-throw known errors
     if (error instanceof Error) {

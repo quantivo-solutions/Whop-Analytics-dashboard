@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 
 const PROD_URL = process.env.PROD_URL || "https://whop-analytics-dashboard-omega.vercel.app";
 const SECRET = process.env.WHOP_WEBHOOK_SECRET;
+const WHOP_API_KEY = process.env.WHOP_APP_SERVER_KEY;
 
 // Show help if no secret or --help flag
 const args = process.argv.slice(2);
@@ -56,7 +57,7 @@ const payloads = {
     event: "app.installed",
     data: {
       company_id: COMPANY,
-      access_token: `tok_test_${Date.now()}`,
+      access_token: WHOP_API_KEY || `tok_test_${Date.now()}`,
       experience_id: `exp_test_${Date.now()}`,
       plan: "free",
       installed_at: nowIso,
