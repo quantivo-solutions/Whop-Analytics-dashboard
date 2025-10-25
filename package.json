@@ -1,0 +1,51 @@
+{
+  "name": "analyticsdashboard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "email:test": "tsx scripts/send-weekly-report.ts",
+    "email:send": "tsx scripts/send-weekly-report.ts",
+    "test:integration": "tsx examples/test-integration.ts",
+    "test:email": "tsx examples/test-integration.ts --send"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^6.18.0",
+    "@types/node": "^24.9.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.548.0",
+    "next": "^16.0.0",
+    "pg": "^8.16.3",
+    "prisma": "^6.18.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "resend": "^6.2.2",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.3.1",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.38.0",
+    "eslint-config-next": "^16.0.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.20.6"
+  }
+}

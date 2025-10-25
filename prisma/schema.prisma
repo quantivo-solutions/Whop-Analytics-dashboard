@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model MetricsDaily {
+  id            String   @id
+  date          DateTime @unique
+  grossRevenue  Float
+  activeMembers Int
+  newMembers    Int
+  cancellations Int
+  trialsStarted Int
+  trialsPaid    Int
+  createdAt     DateTime @default(now())
+}
+
+model WorkspaceSettings {
+  id             String   @id
+  reportEmail    String
+  weeklyEmail    Boolean  @default(true)
+  dailyEmail     Boolean  @default(false)
+  discordWebhook String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+}

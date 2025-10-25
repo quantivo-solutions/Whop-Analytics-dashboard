@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/report/weekly?secret=YOUR_CRON_SECRET_HERE",
+      "schedule": "0 9 * * 0"
+    }
+  ]
+}
+
