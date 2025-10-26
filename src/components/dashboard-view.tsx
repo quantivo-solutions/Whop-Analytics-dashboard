@@ -9,6 +9,7 @@ import type { DashboardData } from '@/lib/metrics'
 import type { Plan } from '@/lib/plan'
 import { getPlanFeatures, hasPro } from '@/lib/plan'
 import { ProFeatureLock } from './pro-feature-lock'
+import { SimpleChart } from './simple-chart'
 
 interface DashboardViewProps {
   data: DashboardData
@@ -152,25 +153,9 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
         </div>
       )}
 
-      {/* Chart preview */}
+      {/* Charts */}
       {hasData && (
-        <Card>
-          <CardHeader>
-            <CardTitle>30-Day Trend Data</CardTitle>
-            <CardDescription>
-              Revenue and member metrics over the last {series.length} days (ready for charting)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm text-muted-foreground">
-              <p>📊 Chart data loaded: {series.length} records</p>
-              <p>📅 Date range: {dateRange}</p>
-              <p className="mt-2 text-xs">
-                Data includes: grossRevenue, activeMembers, newMembers, cancellations, trialsPaid
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <SimpleChart data={series} />
       )}
 
       {/* Pro features section */}
