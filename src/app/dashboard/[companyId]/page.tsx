@@ -60,12 +60,12 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Warning if no installation */}
-        {!installation && (
-          <Card className="mb-6 border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
+        {/* Info if no installation (test/demo company) */}
+        {!installation && !companyId.includes('demo') && (
+          <Card className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
             <CardContent className="pt-6">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                ⚠️ No active installation found for this company. Data shown is from the database only.
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                ℹ️ Test company - showing historical data from database.
               </p>
             </CardContent>
           </Card>
