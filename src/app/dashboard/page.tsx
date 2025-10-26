@@ -40,15 +40,16 @@ export default async function Dashboard() {
         />
         
         <div className="container mx-auto p-6">
+          {/* Company Header */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Logged in as: <span className="font-semibold text-foreground">{companyId}</span>
+            </p>
+          </div>
+
           {/* Dashboard view */}
           <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
-
-          {/* Company info footer - for debugging */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-8 text-xs text-muted-foreground text-center">
-              Dev Mode: Viewing {companyId} • Plan: {plan.toUpperCase()}
-            </div>
-          )}
         </div>
       </div>
     )
