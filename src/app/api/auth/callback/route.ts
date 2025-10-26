@@ -89,9 +89,15 @@ export async function GET(request: Request) {
       installation = await prisma.whopInstallation.create({
         data: {
           companyId,
-          accessToken,
+          accessToken: access_token,
           plan: 'free', // Default plan
         },
+      })
+    } else {
+      // Update access token if installation exists
+      await prisma.whopInstallation.update({
+        where: { companyId },
+        data: { accessToken: access_token },
       })
     }
 
