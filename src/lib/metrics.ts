@@ -55,13 +55,14 @@ export async function getCompanySeries(
       take: days,
     })
 
-    // Check if data is fresh (within last 24 hours)
+    // Check if data is fresh (within last 48 hours to account for timezone differences)
+    // Data is considered "LIVE" if it's from today or yesterday
     const now = new Date()
     const latestDate = latestMetric ? new Date(latestMetric.date) : null
     const hoursSinceLastSync = latestDate
       ? (now.getTime() - latestDate.getTime()) / (1000 * 60 * 60)
       : null
-    const isDataFresh = hoursSinceLastSync !== null && hoursSinceLastSync <= 24
+    const isDataFresh = hoursSinceLastSync !== null && hoursSinceLastSync <= 48
 
     // Build KPIs
     const kpis: DashboardKPIs = {
