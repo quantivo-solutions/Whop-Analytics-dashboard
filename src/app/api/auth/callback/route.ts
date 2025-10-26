@@ -25,46 +25,76 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/login?error=missing_params', request.url))
     }
 
-    // Exchange code for access token
-    const tokenResponse = await fetch('https://api.whop.com/oauth/token', {
+    // Log the incoming request for debugging
+    console.log('[OAuth] Callback received with code:', code?.substring(0, 10) + '...')
+    
+    // Exchange code for access token using Whop's OAuth endpoint
+    const tokenEndpoint = 'https://api.whop.com/api/v2/oauth/token'
+    const redirectUri = `${new URL(request.url).origin}/api/auth/callback`
+    
+    console.log('[OAuth] Token exchange request:', {
+      endpoint: tokenEndpoint,
+      client_id: process.env.NEXT_PUBLIC_WHOP_APP_ID,
+      redirect_uri: redirectUri,
+    })
+
+    const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
-        client_id: process.env.NEXT_PUBLIC_WHOP_APP_ID,
-        client_secret: process.env.WHOP_APP_SERVER_KEY,
-        code,
+      body: new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_WHOP_APP_ID!,
+        client_secret: process.env.WHOP_APP_SERVER_KEY!,
+        code: code,
         grant_type: 'authorization_code',
-        redirect_uri: `${new URL(request.url).origin}/api/auth/callback`,
-      }),
+        redirect_uri: redirectUri,
+      }).toString(),
     })
 
     if (!tokenResponse.ok) {
-      console.error('Token exchange failed:', await tokenResponse.text())
-      return NextResponse.redirect(new URL('/login?error=token_exchange_failed', request.url))
+      const errorText = await tokenResponse.text()
+      console.error('[OAuth] Token exchange failed:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        body: errorText,
+      })
+      return NextResponse.redirect(new URL(`/login?error=token_exchange_failed&details=${encodeURIComponent(errorText)}`, request.url))
     }
 
     const tokenData = await tokenResponse.json()
+    console.log('[OAuth] Token received, type:', tokenData.token_type)
     const accessToken = tokenData.access_token
 
-    // Get user info from Whop
-    const userResponse = await fetch('https://api.whop.com/api/v5/me', {
+    if (!accessToken) {
+      console.error('[OAuth] No access token in response:', tokenData)
+      return NextResponse.redirect(new URL('/login?error=no_access_token', request.url))
+    }
+
+    // Get user info from Whop using the access token
+    const userResponse = await fetch('https://api.whop.com/api/v2/me', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
       },
     })
 
     if (!userResponse.ok) {
-      console.error('Failed to fetch user info:', await userResponse.text())
+      const errorText = await userResponse.text()
+      console.error('[OAuth] Failed to fetch user info:', {
+        status: userResponse.status,
+        body: errorText,
+      })
       return NextResponse.redirect(new URL('/login?error=user_fetch_failed', request.url))
     }
 
     const userData = await userResponse.json()
+    console.log('[OAuth] User data received:', {
+      id: userData.id,
+      hasCompany: !!userData.company_id,
+    })
     
-    // For Whop apps, we need to get the company ID from the user's companies
-    // In a real implementation, you'd select the appropriate company
-    const companyId = userData.company_id || userData.id
+    // Extract company ID from user data
+    const companyId = userData.company_id || userData.id || `user_${userData.id}`
 
     if (!companyId) {
       return NextResponse.redirect(new URL('/login?error=no_company', request.url))
