@@ -15,24 +15,28 @@ function LoginContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
 
-  const handleLogin = () => {
-    // Redirect to Whop OAuth
-    const whopAppId = process.env.NEXT_PUBLIC_WHOP_APP_ID
-    if (!whopAppId) {
-      alert('Whop App ID not configured')
-      return
+  const handleLogin = async () => {
+    try {
+      // Call our API route to generate OAuth URL using Whop SDK
+      const redirectUri = `${window.location.origin}/api/auth/callback`
+      const response = await fetch(`/api/auth/init?redirect_uri=${encodeURIComponent(redirectUri)}`)
+      
+      if (!response.ok) {
+        alert('Failed to initialize OAuth. Please try again.')
+        return
+      }
+
+      const { url, state } = await response.json()
+      
+      // Store state in sessionStorage for verification (optional)
+      sessionStorage.setItem('oauth_state', state)
+
+      // Redirect to Whop OAuth page
+      window.location.href = url
+    } catch (error) {
+      console.error('Login error:', error)
+      alert('Failed to start login process. Please try again.')
     }
-
-    // Build OAuth URL
-    const redirectUri = `${window.location.origin}/api/auth/callback`
-    const state = Math.random().toString(36).substring(7)
-    
-    // Store state in sessionStorage for verification
-    sessionStorage.setItem('oauth_state', state)
-
-    const authUrl = `https://whop.com/oauth?client_id=${whopAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`
-    
-    window.location.href = authUrl
   }
 
   return (

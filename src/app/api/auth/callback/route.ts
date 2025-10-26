@@ -1,11 +1,12 @@
 /**
  * Whop OAuth Callback Handler
- * Exchanges authorization code for access token and creates session
+ * Uses Whop SDK to exchange authorization code for access token and creates session
  */
 
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
+import { whopSdk } from '@/lib/whop-sdk'
 
 export const runtime = 'nodejs'
 
@@ -28,64 +29,28 @@ export async function GET(request: Request) {
     // Log the incoming request for debugging
     console.log('[OAuth] Callback received with code:', code?.substring(0, 10) + '...')
     
-    // Exchange code for access token using Whop's OAuth endpoint
-    // Try the root OAuth endpoint (not /api/v2/)
-    const tokenEndpoint = 'https://api.whop.com/oauth/token'
     const redirectUri = `${new URL(request.url).origin}/api/auth/callback`
     
-    // Check if server key is available
-    const serverKey = process.env.WHOP_APP_SERVER_KEY
-    if (!serverKey) {
-      console.error('[OAuth] WHOP_APP_SERVER_KEY is not set!')
-      return NextResponse.redirect(new URL('/login?error=server_key_missing', request.url))
-    }
+    console.log('[OAuth] Using Whop SDK to exchange code')
 
-    console.log('[OAuth] Token exchange request:', {
-      endpoint: tokenEndpoint,
-      client_id: process.env.NEXT_PUBLIC_WHOP_APP_ID,
-      redirect_uri: redirectUri,
-      hasServerKey: !!serverKey,
-      serverKeyLength: serverKey.length,
+    // Use Whop SDK to exchange code for token (per official docs)
+    const authResponse = await whopSdk.oauth.exchangeCode({
+      code,
+      redirectUri,
     })
 
-    // Try sending client credentials in body (Whop might prefer this over Basic Auth)
-    const tokenResponse = await fetch(tokenEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_WHOP_APP_ID!,
-        client_secret: serverKey,
-        code: code,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-      }).toString(),
-    })
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      console.error('[OAuth] Token exchange failed:', {
-        status: tokenResponse.status,
-        statusText: tokenResponse.statusText,
-        body: errorText,
-      })
-      return NextResponse.redirect(new URL(`/login?error=token_exchange_failed&details=${encodeURIComponent(errorText)}`, request.url))
+    if (!authResponse.ok) {
+      console.error('[OAuth] Code exchange failed:', authResponse.error)
+      return NextResponse.redirect(new URL(`/login?error=code_exchange_failed`, request.url))
     }
 
-    const tokenData = await tokenResponse.json()
-    console.log('[OAuth] Token received, type:', tokenData.token_type)
-    const accessToken = tokenData.access_token
+    const { access_token } = authResponse.tokens
+    console.log('[OAuth] Token exchange successful')
 
-    if (!accessToken) {
-      console.error('[OAuth] No access token in response:', tokenData)
-      return NextResponse.redirect(new URL('/login?error=no_access_token', request.url))
-    }
-
-    // Get user info from Whop using the access token
-    const userResponse = await fetch('https://api.whop.com/api/v2/me', {
+    // Get user info using the SDK
+    const userResponse = await fetch('https://api.whop.com/api/v5/me', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${access_token}`,
       },
     })
 
