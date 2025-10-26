@@ -17,8 +17,11 @@ const publicApiRoutes = [
   '/api/report/weekly',
 ]
 
+// Routes accessible from Whop iframe (no session required)
+const whopIframeRoutes = ['/experiences', '/dashboard']
+
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, searchParams } = request.nextUrl
   
   // Allow public routes
   if (publicRoutes.some(route => pathname.startsWith(route))) {
@@ -30,11 +33,25 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Allow Whop iframe routes (they handle their own auth via companyId/experienceId)
+  if (whopIframeRoutes.some(route => pathname.startsWith(route))) {
+    console.log('[Middleware] Allowing Whop iframe route:', pathname)
+    return NextResponse.next()
+  }
+
   // Check for session cookie
   const sessionCookie = request.cookies.get('whop_session')
   
   if (!sessionCookie) {
-    // Redirect to login if no session
+    // Check if this looks like a Whop iframe request (has companyId or experienceId in URL)
+    const hasWhopContext = searchParams.get('experienceId') || searchParams.get('companyId') || searchParams.get('company_id')
+    
+    if (hasWhopContext) {
+      console.log('[Middleware] Allowing request with Whop context params')
+      return NextResponse.next()
+    }
+    
+    // No session and no Whop context, redirect to login
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
   }
