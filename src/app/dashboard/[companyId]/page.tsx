@@ -1,17 +1,25 @@
 /**
  * Company-scoped dashboard page
- * Useful for direct links and support
+ * PROTECTED: Requires authentication token or Whop iframe context
+ * 
+ * Access methods:
+ * 1. Via secret token: ?token=CRON_SECRET
+ * 2. Via Whop iframe embedding (for experiences)
+ * 3. Demo companies (public)
+ * 4. Development mode (all access allowed)
  */
 
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, Lock } from 'lucide-react'
 import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries, getInstallationByCompany } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButton } from '@/components/upgrade-button'
+import { canAccessCompany } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,12 +29,55 @@ interface PageProps {
   params: {
     companyId: string
   }
+  searchParams: {
+    token?: string
+  }
 }
 
-export default async function CompanyDashboardPage({ params }: PageProps) {
+export default async function CompanyDashboardPage({ params, searchParams }: PageProps) {
   const { companyId } = params
+  const { token } = searchParams
 
-  // Fetch installation, dashboard data, and plan
+  // 🔒 SECURITY CHECK: Verify user has permission to access this company's data
+  const accessCheck = await canAccessCompany(companyId, token)
+  
+  if (!accessCheck.allowed) {
+    // User is not authorized - show access denied page
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="max-w-md border-red-200 dark:border-red-800">
+          <CardContent className="pt-6 text-center space-y-4">
+            <div className="rounded-full bg-red-100 dark:bg-red-950 p-3 w-12 h-12 mx-auto flex items-center justify-center">
+              <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-2xl font-bold">Access Denied</h2>
+            <p className="text-muted-foreground">
+              You don't have permission to view this company's dashboard.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Company ID: <code className="text-xs bg-muted px-2 py-1 rounded">{companyId}</code>
+            </p>
+            <div className="pt-4 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                If you own this company, access your dashboard via:
+              </p>
+              <ul className="text-xs text-muted-foreground text-left list-disc list-inside space-y-1">
+                <li>Your Whop experience page (embedded view)</li>
+                <li>The main <Link href="/dashboard" className="text-primary hover:underline">dashboard</Link></li>
+              </ul>
+            </div>
+            <div className="pt-4">
+              <Link href="/dashboard">
+                <Button>Go to Dashboard</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // User is authorized - fetch and display data
   const [installation, dashboardData, plan] = await Promise.all([
     getInstallationByCompany(companyId),
     getCompanySeries(companyId, 30),
@@ -82,6 +133,11 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
               {installation.experienceId && ` • Experience: ${installation.experienceId}`}
               {installation.plan && ` • Plan: ${installation.plan}`}
             </>
+          )}
+          {accessCheck.reason && (
+            <span className="block mt-2 text-green-600 dark:text-green-400">
+              🔒 Secure access via: {accessCheck.reason.replace('_', ' ')}
+            </span>
           )}
         </div>
       </div>
