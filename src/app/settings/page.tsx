@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { NavHeader } from '@/components/nav-header'
 import { Save, Mail, MessageSquare } from 'lucide-react'
 
 interface Settings {
@@ -82,6 +83,8 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <NavHeader />
+      
       <div className="container mx-auto p-6">
         <div className="mb-8 flex items-start justify-between">
           <div>

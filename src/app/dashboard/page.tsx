@@ -1,7 +1,5 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Settings } from "lucide-react"
 import { DashboardView } from "@/components/dashboard-view"
+import { NavHeader } from "@/components/nav-header"
 import { getCompanySeries } from "@/lib/metrics"
 import { getPlanForCompany, getUpgradeUrl } from "@/lib/plan"
 import { PlanBadge } from "@/components/plan-badge"
@@ -25,23 +23,16 @@ export default async function Dashboard() {
   ])
 
   const upgradeUrl = getUpgradeUrl()
+  
   return (
     <div className="min-h-screen bg-background">
+      <NavHeader
+        showPlanBadge={true}
+        planBadge={<PlanBadge plan={plan} />}
+        upgradeButton={plan === 'free' ? <UpgradeButton upgradeUrl={upgradeUrl} size="sm" /> : undefined}
+      />
+      
       <div className="container mx-auto p-6">
-        {/* Header with plan badge and actions */}
-        <div className="mb-4 flex items-center justify-between">
-          <PlanBadge plan={plan} />
-          <div className="flex items-center gap-2">
-            {plan === 'free' && <UpgradeButton upgradeUrl={upgradeUrl} size="sm" variant="outline" />}
-            <Link href="/settings">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Button>
-            </Link>
-          </div>
-        </div>
-
         {/* Dashboard view */}
         <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
 

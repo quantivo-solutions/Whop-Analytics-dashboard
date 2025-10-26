@@ -5,6 +5,7 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { NavHeader } from '@/components/nav-header'
 import { TrendingUp, BarChart3, Bell, ExternalLink } from 'lucide-react'
 import { env } from '@/lib/env'
 
@@ -14,6 +15,8 @@ export default function DiscoverPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
+      <NavHeader />
+      
       <div className="container mx-auto px-6 py-16">
         {/* Hero section */}
         <div className="max-w-3xl mx-auto text-center mb-16">
