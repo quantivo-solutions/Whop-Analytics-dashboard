@@ -8,6 +8,7 @@ import { cookies } from 'next/headers'
 export interface Session {
   companyId: string
   userId: string
+  username?: string
   exp: number
 }
 

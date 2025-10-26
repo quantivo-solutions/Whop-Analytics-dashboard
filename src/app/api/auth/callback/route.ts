@@ -69,11 +69,14 @@ export async function GET(request: Request) {
     const userData = await userResponse.json()
     console.log('[OAuth] User data received:', {
       id: userData.id,
+      username: userData.username,
+      email: userData.email,
       hasCompany: !!userData.company_id,
     })
     
-    // Extract company ID from user data
+    // Extract company ID and username from user data
     const companyId = userData.company_id || userData.id || `user_${userData.id}`
+    const username = userData.username || userData.email || userData.name || companyId
 
     if (!companyId) {
       return NextResponse.redirect(new URL('/login?error=no_company', request.url))
@@ -106,6 +109,7 @@ export async function GET(request: Request) {
     const sessionToken = Buffer.from(JSON.stringify({
       companyId,
       userId: userData.id,
+      username,
       exp: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
     })).toString('base64')
 
