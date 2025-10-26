@@ -47,18 +47,15 @@ export async function GET(request: Request) {
       serverKeyLength: serverKey.length,
     })
 
-    // Try with Basic Auth (standard OAuth2)
-    const basicAuth = Buffer.from(
-      `${process.env.NEXT_PUBLIC_WHOP_APP_ID}:${serverKey}`
-    ).toString('base64')
-
+    // Try sending client credentials in body (Whop might prefer this over Basic Auth)
     const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${basicAuth}`,
       },
       body: new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_WHOP_APP_ID!,
+        client_secret: serverKey,
         code: code,
         grant_type: 'authorization_code',
         redirect_uri: redirectUri,
