@@ -32,15 +32,24 @@ export async function GET(request: Request) {
     const tokenEndpoint = 'https://api.whop.com/api/v2/oauth/token'
     const redirectUri = `${new URL(request.url).origin}/api/auth/callback`
     
+    // Check if server key is available
+    const serverKey = process.env.WHOP_APP_SERVER_KEY
+    if (!serverKey) {
+      console.error('[OAuth] WHOP_APP_SERVER_KEY is not set!')
+      return NextResponse.redirect(new URL('/login?error=server_key_missing', request.url))
+    }
+
     console.log('[OAuth] Token exchange request:', {
       endpoint: tokenEndpoint,
       client_id: process.env.NEXT_PUBLIC_WHOP_APP_ID,
       redirect_uri: redirectUri,
+      hasServerKey: !!serverKey,
+      serverKeyLength: serverKey.length,
     })
 
     // Try with Basic Auth (standard OAuth2)
     const basicAuth = Buffer.from(
-      `${process.env.NEXT_PUBLIC_WHOP_APP_ID}:${process.env.WHOP_APP_SERVER_KEY}`
+      `${process.env.NEXT_PUBLIC_WHOP_APP_ID}:${serverKey}`
     ).toString('base64')
 
     const tokenResponse = await fetch(tokenEndpoint, {
