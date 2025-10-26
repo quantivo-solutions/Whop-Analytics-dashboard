@@ -29,7 +29,8 @@ export async function GET(request: Request) {
     console.log('[OAuth] Callback received with code:', code?.substring(0, 10) + '...')
     
     // Exchange code for access token using Whop's OAuth endpoint
-    const tokenEndpoint = 'https://api.whop.com/api/v2/oauth/token'
+    // Try the root OAuth endpoint (not /api/v2/)
+    const tokenEndpoint = 'https://api.whop.com/oauth/token'
     const redirectUri = `${new URL(request.url).origin}/api/auth/callback`
     
     // Check if server key is available
