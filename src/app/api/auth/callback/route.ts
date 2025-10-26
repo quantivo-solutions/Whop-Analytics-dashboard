@@ -38,14 +38,18 @@ export async function GET(request: Request) {
       redirect_uri: redirectUri,
     })
 
+    // Try with Basic Auth (standard OAuth2)
+    const basicAuth = Buffer.from(
+      `${process.env.NEXT_PUBLIC_WHOP_APP_ID}:${process.env.WHOP_APP_SERVER_KEY}`
+    ).toString('base64')
+
     const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${basicAuth}`,
       },
       body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_WHOP_APP_ID!,
-        client_secret: process.env.WHOP_APP_SERVER_KEY!,
         code: code,
         grant_type: 'authorization_code',
         redirect_uri: redirectUri,
