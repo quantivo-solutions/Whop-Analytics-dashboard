@@ -40,7 +40,10 @@ export async function GET(request: Request) {
     })
 
     if (!authResponse.ok) {
-      console.error('[OAuth] Code exchange failed:', authResponse.error)
+      console.error('[OAuth] Code exchange failed:', {
+        code: authResponse.code,
+        raw: authResponse.raw,
+      })
       return NextResponse.redirect(new URL(`/login?error=code_exchange_failed`, request.url))
     }
 
