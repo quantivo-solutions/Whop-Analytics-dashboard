@@ -38,8 +38,15 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   const { companyId } = params
   const { token } = searchParams
 
-  // 🔒 SECURITY CHECK: Verify user has permission to access this company's data
-  const accessCheck = await canAccessCompany(companyId, token)
+  // Wrap everything in try-catch for graceful error handling
+  let accessCheck
+  let installation
+  let dashboardData
+  let plan
+  
+  try {
+    // 🔒 SECURITY CHECK: Verify user has permission to access this company's data
+    accessCheck = await canAccessCompany(companyId, token)
   
   if (!accessCheck.allowed) {
     // User is not authorized - show access denied page
@@ -77,12 +84,51 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     )
   }
 
-  // User is authorized - fetch and display data
-  const [installation, dashboardData, plan] = await Promise.all([
-    getInstallationByCompany(companyId),
-    getCompanySeries(companyId, 30),
-    getPlanForCompany(companyId),
-  ])
+    // User is authorized - fetch and display data
+    ;[installation, dashboardData, plan] = await Promise.all([
+      getInstallationByCompany(companyId),
+      getCompanySeries(companyId, 30),
+      getPlanForCompany(companyId),
+    ])
+  } catch (error) {
+    // Log error for debugging
+    console.error('Error loading company dashboard:', error)
+    
+    // Show friendly error message to user
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="max-w-md border-red-200 dark:border-red-800">
+          <CardContent className="pt-6 text-center space-y-4">
+            <div className="rounded-full bg-red-100 dark:bg-red-950 p-3 w-12 h-12 mx-auto flex items-center justify-center">
+              <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-2xl font-bold">Unable to Load Dashboard</h2>
+            <p className="text-muted-foreground">
+              We encountered an issue while loading this company's dashboard.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Company ID: <code className="text-xs bg-muted px-2 py-1 rounded">{companyId}</code>
+            </p>
+            <div className="pt-4 flex flex-col gap-2">
+              <Link href={`/dashboard/${companyId}${token ? `?token=${token}` : ''}`}>
+                <Button variant="default" className="w-full">
+                  Try Again
+                </Button>
+              </Link>
+              <Link href="/dashboard">
+                <Button variant="outline" className="w-full">
+                  Go to Main Dashboard
+                </Button>
+              </Link>
+            </div>
+            <p className="text-xs text-muted-foreground pt-2">
+              If this issue persists, please contact support.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const upgradeUrl = getUpgradeUrl()
 

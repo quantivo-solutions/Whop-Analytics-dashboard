@@ -52,30 +52,41 @@ export async function canAccessCompany(
   companyId: string,
   token?: string | null
 ): Promise<{ allowed: boolean; reason?: string }> {
-  // Option 1: Valid secret token (for admin/support access)
-  if (token && await validateSecretToken(token)) {
-    return { allowed: true, reason: 'admin_token' }
-  }
-  
-  // Option 2: Request from Whop iframe (for embedded views)
-  if (await isWhopIframeRequest()) {
-    return { allowed: true, reason: 'whop_iframe' }
-  }
-  
-  // Option 3: Demo company (public access for testing)
-  if (companyId === 'demo_company' || companyId.includes('demo')) {
-    return { allowed: true, reason: 'demo_company' }
-  }
-  
-  // Option 4: Test companies in development mode
-  if (process.env.NODE_ENV === 'development') {
-    return { allowed: true, reason: 'development_mode' }
-  }
-  
-  // Default: deny access
-  return { 
-    allowed: false, 
-    reason: 'unauthorized' 
+  try {
+    // Option 1: Valid secret token (for admin/support access)
+    if (token && await validateSecretToken(token)) {
+      return { allowed: true, reason: 'admin_token' }
+    }
+    
+    // Option 2: Request from Whop iframe (for embedded views)
+    if (await isWhopIframeRequest()) {
+      return { allowed: true, reason: 'whop_iframe' }
+    }
+    
+    // Option 3: Demo company (public access for testing)
+    if (companyId === 'demo_company' || companyId.includes('demo')) {
+      return { allowed: true, reason: 'demo_company' }
+    }
+    
+    // Option 4: Test companies in development mode
+    if (process.env.NODE_ENV === 'development') {
+      return { allowed: true, reason: 'development_mode' }
+    }
+    
+    // Default: deny access
+    return { 
+      allowed: false, 
+      reason: 'unauthorized' 
+    }
+  } catch (error) {
+    // Log error but don't expose details to user
+    console.error('Error checking company access:', error)
+    
+    // In case of error, deny access for security
+    return { 
+      allowed: false, 
+      reason: 'error' 
+    }
   }
 }
 
