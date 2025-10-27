@@ -6,12 +6,12 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowRight, Settings } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries, getInstallationByExperience } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { PlanBadge } from '@/components/plan-badge'
-import { UpgradeButton } from '@/components/upgrade-button'
+import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { ErrorDisplay } from '@/components/error-boundary'
 
 export const runtime = 'nodejs'
@@ -69,19 +69,17 @@ export default async function ExperienceDashboardPage({ params }: PageProps) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto p-6">
-          {/* Header with plan badge and actions */}
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <PlanBadge plan={plan} />
+          {/* Header - Whop iframe context (no nav, no settings) */}
+          <div className="mb-6 flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
+              <p className="text-muted-foreground mt-1">
+                Company: <span className="font-semibold text-foreground">{installation.companyId}</span>
+              </p>
             </div>
             <div className="flex items-center gap-2">
-              {plan === 'free' && <UpgradeButton upgradeUrl={upgradeUrl} size="sm" variant="outline" />}
-              <Link href="/settings">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Button>
-              </Link>
+              <PlanBadge plan={plan} />
+              <UpgradeButtonIframe upgradeUrl={upgradeUrl} plan={plan} />
             </div>
           </div>
 
