@@ -11,13 +11,23 @@ export function UpgradeButtonIframe({ upgradeUrl, plan }: UpgradeButtonIframePro
   if (plan !== 'free') return null
 
   const handleUpgrade = () => {
-    // If in iframe, navigate parent window to upgrade page
-    // This breaks out of the iframe to show Whop's payment flow
-    if (window.parent !== window) {
-      window.parent.location.href = upgradeUrl
-    } else {
-      // Fallback: open in new tab
-      window.open(upgradeUrl, '_blank')
+    // Try multiple methods to break out of iframe
+    try {
+      // Method 1: Use _top target (breaks out of all frames)
+      window.open(upgradeUrl, '_top')
+    } catch (e) {
+      try {
+        // Method 2: Navigate parent
+        if (window.parent !== window) {
+          window.parent.location.href = upgradeUrl
+        } else {
+          // Method 3: Navigate top-level window
+          window.top!.location.href = upgradeUrl
+        }
+      } catch (err) {
+        // Fallback: open in new tab
+        window.open(upgradeUrl, '_blank')
+      }
     }
   }
 

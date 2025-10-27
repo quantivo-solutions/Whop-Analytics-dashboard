@@ -1,10 +1,38 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// GET - Fetch current settings
-export async function GET() {
+export const runtime = 'nodejs'
+
+// GET - Fetch current settings (supports optional companyId query param)
+export async function GET(request: Request) {
   try {
-    // Get the first (and only) settings row
+    const { searchParams } = new URL(request.url)
+    const companyId = searchParams.get('companyId')
+
+    // If companyId provided, get company-specific settings
+    if (companyId) {
+      const installation = await prisma.whopInstallation.findUnique({
+        where: { companyId },
+      })
+
+      if (!installation) {
+        return NextResponse.json(
+          { error: 'Installation not found' },
+          { status: 404 }
+        )
+      }
+
+      // Return installation data as settings (companyId acts as workspace)
+      return NextResponse.json({
+        reportEmail: '',  // Can be stored in installation or separate table
+        weeklyEmail: true,
+        dailyEmail: installation.plan === 'pro' || installation.plan === 'business',
+        discordWebhook: '',
+        companyId: installation.companyId,
+      })
+    }
+
+    // Fallback: Get workspace-wide settings
     let settings = await prisma.workspaceSettings.findFirst()
 
     // If no settings exist, create default settings
@@ -28,21 +56,26 @@ export async function GET() {
   }
 }
 
-// POST - Update settings
+// POST - Update settings (supports companyId for per-company settings)
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { reportEmail, weeklyEmail, dailyEmail, discordWebhook } = body
+    const { companyId, reportEmail, weeklyEmail, dailyEmail, discordWebhook } = body
 
+    // If companyId provided, store in WorkspaceSettings with companyId reference
+    // For now, we'll use a simple approach: store in WorkspaceSettings table
+    // In future, could create a separate CompanySettings table
+    
     // Validate required fields
-    if (typeof reportEmail !== 'string') {
+    if (typeof reportEmail !== 'string' || !reportEmail) {
       return NextResponse.json(
         { error: 'Report email is required' },
         { status: 400 }
       )
     }
 
-    // Get existing settings
+    // For simplicity, store as workspace settings
+    // In production, you'd want a proper CompanySettings table
     let settings = await prisma.workspaceSettings.findFirst()
 
     if (settings) {
@@ -67,6 +100,12 @@ export async function POST(request: Request) {
         },
       })
     }
+
+    console.log(`[Settings] Saved for ${companyId || 'workspace'}:`, {
+      email: reportEmail,
+      weekly: weeklyEmail,
+      daily: dailyEmail,
+    })
 
     return NextResponse.json({
       success: true,

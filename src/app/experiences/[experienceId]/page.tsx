@@ -13,6 +13,7 @@ import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { ErrorDisplay } from '@/components/error-boundary'
+import { DashboardSettingsInline } from '@/components/dashboard-settings-inline'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -99,6 +100,11 @@ export default async function ExperienceDashboardPage({ params }: PageProps) {
 
           {/* Dashboard view */}
           <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
+
+          {/* Settings Panel */}
+          <div className="mt-8">
+            <DashboardSettingsInline companyId={installation.companyId} />
+          </div>
 
           {/* Subtle footer with installation info */}
           <div className="mt-12 pt-6 border-t border-border/50">
