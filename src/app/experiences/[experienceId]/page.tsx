@@ -6,7 +6,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, AlertCircle } from 'lucide-react'
 import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries, getInstallationByExperience } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
@@ -38,7 +38,7 @@ export default async function ExperienceDashboardPage({ params }: PageProps) {
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center space-y-4">
             <div className="rounded-full bg-muted p-3 w-12 h-12 mx-auto flex items-center justify-center">
-              <Settings className="h-6 w-6 text-muted-foreground" />
+              <AlertCircle className="h-6 w-6 text-muted-foreground" />
             </div>
             <h2 className="text-2xl font-bold">Installation Not Found</h2>
             <p className="text-muted-foreground">
@@ -67,29 +67,45 @@ export default async function ExperienceDashboardPage({ params }: PageProps) {
     const upgradeUrl = getUpgradeUrl()
 
     return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-6">
-          {/* Header - Whop iframe context (no nav, no settings) */}
-          <div className="mb-6 flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
-              <p className="text-muted-foreground mt-1">
-                Company: <span className="font-semibold text-foreground">{installation.companyId}</span>
-              </p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+        <div className="container mx-auto p-6 max-w-7xl">
+          {/* Professional Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  Analytics Dashboard
+                </h1>
+                <p className="text-muted-foreground mt-2 text-lg">
+                  Real-time insights into your Whop business performance
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <PlanBadge plan={plan} />
+                <UpgradeButtonIframe upgradeUrl={upgradeUrl} plan={plan} />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <PlanBadge plan={plan} />
-              <UpgradeButtonIframe upgradeUrl={upgradeUrl} plan={plan} />
-            </div>
+            
+            {/* Plan benefits banner for free users */}
+            {plan === 'free' && (
+              <div className="mt-4 p-4 rounded-lg border border-primary/20 bg-primary/5">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">🚀 Unlock more with Pro:</span>
+                  {' '}Daily email reports, Discord alerts, extended analytics history, and priority support
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Dashboard view */}
           <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
 
-          {/* Installation info (for debugging/support) */}
-          <div className="mt-8 text-xs text-muted-foreground text-center">
-            Experience: {installation.experienceId} • Company: {installation.companyId}
-            {installation.plan && ` • Plan: ${installation.plan}`}
+          {/* Subtle footer with installation info */}
+          <div className="mt-12 pt-6 border-t border-border/50">
+            <p className="text-xs text-muted-foreground text-center">
+              Connected to {installation.companyId}
+              {installation.experienceId && ` • Experience: ${installation.experienceId}`}
+            </p>
           </div>
         </div>
       </div>
