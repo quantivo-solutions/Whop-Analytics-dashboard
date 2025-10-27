@@ -26,17 +26,17 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 interface PageProps {
-  params: {
+  params: Promise<{
     companyId: string
-  }
-  searchParams: {
+  }>
+  searchParams: Promise<{
     token?: string
-  }
+  }>
 }
 
 export default async function CompanyDashboardPage({ params, searchParams }: PageProps) {
-  const { companyId } = params
-  const { token } = searchParams
+  const { companyId } = await params
+  const { token } = await searchParams
 
   // Wrap everything in try-catch for graceful error handling
   let accessCheck

@@ -11,17 +11,18 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     experienceId?: string
     companyId?: string
     company_id?: string
-  }
+  }>
 }
 
 export default async function Home({ searchParams }: PageProps) {
   // Check if we're in Whop iframe context (has experienceId or companyId)
-  const experienceId = searchParams.experienceId
-  const companyId = searchParams.companyId || searchParams.company_id
+  const params = await searchParams
+  const experienceId = params.experienceId
+  const companyId = params.companyId || params.company_id
   
   // If opened from Whop with experienceId, redirect to experience dashboard
   if (experienceId) {

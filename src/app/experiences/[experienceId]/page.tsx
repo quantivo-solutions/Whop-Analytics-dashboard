@@ -19,13 +19,13 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 interface PageProps {
-  params: {
+  params: Promise<{
     experienceId: string
-  }
+  }>
 }
 
 export default async function ExperienceDashboardPage({ params }: PageProps) {
-  const { experienceId } = params
+  const { experienceId } = await params
 
   try {
     // Look up installation by experienceId
