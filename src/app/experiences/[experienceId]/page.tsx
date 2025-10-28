@@ -23,10 +23,14 @@ interface PageProps {
   params: Promise<{
     experienceId: string
   }>
+  searchParams: Promise<{
+    token?: string
+  }>
 }
 
-export default async function ExperienceDashboardPage({ params }: PageProps) {
+export default async function ExperienceDashboardPage({ params, searchParams }: PageProps) {
   const { experienceId } = await params
+  const { token } = await searchParams
 
   try {
     // Look up installation by experienceId
@@ -48,7 +52,7 @@ export default async function ExperienceDashboardPage({ params }: PageProps) {
             <p className="text-sm text-muted-foreground">
               Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
             </p>
-            <Link href="/login">
+            <Link href={`/login?experienceId=${experienceId}`}>
               <Button className="gap-2 w-full">
                 Login with Whop <ArrowRight className="h-4 w-4" />
               </Button>

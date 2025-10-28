@@ -13,10 +13,25 @@ export interface Session {
 }
 
 /**
- * Get current session from cookie
+ * Get current session from cookie or token parameter
+ * Supports both cookie-based auth (direct access) and token-based auth (iframe)
  */
-export async function getSession(): Promise<Session | null> {
+export async function getSession(token?: string | null): Promise<Session | null> {
   try {
+    // Try token first (for iframe contexts where cookies may be blocked)
+    if (token) {
+      try {
+        const sessionData = JSON.parse(Buffer.from(token, 'base64').toString())
+        if (sessionData.exp && sessionData.exp > Date.now()) {
+          console.log('[Session] Valid token auth for:', sessionData.companyId)
+          return sessionData
+        }
+      } catch (tokenError) {
+        console.warn('[Session] Invalid token:', tokenError)
+      }
+    }
+
+    // Fall back to cookie-based auth
     const cookieStore = await cookies()
     const sessionCookie = cookieStore.get('whop_session')
     
@@ -31,6 +46,7 @@ export async function getSession(): Promise<Session | null> {
       return null
     }
 
+    console.log('[Session] Valid cookie auth for:', sessionData.companyId)
     return sessionData
   } catch (error) {
     console.error('Failed to parse session:', error)
