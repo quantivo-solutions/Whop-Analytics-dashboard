@@ -1,0 +1,273 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   🐛 CRITICAL BUG: MULTI-TENANCY NOT WORKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Discovered By: User testing with second account
+Date: October 28, 2025
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 THE PROBLEM:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SYMPTOMS:
+─────────
+1. ❌ When second account logs in, sees same company ID as first account
+2. ❌ After upgrading to Pro, still shows "Free" plan
+3. ❌ Dashboard footer shows: "Connected to biz_CGpV4KE2L63BYD"
+   (This is YOUR company, not the new user's company!)
+4. ❌ All users share the SAME WhopInstallation record
+
+ROOT CAUSE:
+───────────
+The app is NOT properly isolating data per company!
+
+Two issues:
+1. Webhook `app.plan.updated` is not being sent by Whop when users
+   buy products directly (only works for app installations)
+
+2. The app is using OAuth login but treating product purchases
+   as app installations - they're different!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 UNDERSTANDING THE ISSUE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHOP HAS TWO DIFFERENT FLOWS:
+
+Flow 1: APP INSTALLATION (What we coded for)
+─────────────────────────────────────────────
+1. User installs app from Whop App Store
+2. Whop sends webhook: "app.installed"
+3. App creates WhopInstallation record
+4. User can then upgrade to Pro
+5. Whop sends webhook: "app.plan.updated"
+6. App updates the plan
+
+Flow 2: PRODUCT PURCHASE (What's actually happening!)
+──────────────────────────────────────────────────────
+1. User logs in with OAuth
+2. App creates WhopInstallation with default "free" plan
+3. User clicks "Upgrade to Pro"
+4. Goes to product page, buys it
+5. ⚠️  NO WEBHOOK SENT! (Product purchase != app plan update)
+6. User is charged, has Pro access on Whop
+7. But YOUR app still shows "Free" because no webhook was received!
+
+
+THE DISCONNECT:
+───────────────
+• Whop's "app.plan.updated" webhook is for APP installations
+• Direct product purchases use "membership" webhooks instead
+• We need to listen for membership.activated, membership.updated
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ THE FIX (Three Parts):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PART 1: Add Membership Webhooks
+────────────────────────────────
+Listen for these webhooks in /api/webhooks/whop:
+• membership.went_valid → User subscribed to Pro
+• membership.went_invalid → User cancelled/expired
+• membership.updated → Plan changed
+
+When membership.went_valid:
+1. Extract company_id from membership
+2. Extract product/plan from membership
+3. Update WhopInstallation.plan based on product
+
+
+PART 2: Map Products to Plans
+──────────────────────────────
+Create mapping of product IDs to plan names:
+
+Analytics Dashboard - Pro (pass_xxxxx) → plan: "pro"
+Analytics Dashboard - Business (pass_xxxxx) → plan: "business"
+No product → plan: "free"
+
+
+PART 3: Check Whop API on Login
+────────────────────────────────
+When user logs in:
+1. Get their company_id
+2. Call Whop API to check active memberships
+3. If they have "Analytics Dashboard - Pro" membership:
+   → Set plan to "pro"
+4. Else:
+   → Set plan to "free"
+
+This ensures plan is always in sync with Whop!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 IMPLEMENTATION STEPS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: Update Webhook Handler
+───────────────────────────────
+Add to /api/webhooks/whop/route.ts:
+
+case 'membership.went_valid':
+  await handleMembershipActivated(data)
+  break
+
+case 'membership.went_invalid':
+  await handleMembershipDeactivated(data)
+  break
+
+
+STEP 2: Add Membership Handlers
+────────────────────────────────
+async function handleMembershipActivated(data: any) {
+  const { user_id, company_id, product } = data
+  
+  // Map product to plan
+  let plan = 'free'
+  if (product.name.includes('Pro')) {
+    plan = 'pro'
+  } else if (product.name.includes('Business')) {
+    plan = 'business'
+  }
+  
+  // Update or create installation
+  await prisma.whopInstallation.upsert({
+    where: { companyId: company_id },
+    update: { plan },
+    create: {
+      companyId: company_id,
+      accessToken: '', // Can be empty for product-only users
+      plan,
+    },
+  })
+}
+
+
+STEP 3: Sync Plan on Login
+───────────────────────────
+Update /api/auth/callback/route.ts:
+
+// After getting userData and companyId
+const activeMemberships = await getActiveMemberships(access_token)
+const plan = determinePlan(activeMemberships)
+
+await prisma.whopInstallation.upsert({
+  where: { companyId },
+  update: { plan, accessToken: access_token },
+  create: { companyId, accessToken: access_token, plan },
+})
+
+
+STEP 4: Helper Function
+────────────────────────────────
+async function getActiveMemberships(accessToken: string) {
+  const response = await fetch('https://api.whop.com/api/v5/me/memberships', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  return response.json()
+}
+
+function determinePlan(memberships: any[]): string {
+  // Check if user has active Pro or Business membership
+  for (const membership of memberships) {
+    if (membership.product?.name?.includes('Pro')) {
+      return 'pro'
+    }
+    if (membership.product?.name?.includes('Business')) {
+      return 'business'
+    }
+  }
+  return 'free'
+}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 ALTERNATIVE (SIMPLER) SOLUTION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Instead of webhooks, CHECK PLAN ON EVERY PAGE LOAD:
+
+// In dashboard page
+const session = await getSession()
+const companyId = session.companyId
+const accessToken = session.accessToken // Store in session
+
+// Check Whop API for current memberships
+const memberships = await fetch('https://api.whop.com/api/v5/me/memberships', {
+  headers: { Authorization: `Bearer ${accessToken}` },
+})
+
+// Determine plan from memberships
+const plan = determinePlanFromMemberships(memberships)
+
+// Update database if changed
+await updatePlanIfNeeded(companyId, plan)
+
+This is simpler but makes an API call on every page load.
+Better for small-scale apps, less efficient for high traffic.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ IMMEDIATE WORKAROUND (For Testing):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+To test Pro features right now:
+
+1. Open Prisma Studio: npm run db:studio
+2. Find WhopInstallation record for test company
+3. Manually change plan to "pro"
+4. Refresh dashboard → should show Pro features!
+
+This confirms the plan gating works, just need to sync it properly.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 TESTING CHECKLIST (After Fix):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] User A logs in → sees their company ID (not yours!)
+[ ] User A on Free → dashboard shows "Free" badge
+[ ] User A upgrades to Pro → dashboard shows "Pro" badge
+[ ] User A gets Pro features (daily emails, Discord)
+[ ] User B logs in → sees THEIR company ID (different!)
+[ ] User B on Free → sees Free features only
+[ ] User B upgrades → gets Pro independently
+[ ] Both users coexist without interfering
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 RECOMMENDED APPROACH:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Use the SIMPLER solution (check API on login):
+✅ Easier to implement
+✅ Always accurate (syncs with Whop)
+✅ No webhook configuration needed
+✅ Works immediately
+
+Add webhooks later as optimization:
+• Reduces API calls
+• Faster updates
+• More scalable
+
+For now, let's get it working with API checks!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 NEXT STEPS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Implement plan sync in auth callback
+2. Store accessToken in session (need it for API calls)
+3. Add helper to check memberships
+4. Update plan on every login
+5. Test with multiple accounts
+6. Verify isolation
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Let's implement the fix now!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+

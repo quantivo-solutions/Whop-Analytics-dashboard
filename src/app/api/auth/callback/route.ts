@@ -82,26 +82,72 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/login?error=no_company', request.url))
     }
 
+    // 🔄 CRITICAL: Check Whop API for active memberships to sync plan
+    console.log('[OAuth] Fetching active memberships for plan sync...')
+    let userPlan = 'free' // Default
+    
+    try {
+      const membershipsResponse = await fetch('https://api.whop.com/api/v5/me/memberships', {
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+        },
+      })
+
+      if (membershipsResponse.ok) {
+        const membershipsData = await membershipsResponse.json()
+        const memberships = membershipsData.data || []
+        
+        console.log('[OAuth] Found', memberships.length, 'memberships')
+        
+        // Check for Pro or Business membership
+        for (const membership of memberships) {
+          const productName = membership.product?.name || ''
+          const status = membership.status
+          
+          // Only count valid/active memberships
+          if (status === 'active' || status === 'trialing') {
+            if (productName.includes('Pro')) {
+              userPlan = 'pro'
+              console.log('[OAuth] User has Pro membership')
+              break
+            } else if (productName.includes('Business')) {
+              userPlan = 'business'
+              console.log('[OAuth] User has Business membership')
+              break
+            }
+          }
+        }
+      }
+    } catch (membershipError) {
+      console.warn('[OAuth] Failed to fetch memberships, defaulting to free:', membershipError)
+      // Continue with free plan if API call fails
+    }
+
     // Check if installation exists for this company
     let installation = await prisma.whopInstallation.findUnique({
       where: { companyId },
     })
 
-    // If no installation, create one
+    // Upsert installation with synced plan
     if (!installation) {
       installation = await prisma.whopInstallation.create({
         data: {
           companyId,
           accessToken: access_token,
-          plan: 'free', // Default plan
+          plan: userPlan,
         },
       })
+      console.log(`[OAuth] Created new installation for ${companyId} with plan: ${userPlan}`)
     } else {
-      // Update access token if installation exists
+      // Update access token AND plan
       await prisma.whopInstallation.update({
         where: { companyId },
-        data: { accessToken: access_token },
+        data: { 
+          accessToken: access_token,
+          plan: userPlan, // Sync plan from Whop
+        },
       })
+      console.log(`[OAuth] Updated installation for ${companyId} with plan: ${userPlan}`)
     }
 
     // Create session cookie

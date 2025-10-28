@@ -65,6 +65,17 @@ export async function POST(request: Request) {
         await handlePlanUpdated(data)
         break
       
+      // Handle product membership events (for direct purchases)
+      case 'membership.went_valid':
+      case 'membership.activated':
+        await handleMembershipActivated(data)
+        break
+      
+      case 'membership.went_invalid':
+      case 'membership.cancelled':
+        await handleMembershipCancelled(data)
+        break
+      
       default:
         console.log(`ℹ️  Unhandled webhook event: ${event}`)
     }
@@ -219,5 +230,74 @@ async function triggerBackfill(companyId: string) {
     console.error(`❌ Backfill error for companyId=${companyId}:`, error)
     throw error
   }
+}
+
+/**
+ * Handle membership.went_valid event
+ * This fires when a user subscribes to a product (Pro/Business)
+ */
+async function handleMembershipActivated(data: any) {
+  const { user, product, company_id, status } = data
+
+  if (!user?.id && !company_id) {
+    console.error('Missing user or company_id in membership webhook')
+    return
+  }
+
+  // Use company_id if available, otherwise fall back to user.id
+  const companyId = company_id || user.id
+
+  // Determine plan from product name
+  const productName = product?.name || ''
+  let plan = 'free'
+  
+  if (productName.includes('Pro')) {
+    plan = 'pro'
+  } else if (productName.includes('Business')) {
+    plan = 'business'
+  }
+
+  console.log(`[WHOP] membership activated: company=${companyId} product="${productName}" → plan=${plan}`)
+
+  // Update or create installation
+  await prisma.whopInstallation.upsert({
+    where: { companyId },
+    update: {
+      plan,
+      updatedAt: new Date(),
+    },
+    create: {
+      companyId,
+      accessToken: '', // OAuth users already have token, app installs get it separately
+      plan,
+    },
+  })
+}
+
+/**
+ * Handle membership.went_invalid event
+ * This fires when a user cancels or subscription expires
+ */
+async function handleMembershipCancelled(data: any) {
+  const { user, company_id } = data
+
+  if (!user?.id && !company_id) {
+    console.error('Missing user or company_id in membership cancellation webhook')
+    return
+  }
+
+  const companyId = company_id || user.id
+
+  console.log(`[WHOP] membership cancelled: company=${companyId} → reverting to free`)
+
+  // Check if user has any other active Pro/Business memberships
+  // For now, just set to free - could enhance to check all memberships
+  await prisma.whopInstallation.update({
+    where: { companyId },
+    data: {
+      plan: 'free',
+      updatedAt: new Date(),
+    },
+  })
 }
 
