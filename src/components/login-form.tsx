@@ -15,23 +15,23 @@ export function LoginForm() {
       // Call our API route to generate OAuth URL
       // The server will automatically determine the correct redirect URI based on the request origin
       // Pass experienceId if present (from Whop iframe context)
-      const url = experienceId 
+      const apiUrl = experienceId 
         ? `/api/auth/init?experienceId=${encodeURIComponent(experienceId)}`
         : `/api/auth/init`
-      const response = await fetch(url)
+      const response = await fetch(apiUrl)
       
       if (!response.ok) {
         alert('Failed to initialize OAuth. Please try again.')
         return
       }
 
-      const { url, state } = await response.json()
+      const { url: oauthUrl, state } = await response.json()
       
       // Store state in sessionStorage for verification (optional)
       sessionStorage.setItem('oauth_state', state)
 
       // Redirect to Whop OAuth page
-      window.location.href = url
+      window.location.href = oauthUrl
     } catch (error) {
       console.error('Login error:', error)
       alert('Failed to start login process. Please try again.')
