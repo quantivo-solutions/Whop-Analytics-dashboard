@@ -44,9 +44,14 @@ export async function POST(request: Request) {
 
     // Parse body after verification
     const body = JSON.parse(rawBody)
+    
+    // Log the FULL raw body to see structure
+    console.log('📦 Raw webhook body:', JSON.stringify(body, null, 2))
+    
     const { event, data } = body
 
-    console.log(`📥 Whop webhook: ${event}`)
+    console.log(`📥 Whop webhook event: ${event}`)
+    console.log(`📦 Webhook data keys:`, Object.keys(data || {}))
 
     switch (event) {
       case 'app.installed':
