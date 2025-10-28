@@ -89,10 +89,10 @@ export async function GET(request: Request) {
     // Extract username from user data
     const username = userData.username || userData.email || userData.name || userData.id
     
-    // 🔧 CRITICAL FIX: Determine the correct company ID
-    // When logging in from an experience (Whop iframe), we need to use the company
-    // that OWNS the experience, not the user's personal company
-    let companyId: string | undefined
+    // 🔧 CRITICAL FIX: Determine the correct company ID for company apps
+    // For company apps, experienceId maps to an installation created by app.installed webhook
+    // We should look up the installation by experienceId to get the correct company_id
+    let companyId: string
     let experienceId: string | null = null
     
     // First, try to decode experienceId from state
@@ -110,46 +110,25 @@ export async function GET(request: Request) {
       console.warn('[OAuth] Failed to decode state:', e)
     }
     
-    // If we have an experienceId, get the company that owns it from memberships
+    // If we have an experienceId, this is a company app installation
+    // Look up the installation by experienceId to get the correct company_id
     if (experienceId) {
-      console.log('[OAuth] Iframe login detected, fetching company from experience...')
+      console.log('[OAuth] Company app login detected, looking up installation by experienceId...')
       
-      try {
-        // Fetch user's memberships to find which company this experience belongs to
-        const membershipsResponse = await fetch('https://api.whop.com/api/v5/me/memberships', {
-          headers: {
-            'Authorization': `Bearer ${access_token}`,
-          },
-        })
-        
-        if (membershipsResponse.ok) {
-          const membershipsData = await membershipsResponse.json()
-          const memberships = membershipsData.data || []
-          
-          // Find the membership that has our app and this experienceId
-          for (const membership of memberships) {
-            // Check if this membership is for our app (Analytics Dashboard)
-            const productName = membership.product?.name || ''
-            const experiences = membership.experiences || []
-            
-            // If this membership has the experienceId we're looking for
-            if (experiences.some((exp: any) => exp.id === experienceId)) {
-              // Use the company from this membership
-              companyId = membership.company_id || membership.id
-              console.log('[OAuth] Found company from experience:', companyId)
-              break
-            }
-          }
-        }
-        
-        // If we couldn't find the company from experience, fall back to user's company
-        if (!companyId) {
-          console.warn('[OAuth] Could not determine company from experience, using user company')
-          companyId = userData.company_id || userData.id
-        }
-      } catch (error) {
-        console.error('[OAuth] Error fetching company from experience:', error)
-        // Fall back to user's company
+      const existingInstallation = await prisma.whopInstallation.findFirst({
+        where: { experienceId }
+      })
+      
+      if (existingInstallation) {
+        // Found installation - use its company_id
+        companyId = existingInstallation.companyId
+        console.log('[OAuth] Found existing installation, companyId:', companyId)
+      } else {
+        // No installation found - this shouldn't happen!
+        // The app.installed webhook should have created it before user logs in
+        console.error('[OAuth] No installation found for experienceId:', experienceId)
+        console.log('[OAuth] This means app.installed webhook has not fired yet or failed')
+        console.log('[OAuth] Falling back to user company, but this may cause issues')
         companyId = userData.company_id || userData.id
       }
     } else {
