@@ -9,14 +9,19 @@ export function LoginForm() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
   const experienceId = searchParams.get('experienceId')
+  const companyId = searchParams.get('companyId') || searchParams.get('company_id')
 
   const handleLogin = async () => {
     try {
       // Call our API route to generate OAuth URL
       // The server will automatically determine the correct redirect URI based on the request origin
-      // Pass experienceId if present (from Whop iframe context)
-      const apiUrl = experienceId 
-        ? `/api/auth/init?experienceId=${encodeURIComponent(experienceId)}`
+      // Pass experienceId and companyId if present (from Whop iframe context)
+      const params = new URLSearchParams()
+      if (experienceId) params.set('experienceId', experienceId)
+      if (companyId) params.set('companyId', companyId)
+      
+      const apiUrl = params.toString() 
+        ? `/api/auth/init?${params.toString()}`
         : `/api/auth/init`
       const response = await fetch(apiUrl)
       

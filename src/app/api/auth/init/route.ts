@@ -20,13 +20,15 @@ export async function GET(request: Request) {
     // Check if we have context from the referrer (Whop iframe)
     const referrer = request.headers.get('referer') || ''
     const experienceId = searchParams.get('experienceId')
+    const companyId = searchParams.get('companyId') || searchParams.get('company_id')
     
-    console.log('[OAuth] Generating authorization URL, origin:', origin, 'redirectUri:', redirectUri, 'experienceId:', experienceId || 'none')
+    console.log('[OAuth] Generating authorization URL, origin:', origin, 'redirectUri:', redirectUri, 'experienceId:', experienceId || 'none', 'companyId:', companyId || 'none')
 
     // Generate a random state for CSRF protection and include context
     const stateData = {
       csrf: crypto.randomBytes(16).toString('hex'),
       experienceId: experienceId || null,
+      companyId: companyId || null,
       timestamp: Date.now(),
     }
     // Use base64 instead of base64url for compatibility

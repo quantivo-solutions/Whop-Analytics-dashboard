@@ -94,8 +94,9 @@ export async function GET(request: Request) {
     // We should look up the installation by experienceId to get the correct company_id
     let companyId: string
     let experienceId: string | null = null
+    let stateCompanyId: string | null = null
     
-    // First, try to decode experienceId from state
+    // First, try to decode experienceId and companyId from state
     try {
       if (state) {
         // Decode base64url back to base64
@@ -104,7 +105,8 @@ export async function GET(request: Request) {
         const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
         const stateData = JSON.parse(Buffer.from(paddedBase64, 'base64').toString())
         experienceId = stateData.experienceId || null
-        console.log('[OAuth] Decoded state, experienceId:', experienceId || 'none')
+        stateCompanyId = stateData.companyId || null
+        console.log('[OAuth] Decoded state, experienceId:', experienceId || 'none', 'companyId:', stateCompanyId || 'none')
       }
     } catch (e) {
       console.warn('[OAuth] Failed to decode state:', e)
@@ -115,16 +117,22 @@ export async function GET(request: Request) {
     if (experienceId) {
       console.log('[OAuth] Iframe login detected, determining company for experienceId:', experienceId)
       
-      // First, check if installation already exists
-      const existingInstallation = await prisma.whopInstallation.findFirst({
-        where: { experienceId }
-      })
-      
-      if (existingInstallation) {
-        // Found installation - use its company_id
-        companyId = existingInstallation.companyId
-        console.log('[OAuth] Found existing installation, companyId:', companyId)
-      } else {
+      // Priority 1: Use companyId from state if Whop provided it in URL
+      if (stateCompanyId) {
+        companyId = stateCompanyId
+        console.log('[OAuth] Using company ID from state (passed via URL):', companyId)
+      }
+      // Priority 2: Check if installation already exists
+      else {
+        const existingInstallation = await prisma.whopInstallation.findFirst({
+          where: { experienceId }
+        })
+        
+        if (existingInstallation) {
+          // Found installation - use its company_id
+          companyId = existingInstallation.companyId
+          console.log('[OAuth] Found existing installation, companyId:', companyId)
+        } else {
         // No installation found yet - need to get company_id from Whop
         // Try to fetch experience details from Whop API using user's access token
         console.log('[OAuth] No installation found, fetching company from Whop API...')
@@ -175,6 +183,7 @@ export async function GET(request: Request) {
           console.error('[OAuth] Error fetching experience:', error)
           // Fall back to user's company
           companyId = userData.company_id || userData.id
+        }
         }
       }
     } else {
