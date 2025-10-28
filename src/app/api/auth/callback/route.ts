@@ -86,9 +86,77 @@ export async function GET(request: Request) {
       hasCompany: !!userData.company_id,
     })
     
-    // Extract company ID and username from user data
-    const companyId = userData.company_id || userData.id || `user_${userData.id}`
-    const username = userData.username || userData.email || userData.name || companyId
+    // Extract username from user data
+    const username = userData.username || userData.email || userData.name || userData.id
+    
+    // 🔧 CRITICAL FIX: Determine the correct company ID
+    // When logging in from an experience (Whop iframe), we need to use the company
+    // that OWNS the experience, not the user's personal company
+    let companyId: string | undefined
+    let experienceId: string | null = null
+    
+    // First, try to decode experienceId from state
+    try {
+      if (state) {
+        // Decode base64url back to base64
+        const base64 = state.replace(/-/g, '+').replace(/_/g, '/')
+        // Add padding if necessary
+        const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+        const stateData = JSON.parse(Buffer.from(paddedBase64, 'base64').toString())
+        experienceId = stateData.experienceId || null
+        console.log('[OAuth] Decoded state, experienceId:', experienceId || 'none')
+      }
+    } catch (e) {
+      console.warn('[OAuth] Failed to decode state:', e)
+    }
+    
+    // If we have an experienceId, get the company that owns it from memberships
+    if (experienceId) {
+      console.log('[OAuth] Iframe login detected, fetching company from experience...')
+      
+      try {
+        // Fetch user's memberships to find which company this experience belongs to
+        const membershipsResponse = await fetch('https://api.whop.com/api/v5/me/memberships', {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+          },
+        })
+        
+        if (membershipsResponse.ok) {
+          const membershipsData = await membershipsResponse.json()
+          const memberships = membershipsData.data || []
+          
+          // Find the membership that has our app and this experienceId
+          for (const membership of memberships) {
+            // Check if this membership is for our app (Analytics Dashboard)
+            const productName = membership.product?.name || ''
+            const experiences = membership.experiences || []
+            
+            // If this membership has the experienceId we're looking for
+            if (experiences.some((exp: any) => exp.id === experienceId)) {
+              // Use the company from this membership
+              companyId = membership.company_id || membership.id
+              console.log('[OAuth] Found company from experience:', companyId)
+              break
+            }
+          }
+        }
+        
+        // If we couldn't find the company from experience, fall back to user's company
+        if (!companyId) {
+          console.warn('[OAuth] Could not determine company from experience, using user company')
+          companyId = userData.company_id || userData.id
+        }
+      } catch (error) {
+        console.error('[OAuth] Error fetching company from experience:', error)
+        // Fall back to user's company
+        companyId = userData.company_id || userData.id
+      }
+    } else {
+      // Direct login (not from iframe), use user's company
+      companyId = userData.company_id || userData.id
+      console.log('[OAuth] Direct login, using user company:', companyId)
+    }
 
     if (!companyId) {
       return NextResponse.redirect(new URL('/login?error=no_company', request.url))
@@ -139,22 +207,6 @@ export async function GET(request: Request) {
     let installation = await prisma.whopInstallation.findUnique({
       where: { companyId },
     })
-
-    // Extract experienceId from state (set during OAuth init)
-    let experienceId: string | null = null
-    try {
-      if (state) {
-        // Decode base64url back to base64
-        const base64 = state.replace(/-/g, '+').replace(/_/g, '/')
-        // Add padding if necessary
-        const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-        const stateData = JSON.parse(Buffer.from(paddedBase64, 'base64').toString())
-        experienceId = stateData.experienceId || null
-        console.log('[OAuth] Decoded state, experienceId:', experienceId || 'none')
-      }
-    } catch (e) {
-      console.warn('[OAuth] Failed to decode state:', e)
-    }
 
     // Upsert installation with synced plan and experienceId
     if (!installation) {
