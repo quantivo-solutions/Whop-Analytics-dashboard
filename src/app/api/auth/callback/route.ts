@@ -110,11 +110,12 @@ export async function GET(request: Request) {
       console.warn('[OAuth] Failed to decode state:', e)
     }
     
-    // If we have an experienceId, this is a company app installation
-    // Look up the installation by experienceId to get the correct company_id
+    // If we have an experienceId, this is a company app accessed via iframe
+    // We need to get the company_id for this experience
     if (experienceId) {
-      console.log('[OAuth] Company app login detected, looking up installation by experienceId...')
+      console.log('[OAuth] Iframe login detected, determining company for experienceId:', experienceId)
       
+      // First, check if installation already exists
       const existingInstallation = await prisma.whopInstallation.findFirst({
         where: { experienceId }
       })
@@ -124,12 +125,40 @@ export async function GET(request: Request) {
         companyId = existingInstallation.companyId
         console.log('[OAuth] Found existing installation, companyId:', companyId)
       } else {
-        // No installation found - this shouldn't happen!
-        // The app.installed webhook should have created it before user logs in
-        console.error('[OAuth] No installation found for experienceId:', experienceId)
-        console.log('[OAuth] This means app.installed webhook has not fired yet or failed')
-        console.log('[OAuth] Falling back to user company, but this may cause issues')
-        companyId = userData.company_id || userData.id
+        // No installation found yet - need to get company_id from Whop
+        // Try to fetch experience details from Whop API using app server key
+        console.log('[OAuth] No installation found, fetching company from Whop API...')
+        
+        try {
+          const { env } = await import('@/lib/env')
+          
+          // Fetch experience details from Whop API
+          const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+            headers: {
+              'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+            },
+          })
+          
+          if (expResponse.ok) {
+            const expData = await expResponse.json()
+            // Experience should have company_id
+            if (expData.company_id) {
+              companyId = expData.company_id
+              console.log('[OAuth] Got company from experience API:', companyId)
+            } else {
+              console.warn('[OAuth] Experience data missing company_id, falling back')
+              companyId = userData.company_id || userData.id
+            }
+          } else {
+            console.error('[OAuth] Failed to fetch experience from Whop API:', expResponse.status)
+            // Fall back to user's company
+            companyId = userData.company_id || userData.id
+          }
+        } catch (error) {
+          console.error('[OAuth] Error fetching experience:', error)
+          // Fall back to user's company
+          companyId = userData.company_id || userData.id
+        }
       }
     } else {
       // Direct login (not from iframe), use user's company
