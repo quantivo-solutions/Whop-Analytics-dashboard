@@ -1,0 +1,326 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   💰 HOW TO SET UP PRICING FOR YOUR WHOP APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  IMPORTANT: Whop Apps Don't Have "Pricing" in Developer Portal!
+
+Instead, you create PRODUCTS with PRICING PLANS in your Company Dashboard.
+Think of it like this:
+  • Your APP = The software
+  • PRODUCTS = The subscription tiers (Free, Pro, Business)
+  • PLANS = The pricing for each product ($0, $29/mo, $99/mo)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 STEP-BY-STEP: HOW TO SET UP PRICING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPTION A: IN-APP PURCHASES (Recommended for Apps)
+──────────────────────────────────────────────────
+
+This is the modern way for Whop apps. Users purchase directly
+from within your app using Whop's SDK.
+
+Step 1: Go to Your Company Dashboard
+─────────────────────────────────────
+1. Go to: https://whop.com/dashboard
+2. Select YOUR company (the one that owns the app)
+   NOT a test company!
+
+Step 2: Create Access Passes (Products)
+────────────────────────────────────────
+1. In left sidebar, click "Access Passes" or "Products"
+2. Click "Create Access Pass"
+3. Create THREE access passes:
+
+   ACCESS PASS 1: Analytics Dashboard - Free
+   ──────────────────────────────────────────
+   Name: Analytics Dashboard - Free Tier
+   Type: Software
+   Description: Basic analytics and weekly reports
+   
+   ⚠️  Skip pricing for now (we'll add it next)
+
+   ACCESS PASS 2: Analytics Dashboard - Pro
+   ──────────────────────────────────────────
+   Name: Analytics Dashboard - Pro
+   Type: Software
+   Description: Advanced analytics with daily insights
+   
+   ⚠️  Skip pricing for now
+
+   ACCESS PASS 3: Analytics Dashboard - Business
+   ──────────────────────────────────────────────
+   Name: Analytics Dashboard - Business
+   Type: Software
+   Description: Enterprise features and support
+   
+   ⚠️  Skip pricing for now
+
+Step 3: Add Pricing Plans to Each Access Pass
+──────────────────────────────────────────────
+1. Click on each Access Pass
+2. Find "Pricing" section
+3. Click "Add Pricing Plan"
+
+   PRICING FOR FREE ACCESS PASS:
+   ─────────────────────────────
+   Type: Subscription
+   Amount: $0.00
+   Interval: Monthly
+   Name: Free Plan
+
+   PRICING FOR PRO ACCESS PASS:
+   ─────────────────────────────
+   Type: Subscription
+   Amount: $29.00 (or your choice!)
+   Interval: Monthly
+   Name: Pro Monthly
+   Trial: Optional (e.g., 7 days free)
+
+   PRICING FOR BUSINESS ACCESS PASS:
+   ─────────────────────────────────
+   Type: Subscription
+   Amount: $99.00
+   Interval: Monthly
+   Name: Business Monthly
+   Trial: Optional (e.g., 14 days free)
+
+Step 4: Copy Plan IDs
+──────────────────────────────────────────────
+1. For each pricing plan, click the 3-dot menu (⋮)
+2. Copy the Plan ID (looks like: plan_XXXXXXXX)
+3. Save these somewhere - you'll need them!
+
+   Example:
+   FREE_PLAN_ID="plan_abc123xyz"
+   PRO_PLAN_ID="plan_def456uvw"
+   BUSINESS_PLAN_ID="plan_ghi789rst"
+
+Step 5: Link to Your App (CRITICAL!)
+──────────────────────────────────────────────
+1. Go to Whop Developer Portal: https://whop.com/developer/apps
+2. Select your app
+3. Find "Authorized Products" or "Access Passes" section
+4. Add all three access passes you just created
+5. This tells Whop which products belong to your app!
+
+Step 6: Update Your App Code (Optional)
+──────────────────────────────────────────────
+Add plan IDs to your .env.local:
+
+NEXT_PUBLIC_FREE_PLAN_ID="plan_abc123xyz"
+NEXT_PUBLIC_PRO_PLAN_ID="plan_def456uvw"
+NEXT_PUBLIC_BUSINESS_PLAN_ID="plan_ghi789rst"
+
+This allows you to use Whop SDK for in-app purchases:
+whopSdk.inAppPurchase({ planId: process.env.NEXT_PUBLIC_PRO_PLAN_ID })
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION B: TRADITIONAL APP STORE LISTING
+──────────────────────────────────────────────────
+
+This is for apps listed on Whop's public app store where users
+install from the store page.
+
+Step 1: Publish App to Whop App Store
+──────────────────────────────────────────────
+1. Go to: https://whop.com/developer/apps
+2. Select your app
+3. Complete all required fields:
+   - App name
+   - Description
+   - Icon/logo
+   - Screenshots
+   - Privacy policy
+   - Terms of service
+
+Step 2: Submit for Review
+──────────────────────────────────────────────
+1. Click "Submit for Review"
+2. Whop team reviews (1-3 business days)
+3. Once approved, app appears in Whop App Store
+
+Step 3: Users Install from Store
+──────────────────────────────────────────────
+1. Users find your app at: https://whop.com/apps/app_vDbFW0gw0f19QE
+2. They click "Install"
+3. During install, they choose a pricing tier
+4. Whop processes payment
+5. Your app receives webhook: "app.installed"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 RECOMMENDED APPROACH FOR YOU
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Use OPTION A (In-App Purchases) because:
+✅ Faster to set up
+✅ More control over pricing
+✅ Can update prices anytime
+✅ Works immediately (no app store approval needed)
+✅ Better for private/internal apps
+
+Your "Upgrade to Pro" button will use Whop's SDK to trigger
+the purchase flow directly!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 IMPLEMENTATION IN YOUR APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Once you have plan IDs, you can implement in-app purchases:
+
+// In your upgrade button component
+import { useWhopSdk } from '@whop/sdk'
+
+function UpgradeButton() {
+  const whopSdk = useWhopSdk()
+  
+  const handleUpgrade = async () => {
+    try {
+      const result = await whopSdk.inAppPurchase({
+        planId: process.env.NEXT_PUBLIC_PRO_PLAN_ID
+      })
+      
+      if (result.success) {
+        // User successfully upgraded!
+        // Whop sends webhook to update your database
+        toast.success('Upgraded to Pro!')
+      }
+    } catch (error) {
+      toast.error('Upgrade failed')
+    }
+  }
+  
+  return <Button onClick={handleUpgrade}>Upgrade to Pro</Button>
+}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📱 ALTERNATIVE: SIMPLE REDIRECT APPROACH (Current Setup)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your current implementation already works!
+
+When user clicks "Upgrade to Pro", they're redirected to:
+https://whop.com/hub/company/{companyId}/apps/{appId}
+
+On that page, Whop shows:
+• Current plan (Free)
+• Available upgrades (Pro, Business)
+• Purchase buttons
+
+When user clicks a purchase button:
+1. Whop processes payment
+2. Whop sends webhook: "app.plan.updated"
+3. Your app updates database
+4. User gets Pro features
+
+✅ This approach works WITHOUT coding in-app purchases!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 TESTING WITHOUT SETTING UP PRODUCTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If you want to test the plan gating BEFORE setting up products:
+
+1. Manually Update Database:
+   ─────────────────────────
+   Use Prisma Studio or database client:
+   
+   UPDATE "WhopInstallation" 
+   SET plan = 'pro' 
+   WHERE "companyId" = 'your_company_id';
+
+2. Test Pro Features:
+   ─────────────────────────
+   Refresh your app, you should see:
+   • "Pro" badge instead of "Free"
+   • Daily email reports enabled
+   • Discord alerts enabled
+   • All Pro features unlocked
+
+3. Test Downgrade:
+   ─────────────────────────
+   UPDATE "WhopInstallation" 
+   SET plan = 'free' 
+   WHERE "companyId" = 'your_company_id';
+   
+   Pro features should be locked again.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❓ TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Q: I can't find "Access Passes" in my company dashboard
+A: You might be in a test company. Make sure you're in YOUR
+   company that owns the app. Look for company switcher in
+   top-left corner.
+
+Q: I created access passes but upgrade button doesn't work
+A: Did you link the access passes to your app in Developer Portal?
+   Go to: Developer Portal > Your App > "Authorized Products"
+
+Q: Can I change pricing later?
+A: Yes! You can add/edit/remove pricing plans anytime.
+   Existing subscribers keep their current pricing unless you
+   explicitly migrate them.
+
+Q: Do I need a separate product for Free plan?
+A: Technically no - Free users don't need an access pass.
+   But it's cleaner to have one for consistency.
+
+Q: How do users downgrade from Pro to Free?
+A: They cancel their subscription in Whop. Your app receives
+   webhook: "app.plan.updated" with plan = "free"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ QUICK CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Setup (Do These First):
+[ ] Go to company dashboard: https://whop.com/dashboard
+[ ] Create 3 Access Passes (Free, Pro, Business)
+[ ] Add pricing plans to each ($0, $29, $99)
+[ ] Copy all plan IDs
+[ ] Go to Developer Portal
+[ ] Link access passes to your app
+[ ] Test upgrade flow
+
+Optional (For Advanced Features):
+[ ] Add plan IDs to .env.local
+[ ] Implement in-app purchase with Whop SDK
+[ ] Add annual pricing options
+[ ] Set up free trials
+[ ] Add usage-based pricing
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 RESOURCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Whop Docs:
+• Subscriptions: https://docs.whop.com/apps/features/subscriptions
+• Products API: https://docs.whop.com/api-reference/products
+• Plans API: https://docs.whop.com/api-reference/plans
+
+Your Links:
+• Company Dashboard: https://whop.com/dashboard
+• Developer Portal: https://whop.com/developer/apps
+• Your App ID: app_vDbFW0gw0f19QE
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 SUMMARY:
+Whop apps DON'T have pricing in Developer Portal.
+Instead, create PRODUCTS in your Company Dashboard,
+then LINK them to your app in Developer Portal.
+
+Your upgrade button already works - it just needs products to exist!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+

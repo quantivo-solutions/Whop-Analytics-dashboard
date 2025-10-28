@@ -127,20 +127,13 @@ export function getPlanBadgeClasses(plan: Plan): string {
 
 /**
  * Get Whop upgrade URL
- * @param companyId - Optional company ID for iframe context
- * @returns URL to Whop's plan selection/upgrade page
+ * Direct link to Pro product purchase page
+ * @param companyId - Optional company ID (not used currently, but kept for future)
+ * @returns URL to Pro product purchase page
  */
 export function getUpgradeUrl(companyId?: string): string {
-  const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID
-  
-  // If in Whop iframe context (has companyId), use hub URL for better UX
-  if (companyId && appId) {
-    return `https://whop.com/hub/company/${companyId}/apps/${appId}`
-  }
-  
-  // Fallback: direct app page (Whop will show pricing/upgrade options)
-  return appId 
-    ? `https://whop.com/apps/${appId}` 
-    : 'https://whop.com/apps'
+  // Direct link to Pro product for immediate purchase
+  // This works for both logged-in and new users
+  return 'https://whop.com/quantivo-solutions/analytics-dashboard-pro/'
 }
 
