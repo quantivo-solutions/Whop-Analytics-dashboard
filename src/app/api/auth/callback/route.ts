@@ -140,16 +140,16 @@ export async function GET(request: Request) {
       where: { companyId },
     })
 
-    // Check if there's an experienceId in the state (from Whop iframe)
-    // If user came from Whop iframe, state might contain routing info
+    // Extract experienceId from state (set during OAuth init)
     let experienceId: string | null = null
     try {
       if (state) {
-        const stateData = JSON.parse(Buffer.from(state, 'base64').toString())
+        const stateData = JSON.parse(Buffer.from(state, 'base64url').toString())
         experienceId = stateData.experienceId || null
+        console.log('[OAuth] Decoded state, experienceId:', experienceId || 'none')
       }
     } catch (e) {
-      // State parsing failed, ignore
+      console.warn('[OAuth] Failed to decode state:', e)
     }
 
     // Upsert installation with synced plan and experienceId
@@ -185,16 +185,27 @@ export async function GET(request: Request) {
       exp: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
     })).toString('base64')
 
+    // Set cookie with proper settings for iframe support
     cookieStore.set('whop_session', sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true, // Required for sameSite=none
+      sameSite: 'none', // Allow cookies in iframe (required for Whop apps)
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/',
     })
 
-    // Redirect to dashboard
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    // Redirect based on whether we have an experienceId (Whop iframe) or not
+    let redirectUrl = '/dashboard'
+    if (experienceId) {
+      // User came from Whop iframe, redirect to experience dashboard
+      redirectUrl = `/experiences/${experienceId}`
+    } else if (companyId) {
+      // User came from direct access, redirect to main dashboard
+      redirectUrl = '/dashboard'
+    }
+
+    console.log('[OAuth] Redirecting to:', redirectUrl)
+    return NextResponse.redirect(new URL(redirectUrl, request.url))
   } catch (error) {
     console.error('OAuth callback error:', error)
     return NextResponse.redirect(new URL('/login?error=internal_error', request.url))

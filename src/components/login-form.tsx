@@ -8,12 +8,17 @@ import { useSearchParams } from 'next/navigation'
 export function LoginForm() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
+  const experienceId = searchParams.get('experienceId')
 
   const handleLogin = async () => {
     try {
       // Call our API route to generate OAuth URL
       // The server will automatically determine the correct redirect URI based on the request origin
-      const response = await fetch(`/api/auth/init`)
+      // Pass experienceId if present (from Whop iframe context)
+      const url = experienceId 
+        ? `/api/auth/init?experienceId=${encodeURIComponent(experienceId)}`
+        : `/api/auth/init`
+      const response = await fetch(url)
       
       if (!response.ok) {
         alert('Failed to initialize OAuth. Please try again.')

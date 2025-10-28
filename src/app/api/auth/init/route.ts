@@ -17,10 +17,19 @@ export async function GET(request: Request) {
     // This ensures it matches whether accessed via Vercel or Whop iframe domain
     const redirectUri = `${origin}/api/auth/callback`
 
-    console.log('[OAuth] Generating authorization URL, origin:', origin, 'redirectUri:', redirectUri)
+    // Check if we have context from the referrer (Whop iframe)
+    const referrer = request.headers.get('referer') || ''
+    const experienceId = searchParams.get('experienceId')
+    
+    console.log('[OAuth] Generating authorization URL, origin:', origin, 'redirectUri:', redirectUri, 'experienceId:', experienceId || 'none')
 
-    // Generate a random state for CSRF protection
-    const state = crypto.randomBytes(32).toString('hex')
+    // Generate a random state for CSRF protection and include context
+    const stateData = {
+      csrf: crypto.randomBytes(16).toString('hex'),
+      experienceId: experienceId || null,
+      timestamp: Date.now(),
+    }
+    const state = Buffer.from(JSON.stringify(stateData)).toString('base64url')
 
     // Build OAuth authorization URL manually
     const authUrl = new URL('https://whop.com/oauth')
