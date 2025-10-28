@@ -54,3 +54,6 @@ prisma/dev.db-journal
 # Documentation (contains sensitive credentials)
 *.md
 
+# Whop documentation (large reference file)
+whop-docs.txt
+
