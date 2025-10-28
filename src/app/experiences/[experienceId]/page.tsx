@@ -32,27 +32,30 @@ export default async function ExperienceDashboardPage({ params }: PageProps) {
     // Look up installation by experienceId
     const installation = await getInstallationByExperience(experienceId)
 
-  // If not found, show friendly message
+  // If not found, prompt user to login first
   if (!installation) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center space-y-4">
-            <div className="rounded-full bg-muted p-3 w-12 h-12 mx-auto flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-muted-foreground" />
+            <div className="rounded-full bg-primary/10 p-3 w-12 h-12 mx-auto flex items-center justify-center">
+              <AlertCircle className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold">Installation Not Found</h2>
+            <h2 className="text-2xl font-bold">Welcome to Analytics Dashboard!</h2>
             <p className="text-muted-foreground">
-              We couldn't find an installation for experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
+              To use this app, please log in first to connect your Whop account.
             </p>
             <p className="text-sm text-muted-foreground">
-              This might mean the app hasn't been installed yet, or the installation was removed.
+              Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
             </p>
-            <Link href="/discover">
-              <Button className="gap-2">
-                Install App <ArrowRight className="h-4 w-4" />
+            <Link href="/login">
+              <Button className="gap-2 w-full">
+                Login with Whop <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
+            <p className="text-xs text-muted-foreground">
+              After logging in, your installation will be automatically created.
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -128,21 +128,35 @@ export async function GET(request: Request) {
       where: { companyId },
     })
 
-    // Upsert installation with synced plan
+    // Check if there's an experienceId in the state (from Whop iframe)
+    // If user came from Whop iframe, state might contain routing info
+    let experienceId: string | null = null
+    try {
+      if (state) {
+        const stateData = JSON.parse(Buffer.from(state, 'base64').toString())
+        experienceId = stateData.experienceId || null
+      }
+    } catch (e) {
+      // State parsing failed, ignore
+    }
+
+    // Upsert installation with synced plan and experienceId
     if (!installation) {
       installation = await prisma.whopInstallation.create({
         data: {
           companyId,
+          experienceId,
           accessToken: access_token,
           plan: userPlan,
         },
       })
-      console.log(`[OAuth] Created new installation for ${companyId} with plan: ${userPlan}`)
+      console.log(`[OAuth] Created new installation for ${companyId} with plan: ${userPlan}, experienceId: ${experienceId || 'none'}`)
     } else {
-      // Update access token AND plan
+      // Update access token, plan, and experienceId
       await prisma.whopInstallation.update({
         where: { companyId },
         data: { 
+          experienceId: experienceId || installation.experienceId, // Keep existing if not provided
           accessToken: access_token,
           plan: userPlan, // Sync plan from Whop
         },

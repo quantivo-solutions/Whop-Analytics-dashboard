@@ -233,11 +233,20 @@ async function triggerBackfill(companyId: string) {
 }
 
 /**
- * Handle membership.went_valid event
+ * Handle membership.activated event
  * This fires when a user subscribes to a product (Pro/Business)
+ * Also serves as an "installation" event since users must have a membership to use the app
  */
 async function handleMembershipActivated(data: any) {
-  const { user, product, company_id, status } = data
+  const { user, product, company_id, status, access_pass, id: membershipId } = data
+
+  console.log('[WHOP] membership.activated webhook received:', {
+    user_id: user?.id,
+    company_id,
+    product: product?.name,
+    access_pass: access_pass?.id,
+    membership_id: membershipId,
+  })
 
   if (!user?.id && !company_id) {
     console.error('Missing user or company_id in membership webhook')
@@ -259,19 +268,40 @@ async function handleMembershipActivated(data: any) {
 
   console.log(`[WHOP] membership activated: company=${companyId} product="${productName}" → plan=${plan}`)
 
-  // Update or create installation
-  await prisma.whopInstallation.upsert({
+  // Check if installation exists
+  const existingInstallation = await prisma.whopInstallation.findUnique({
     where: { companyId },
-    update: {
-      plan,
-      updatedAt: new Date(),
-    },
-    create: {
-      companyId,
-      accessToken: '', // OAuth users already have token, app installs get it separately
-      plan,
-    },
   })
+
+  if (existingInstallation) {
+    // Update existing installation with new plan
+    await prisma.whopInstallation.update({
+      where: { companyId },
+      data: {
+        plan,
+        updatedAt: new Date(),
+      },
+    })
+    console.log(`[WHOP] Updated existing installation for ${companyId} to ${plan}`)
+  } else {
+    // Create new installation
+    // IMPORTANT: We might not have experienceId from webhook, but that's OK
+    // Users will access via OAuth login which will populate it
+    await prisma.whopInstallation.create({
+      data: {
+        companyId,
+        accessToken: '', // Will be populated on OAuth login
+        plan,
+      },
+    })
+    console.log(`[WHOP] Created new installation for ${companyId} with ${plan} plan`)
+    
+    // Optionally trigger backfill for new installation (if they have Pro)
+    if (plan !== 'free') {
+      console.log(`[WHOP] New Pro user detected, consider backfilling data`)
+      // triggerBackfill(companyId).catch(e => console.error('Backfill failed:', e))
+    }
+  }
 }
 
 /**
