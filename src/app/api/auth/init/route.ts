@@ -11,10 +11,13 @@ export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const redirectUri = searchParams.get('redirect_uri') || `${new URL(request.url).origin}/api/auth/callback`
+    const { searchParams, origin } = new URL(request.url)
+    
+    // Use the origin from the request to build the correct redirect URI
+    // This ensures it matches whether accessed via Vercel or Whop iframe domain
+    const redirectUri = `${origin}/api/auth/callback`
 
-    console.log('[OAuth] Generating authorization URL, redirectUri:', redirectUri)
+    console.log('[OAuth] Generating authorization URL, origin:', origin, 'redirectUri:', redirectUri)
 
     // Generate a random state for CSRF protection
     const state = crypto.randomBytes(32).toString('hex')

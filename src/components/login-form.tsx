@@ -11,9 +11,9 @@ export function LoginForm() {
 
   const handleLogin = async () => {
     try {
-      // Call our API route to generate OAuth URL using Whop SDK
-      const redirectUri = `${window.location.origin}/api/auth/callback`
-      const response = await fetch(`/api/auth/init?redirect_uri=${encodeURIComponent(redirectUri)}`)
+      // Call our API route to generate OAuth URL
+      // The server will automatically determine the correct redirect URI based on the request origin
+      const response = await fetch(`/api/auth/init`)
       
       if (!response.ok) {
         alert('Failed to initialize OAuth. Please try again.')
