@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
-import { whopSdk } from '@/lib/whop-sdk'
+import { WHOP_CLIENT_ID, WHOP_CLIENT_SECRET } from '@/lib/whop-sdk'
 
 export const runtime = 'nodejs'
 
@@ -31,23 +31,35 @@ export async function GET(request: Request) {
     
     const redirectUri = `${new URL(request.url).origin}/api/auth/callback`
     
-    console.log('[OAuth] Using Whop SDK to exchange code')
+    console.log('[OAuth] Exchanging code for token, redirectUri:', redirectUri)
 
-    // Use Whop SDK to exchange code for token (per official docs)
-    const authResponse = await whopSdk.oauth.exchangeCode({
-      code,
-      redirectUri,
+    // Manually exchange code for token using Whop OAuth API
+    const tokenResponse = await fetch('https://api.whop.com/api/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code,
+        redirect_uri: redirectUri,
+        client_id: WHOP_CLIENT_ID,
+        client_secret: WHOP_CLIENT_SECRET,
+        grant_type: 'authorization_code',
+      }),
     })
 
-    if (!authResponse.ok) {
-      console.error('[OAuth] Code exchange failed:', {
-        code: authResponse.code,
-        raw: authResponse.raw,
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text()
+      console.error('[OAuth] Token exchange failed:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        body: errorText,
       })
       return NextResponse.redirect(new URL(`/login?error=code_exchange_failed`, request.url))
     }
 
-    const { access_token } = authResponse.tokens
+    const tokenData = await tokenResponse.json()
+    const access_token = tokenData.access_token
     console.log('[OAuth] Token exchange successful')
 
     // Get user info using the SDK
