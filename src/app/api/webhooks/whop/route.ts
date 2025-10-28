@@ -248,6 +248,9 @@ async function handleMembershipActivated(data: any) {
     membership_id: membershipId,
     experience_id: experience?.id,
   })
+  
+  // Log FULL webhook data for debugging
+  console.log('[WHOP] Full webhook data:', JSON.stringify(data, null, 2))
 
   // For company apps with Access Passes, we need to update the installation
   // where the app is actually installed (found via experienceId)
@@ -309,12 +312,28 @@ async function handleMembershipActivated(data: any) {
     })
     console.log(`[WHOP] ✅ Updated installation ${installation.companyId} to ${plan} plan`)
   } else {
-    // No installation found - this shouldn't happen for company apps!
-    // The app.installed webhook should have created it first
-    console.warn(`[WHOP] ⚠️  No installation found for Access Pass activation!`)
-    console.warn(`[WHOP] This means the app was not properly installed before user got access.`)
-    console.warn(`[WHOP] Skipping update - app.installed webhook should create the installation.`)
-    // Do NOT create a new installation here - it would have the wrong company_id!
+    // No installation found - since we don't have app.installed webhook,
+    // we need to create it here using the best company_id we can determine
+    console.warn(`[WHOP] ⚠️  No installation found, creating from membership data...`)
+    
+    // Priority for determining company_id:
+    // 1. company_id from webhook (if it's NOT the user's personal company)
+    // 2. User's id as fallback
+    let installationCompanyId = company_id || user?.id
+    
+    if (installationCompanyId) {
+      await prisma.whopInstallation.create({
+        data: {
+          companyId: installationCompanyId,
+          experienceId: experience?.id || null,
+          accessToken: '', // Will be populated on OAuth login
+          plan,
+        },
+      })
+      console.log(`[WHOP] ✅ Created installation for ${installationCompanyId} with ${plan} plan from membership webhook`)
+    } else {
+      console.error(`[WHOP] ❌ Cannot create installation - no company_id or user.id in webhook data!`)
+    }
   }
 }
 
