@@ -29,7 +29,11 @@ export async function GET(request: Request) {
       experienceId: experienceId || null,
       timestamp: Date.now(),
     }
-    const state = Buffer.from(JSON.stringify(stateData)).toString('base64url')
+    // Use base64 instead of base64url for compatibility
+    const state = Buffer.from(JSON.stringify(stateData)).toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '')
 
     // Build OAuth authorization URL manually
     const authUrl = new URL('https://whop.com/oauth')

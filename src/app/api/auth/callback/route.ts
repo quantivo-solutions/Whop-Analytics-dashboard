@@ -144,7 +144,11 @@ export async function GET(request: Request) {
     let experienceId: string | null = null
     try {
       if (state) {
-        const stateData = JSON.parse(Buffer.from(state, 'base64url').toString())
+        // Decode base64url back to base64
+        const base64 = state.replace(/-/g, '+').replace(/_/g, '/')
+        // Add padding if necessary
+        const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+        const stateData = JSON.parse(Buffer.from(paddedBase64, 'base64').toString())
         experienceId = stateData.experienceId || null
         console.log('[OAuth] Decoded state, experienceId:', experienceId || 'none')
       }
@@ -186,6 +190,7 @@ export async function GET(request: Request) {
     })).toString('base64')
 
     // Set cookie with proper settings for iframe support
+    console.log('[OAuth] Setting session cookie for companyId:', companyId)
     cookieStore.set('whop_session', sessionToken, {
       httpOnly: true,
       secure: true, // Required for sameSite=none
@@ -199,12 +204,13 @@ export async function GET(request: Request) {
     if (experienceId) {
       // User came from Whop iframe, redirect to experience dashboard
       redirectUrl = `/experiences/${experienceId}`
-    } else if (companyId) {
+      console.log('[OAuth] Redirecting to experience dashboard:', experienceId)
+    } else {
       // User came from direct access, redirect to main dashboard
       redirectUrl = '/dashboard'
+      console.log('[OAuth] Redirecting to main dashboard')
     }
 
-    console.log('[OAuth] Redirecting to:', redirectUrl)
     return NextResponse.redirect(new URL(redirectUrl, request.url))
   } catch (error) {
     console.error('OAuth callback error:', error)

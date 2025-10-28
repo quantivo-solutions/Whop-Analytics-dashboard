@@ -19,7 +19,10 @@ export default async function Dashboard() {
     // Check authentication
     const session = await getSession()
     
+    console.log('[Dashboard] Session check:', session ? `Found (${session.companyId})` : 'Not found')
+    
     if (!session) {
+      console.log('[Dashboard] No session, redirecting to /login')
       redirect('/login')
     }
     
