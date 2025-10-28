@@ -32,7 +32,8 @@ export default async function Dashboard() {
       getPlanForCompany(companyId),
     ])
 
-    const upgradeUrl = getUpgradeUrl()
+    // Get upgrade URL with company context
+    const upgradeUrl = getUpgradeUrl(companyId)
     
     return (
       <div className="min-h-screen bg-background">

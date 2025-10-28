@@ -127,9 +127,20 @@ export function getPlanBadgeClasses(plan: Plan): string {
 
 /**
  * Get Whop upgrade URL
+ * @param companyId - Optional company ID for iframe context
+ * @returns URL to Whop's plan selection/upgrade page
  */
-export function getUpgradeUrl(): string {
+export function getUpgradeUrl(companyId?: string): string {
   const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID
-  return appId ? `https://whop.com/apps/${appId}` : 'https://whop.com/apps'
+  
+  // If in Whop iframe context (has companyId), use hub URL for better UX
+  if (companyId && appId) {
+    return `https://whop.com/hub/company/${companyId}/apps/${appId}`
+  }
+  
+  // Fallback: direct app page (Whop will show pricing/upgrade options)
+  return appId 
+    ? `https://whop.com/apps/${appId}` 
+    : 'https://whop.com/apps'
 }
 

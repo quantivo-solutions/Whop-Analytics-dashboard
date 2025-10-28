@@ -65,7 +65,8 @@ export default async function ExperienceDashboardPage({ params }: PageProps) {
       getPlanForCompany(installation.companyId),
     ])
 
-    const upgradeUrl = getUpgradeUrl()
+    // Get upgrade URL with company context for better Whop integration
+    const upgradeUrl = getUpgradeUrl(installation.companyId)
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">

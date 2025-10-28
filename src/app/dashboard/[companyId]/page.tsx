@@ -130,7 +130,8 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     )
   }
 
-  const upgradeUrl = getUpgradeUrl()
+  // Get upgrade URL with company context
+  const upgradeUrl = getUpgradeUrl(companyId)
 
   return (
     <div className="min-h-screen bg-background">
