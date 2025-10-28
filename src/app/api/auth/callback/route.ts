@@ -126,31 +126,48 @@ export async function GET(request: Request) {
         console.log('[OAuth] Found existing installation, companyId:', companyId)
       } else {
         // No installation found yet - need to get company_id from Whop
-        // Try to fetch experience details from Whop API using app server key
+        // Try to fetch experience details from Whop API using user's access token
         console.log('[OAuth] No installation found, fetching company from Whop API...')
         
         try {
-          const { env } = await import('@/lib/env')
-          
-          // Fetch experience details from Whop API
-          const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+          // Try using the user's access token first (they have access to their experiences)
+          let expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
             headers: {
-              'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+              'Authorization': `Bearer ${access_token}`,
             },
           })
           
+          // If that fails, try with app server key
+          if (!expResponse.ok) {
+            console.log('[OAuth] User token failed, trying app server key...')
+            const { env } = await import('@/lib/env')
+            expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+              headers: {
+                'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+              },
+            })
+          }
+          
           if (expResponse.ok) {
             const expData = await expResponse.json()
-            // Experience should have company_id
-            if (expData.company_id) {
+            console.log('[OAuth] Experience data received:', JSON.stringify(expData, null, 2))
+            
+            // Experience should have company object with id
+            if (expData.company?.id) {
+              companyId = expData.company.id
+              console.log('[OAuth] Got company from experience.company.id:', companyId)
+            } else if (expData.company_id) {
               companyId = expData.company_id
-              console.log('[OAuth] Got company from experience API:', companyId)
+              console.log('[OAuth] Got company from experience.company_id:', companyId)
             } else {
-              console.warn('[OAuth] Experience data missing company_id, falling back')
+              console.warn('[OAuth] Experience data missing company_id, checking other fields...')
+              console.warn('[OAuth] Experience keys:', Object.keys(expData))
+              // Fall back to user's company
               companyId = userData.company_id || userData.id
             }
           } else {
-            console.error('[OAuth] Failed to fetch experience from Whop API:', expResponse.status)
+            const errorText = await expResponse.text()
+            console.error('[OAuth] Failed to fetch experience from Whop API:', expResponse.status, errorText)
             // Fall back to user's company
             companyId = userData.company_id || userData.id
           }
