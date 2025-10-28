@@ -230,11 +230,15 @@ async function triggerBackfill(companyId: string) {
 
 /**
  * Handle membership.activated event
- * This fires when a user subscribes to a product (Pro/Business)
- * Also serves as an "installation" event since users must have a membership to use the app
+ * This fires when a user gets access to a product via Access Pass (Pro/Business)
+ * 
+ * IMPORTANT: For company apps, Access Passes are for upgrading existing installations,
+ * NOT for creating new ones. The app.installed webhook creates installations.
+ * 
+ * Access Pass membership gives a user access to features in an already-installed app.
  */
 async function handleMembershipActivated(data: any) {
-  const { user, product, company_id, status, access_pass, id: membershipId } = data
+  const { user, product, company_id, status, access_pass, id: membershipId, experience } = data
 
   console.log('[WHOP] membership.activated webhook received:', {
     user_id: user?.id,
@@ -242,61 +246,75 @@ async function handleMembershipActivated(data: any) {
     product: product?.name,
     access_pass: access_pass?.id,
     membership_id: membershipId,
+    experience_id: experience?.id,
   })
 
-  if (!user?.id && !company_id) {
-    console.error('Missing user or company_id in membership webhook')
-    return
-  }
-
-  // Use company_id if available, otherwise fall back to user.id
-  const companyId = company_id || user.id
-
-  // Determine plan from product name
-  const productName = product?.name || ''
+  // For company apps with Access Passes, we need to update the installation
+  // where the app is actually installed (found via experienceId)
+  
+  // Determine plan from access pass or product name
+  const accessPassName = access_pass?.name || product?.name || ''
   let plan = 'free'
   
-  if (productName.includes('Pro')) {
+  if (accessPassName.includes('Pro')) {
     plan = 'pro'
-  } else if (productName.includes('Business')) {
+  } else if (accessPassName.includes('Business')) {
     plan = 'business'
   }
 
-  console.log(`[WHOP] membership activated: company=${companyId} product="${productName}" → plan=${plan}`)
+  console.log(`[WHOP] Access Pass activated: "${accessPassName}" → plan=${plan}`)
 
-  // Check if installation exists
-  const existingInstallation = await prisma.whopInstallation.findUnique({
-    where: { companyId },
-  })
+  // Try to find installation by experienceId (for company apps)
+  let installation = null
+  if (experience?.id) {
+    installation = await prisma.whopInstallation.findFirst({
+      where: { experienceId: experience.id },
+    })
+    
+    if (installation) {
+      console.log(`[WHOP] Found installation via experienceId: ${experience.id} → companyId: ${installation.companyId}`)
+    }
+  }
+  
+  // If no installation found via experience, try by company_id
+  if (!installation && company_id) {
+    installation = await prisma.whopInstallation.findUnique({
+      where: { companyId: company_id },
+    })
+    
+    if (installation) {
+      console.log(`[WHOP] Found installation via company_id: ${company_id}`)
+    }
+  }
+  
+  // If still no installation, try by user.id as fallback
+  if (!installation && user?.id) {
+    installation = await prisma.whopInstallation.findUnique({
+      where: { companyId: user.id },
+    })
+    
+    if (installation) {
+      console.log(`[WHOP] Found installation via user.id: ${user.id}`)
+    }
+  }
 
-  if (existingInstallation) {
+  if (installation) {
     // Update existing installation with new plan
     await prisma.whopInstallation.update({
-      where: { companyId },
+      where: { companyId: installation.companyId },
       data: {
         plan,
         updatedAt: new Date(),
       },
     })
-    console.log(`[WHOP] Updated existing installation for ${companyId} to ${plan}`)
+    console.log(`[WHOP] ✅ Updated installation ${installation.companyId} to ${plan} plan`)
   } else {
-    // Create new installation
-    // IMPORTANT: We might not have experienceId from webhook, but that's OK
-    // Users will access via OAuth login which will populate it
-    await prisma.whopInstallation.create({
-      data: {
-        companyId,
-        accessToken: '', // Will be populated on OAuth login
-        plan,
-      },
-    })
-    console.log(`[WHOP] Created new installation for ${companyId} with ${plan} plan`)
-    
-    // Optionally trigger backfill for new installation (if they have Pro)
-    if (plan !== 'free') {
-      console.log(`[WHOP] New Pro user detected, consider backfilling data`)
-      // triggerBackfill(companyId).catch(e => console.error('Backfill failed:', e))
-    }
+    // No installation found - this shouldn't happen for company apps!
+    // The app.installed webhook should have created it first
+    console.warn(`[WHOP] ⚠️  No installation found for Access Pass activation!`)
+    console.warn(`[WHOP] This means the app was not properly installed before user got access.`)
+    console.warn(`[WHOP] Skipping update - app.installed webhook should create the installation.`)
+    // Do NOT create a new installation here - it would have the wrong company_id!
   }
 }
 
