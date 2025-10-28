@@ -7,6 +7,8 @@
 
 // Server-only environment variables (never exposed to client)
 export const WHOP_APP_SERVER_KEY = process.env.WHOP_APP_SERVER_KEY || ''
+export const WHOP_CLIENT_ID = process.env.WHOP_CLIENT_ID || ''
+export const WHOP_CLIENT_SECRET = process.env.WHOP_CLIENT_SECRET || ''
 export const WHOP_WEBHOOK_SECRET = process.env.WHOP_WEBHOOK_SECRET || ''
 export const DATABASE_URL = process.env.DATABASE_URL || ''
 export const CRON_SECRET = process.env.CRON_SECRET || ''
@@ -21,6 +23,8 @@ export const NEXT_PUBLIC_WHOP_AGENT_USER_ID = process.env.NEXT_PUBLIC_WHOP_AGENT
 // Convenience object export for easier imports
 export const env = {
   WHOP_APP_SERVER_KEY,
+  WHOP_CLIENT_ID,
+  WHOP_CLIENT_SECRET,
   WHOP_WEBHOOK_SECRET,
   DATABASE_URL,
   CRON_SECRET,
