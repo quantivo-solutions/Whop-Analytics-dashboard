@@ -10,6 +10,24 @@ const nextConfig = {
       '/settings/**/*': ['./node_modules/.prisma/client/**/*'],
     },
   },
+  async headers() {
+    return [
+      {
+        // Allow Whop to embed our app in iframes
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'ALLOWALL',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https://*.whop.com https://whop.com",
+          },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig
