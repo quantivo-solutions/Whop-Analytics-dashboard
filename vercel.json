@@ -8,10 +8,6 @@
       "path": "/api/report/weekly?secret=${CRON_SECRET}",
       "schedule": "10 9 * * 1"
     }
-  ],
-  "outputFileTracingIncludes": {
-    "/api/**": ["./node_modules/.prisma/client/**/*"],
-    "/app/**": ["./node_modules/.prisma/client/**/*"]
-  }
+  ]
 }
 
