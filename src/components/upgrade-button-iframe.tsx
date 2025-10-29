@@ -26,30 +26,41 @@ export function UpgradeButtonIframe({ plan, experienceId }: UpgradeButtonIframeP
       if (!planId) {
         toast.error('Upgrade is not configured. Please contact support.')
         console.error('NEXT_PUBLIC_WHOP_PRO_PLAN_ID not set!')
+        setIsLoading(false)
         return
       }
 
-      // Check if we're in a Whop iframe (has access to Whop SDK)
-      if (typeof window !== 'undefined' && (window as any).WhopApp) {
-        // Use Whop's native in-app purchase modal
-        const whopApp = (window as any).WhopApp
-        
-        // If experienceId is provided, create checkout session with metadata
-        // Otherwise, use simple plan purchase
-        let purchaseParams: any = { planId }
-        
-        if (experienceId) {
-          // Create checkout session with experience metadata
-          const checkoutSession = await fetch('/api/whop/checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ planId, experienceId }),
-          }).then(res => res.json())
-          
-          purchaseParams = checkoutSession
+      console.log('[Upgrade] Plan ID:', planId)
+      console.log('[Upgrade] Checking for WhopApp SDK...')
+      console.log('[Upgrade] window.WhopApp available?', typeof (window as any).WhopApp)
+      console.log('[Upgrade] window.Whop available?', typeof (window as any).Whop)
+      
+      // Wait a bit for SDK to load if needed
+      let whopApp = (window as any).WhopApp || (window as any).Whop
+      
+      if (!whopApp) {
+        // Wait up to 2 seconds for SDK to load
+        console.log('[Upgrade] SDK not found, waiting...')
+        for (let i = 0; i < 20; i++) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          whopApp = (window as any).WhopApp || (window as any).Whop
+          if (whopApp) {
+            console.log('[Upgrade] SDK found after waiting!')
+            break
+          }
         }
+      }
+
+      // Check if we have the Whop SDK
+      if (whopApp && typeof whopApp.inAppPurchase === 'function') {
+        console.log('[Upgrade] Using Whop SDK for in-app purchase')
         
+        // Simple plan purchase (no checkout session needed for basic flow)
+        const purchaseParams = { planId }
+        
+        console.log('[Upgrade] Calling inAppPurchase with:', purchaseParams)
         const result = await whopApp.inAppPurchase(purchaseParams)
+        console.log('[Upgrade] Purchase result:', result)
         
         if (result.status === 'ok') {
           toast.success('Successfully upgraded to Pro! 🎉')
@@ -59,14 +70,16 @@ export function UpgradeButtonIframe({ plan, experienceId }: UpgradeButtonIframeP
           toast.error(result.error || 'Purchase failed')
         }
       } else {
-        // Fallback: If not in iframe, open Whop purchase page in new tab
-        // This shouldn't happen in normal usage but provides graceful fallback
-        const fallbackUrl = `https://whop.com/purchase/${planId}`
-        window.open(fallbackUrl, '_blank', 'noopener,noreferrer')
-        toast.info('Opening upgrade page...')
+        // SDK not available - show helpful error
+        console.error('[Upgrade] Whop SDK not available!')
+        console.error('[Upgrade] window.WhopApp:', (window as any).WhopApp)
+        console.error('[Upgrade] window.Whop:', (window as any).Whop)
+        console.error('[Upgrade] Are we in an iframe?', window.self !== window.top)
+        
+        toast.error('Whop SDK not loaded. Please refresh the page and try again.')
       }
     } catch (error) {
-      console.error('Upgrade error:', error)
+      console.error('[Upgrade] Error:', error)
       toast.error('Failed to start upgrade process. Please try again.')
     } finally {
       setIsLoading(false)
