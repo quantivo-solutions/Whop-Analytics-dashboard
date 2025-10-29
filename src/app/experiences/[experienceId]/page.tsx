@@ -91,7 +91,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               </div>
               <div className="flex items-center gap-3">
                 <PlanBadge plan={plan} />
-                <UpgradeButtonIframe upgradeUrl={upgradeUrl} plan={plan} />
+                <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
                 <DashboardSettingsButton companyId={installation.companyId} />
               </div>
             </div>

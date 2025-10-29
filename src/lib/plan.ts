@@ -127,26 +127,23 @@ export function getPlanBadgeClasses(plan: Plan): string {
 
 /**
  * Get Whop upgrade URL
- * Links to Access Pass purchase for Pro plan
+ * NOTE: This is now deprecated in favor of in-app purchase using Whop iFrame SDK
+ * Kept for backward compatibility with non-iframe upgrade buttons
  * @param companyId - Optional company ID (not used currently, but kept for future)
- * @returns URL to Pro Access Pass purchase
+ * @returns URL to Pro Access Pass purchase (fallback only)
  */
 export function getUpgradeUrl(companyId?: string): string {
-  // Use environment variable for Access Pass ID
-  // Get this from: Whop Dev Portal → Access Passes → Click on "Pro" → Copy Access Pass ID
-  const accessPassId = process.env.NEXT_PUBLIC_WHOP_PRO_PASS_ID
+  // Use environment variable for Plan ID
+  // Get this from: Whop Dev Portal → Access Passes → Click on "Pro" → View Pricing → Copy Plan ID
+  const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
   
-  if (accessPassId) {
-    // Direct link to Access Pass checkout page
-    return `https://whop.com/purchase/${accessPassId}`
+  if (planId) {
+    // Direct link to plan checkout page (fallback for non-iframe contexts)
+    return `https://whop.com/purchase/${planId}`
   }
   
-  // If no Access Pass ID is configured, show an alert
-  // This prevents users from going to install page and creating duplicates
-  console.error('NEXT_PUBLIC_WHOP_PRO_PASS_ID not configured! Please add it to environment variables.')
-  
-  // Fallback: Return a placeholder that won't work
-  // This forces the developer to set up the Access Pass ID properly
+  // If no Plan ID is configured, return placeholder
+  console.error('NEXT_PUBLIC_WHOP_PRO_PLAN_ID not configured! Please add it to environment variables.')
   return '#upgrade-not-configured'
 }
 
