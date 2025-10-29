@@ -57,63 +57,91 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       })
       
       console.log('[Experience Page] Found', userInstallations.length, 'installations for user')
+      
+      // CASE 1: User is logged in AND has other installations
+      // This means they're viewing the Pro membership Whop (wrong Whop)
+      if (userInstallations.length > 0) {
+        const mainInstallation = userInstallations[0]
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center p-6">
+            <Card className="max-w-lg">
+              <CardContent className="pt-6 text-center space-y-6">
+                <div className="rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-4 w-16 h-16 mx-auto flex items-center justify-center">
+                  <AlertCircle className="h-8 w-8 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold">Analytics Dashboard Not Available Here</h2>
+                  <p className="text-muted-foreground">
+                    You're viewing your Pro membership management page.
+                  </p>
+                </div>
+                
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg text-left space-y-3">
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                    💡 How the Analytics Dashboard works:
+                  </p>
+                  <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2 list-disc list-inside">
+                    <li>The dashboard is installed in <strong>your company's Whop</strong></li>
+                    <li>This page is for <strong>Pro membership management</strong></li>
+                    <li>To access your analytics, switch to where the app is installed</li>
+                  </ul>
+                </div>
+
+                {mainInstallation.experienceId && (
+                  <Link href={`/experiences/${mainInstallation.experienceId}`}>
+                    <Button className="gap-2 w-full" size="lg">
+                      Go to Your Dashboard <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
+
+                <div className="pt-4 border-t space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>To access the Analytics Dashboard:</strong>
+                  </p>
+                  <ol className="text-sm text-muted-foreground text-left space-y-2 list-decimal list-inside">
+                    <li>Look for <strong>your company's Whop</strong> in the sidebar</li>
+                    <li>Click on it to switch Whops</li>
+                    <li>You'll see your Analytics Dashboard there! 🎉</li>
+                  </ol>
+                </div>
+
+                <div className="pt-4">
+                  <p className="text-xs text-muted-foreground">
+                    Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )
+      }
     }
     
-    // Show a universal "not available here" message for this experience
-    // This handles both logged-in Pro users AND new visitors
+    // CASE 2: No session OR no other installations
+    // This means it's a NEW installation - show login page
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <Card className="max-w-lg">
-          <CardContent className="pt-6 text-center space-y-6">
-            <div className="rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-4 w-16 h-16 mx-auto flex items-center justify-center">
-              <AlertCircle className="h-8 w-8 text-white" />
+        <Card className="max-w-md">
+          <CardContent className="pt-6 text-center space-y-4">
+            <div className="rounded-full bg-primary/10 p-3 w-12 h-12 mx-auto flex items-center justify-center">
+              <AlertCircle className="h-6 w-6 text-primary" />
             </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Analytics Dashboard Not Available Here</h2>
-              <p className="text-muted-foreground">
-                {userInstallations.length > 0 
-                  ? "You're viewing your Pro membership management page."
-                  : "This app is not installed in this Whop."}
-              </p>
-            </div>
-            
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg text-left space-y-3">
-              <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                💡 How the Analytics Dashboard works:
-              </p>
-              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2 list-disc list-inside">
-                <li>The dashboard is installed in <strong>your company's Whop</strong></li>
-                {userInstallations.length > 0 && (
-                  <li>This page is for <strong>Pro membership management</strong></li>
-                )}
-                <li>To access your analytics, switch to where the app is installed</li>
-              </ul>
-            </div>
-
-            {userInstallations.length > 0 && userInstallations[0].experienceId && (
-              <Link href={`/experiences/${userInstallations[0].experienceId}`}>
-                <Button className="gap-2 w-full" size="lg">
-                  Go to Your Dashboard <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            )}
-
-            <div className="pt-4 border-t space-y-3">
-              <p className="text-sm text-muted-foreground">
-                <strong>To access the Analytics Dashboard:</strong>
-              </p>
-              <ol className="text-sm text-muted-foreground text-left space-y-2 list-decimal list-inside">
-                <li>Look for <strong>your company's Whop</strong> in the sidebar</li>
-                <li>Click on it to switch Whops</li>
-                <li>You'll see your Analytics Dashboard there! 🎉</li>
-              </ol>
-            </div>
-
-            <div className="pt-4">
-              <p className="text-xs text-muted-foreground">
-                Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
-              </p>
-            </div>
+            <h2 className="text-2xl font-bold">Welcome to Analytics Dashboard!</h2>
+            <p className="text-muted-foreground">
+              To use this app, please log in first to connect your Whop account.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
+            </p>
+            <Link href={`/login?experienceId=${experienceId}`}>
+              <Button className="gap-2 w-full">
+                Login with Whop <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <p className="text-xs text-muted-foreground">
+              After logging in, your installation will be automatically created.
+            </p>
           </CardContent>
         </Card>
       </div>
