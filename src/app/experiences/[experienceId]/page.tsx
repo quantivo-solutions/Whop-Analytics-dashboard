@@ -36,8 +36,60 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     // Look up installation by experienceId
     const installation = await getInstallationByExperience(experienceId)
 
-  // If not found, prompt user to login first
+  // If not found, check if this is a Pro membership access attempt
   if (!installation) {
+    // Check if user has ANY installations (they might have Pro membership but accessing wrong Whop)
+    const { getSession } = await import('@/lib/session')
+    const { prisma } = await import('@/lib/prisma')
+    const session = await getSession(token)
+    
+    if (session?.userId) {
+      // User is logged in, check if they have installations elsewhere
+      const userInstallations = await prisma.whopInstallation.findMany({
+        where: { userId: session.userId },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      })
+      
+      if (userInstallations.length > 0) {
+        // User has an installation in a different Whop!
+        const mainInstallation = userInstallations[0]
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center p-6">
+            <Card className="max-w-md">
+              <CardContent className="pt-6 text-center space-y-4">
+                <div className="rounded-full bg-blue-100 dark:bg-blue-950 p-3 w-12 h-12 mx-auto flex items-center justify-center">
+                  <AlertCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h2 className="text-2xl font-bold">Wrong Dashboard</h2>
+                <p className="text-muted-foreground">
+                  You're viewing the Pro membership page, but your Analytics Dashboard is installed elsewhere.
+                </p>
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>💡 How this works:</strong><br/>
+                    When you upgrade to Pro, you join the seller's Whop to manage your membership,
+                    but your app remains where you originally installed it.
+                  </p>
+                </div>
+                {mainInstallation.experienceId && (
+                  <Link href={`/experiences/${mainInstallation.experienceId}`}>
+                    <Button className="gap-2 w-full" size="lg">
+                      Go to Your Dashboard <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  You can safely close this tab or use the button above to return to your dashboard.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )
+      }
+    }
+    
+    // No session or no installations - show login prompt
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <Card className="max-w-md">
@@ -45,9 +97,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             <div className="rounded-full bg-primary/10 p-3 w-12 h-12 mx-auto flex items-center justify-center">
               <AlertCircle className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold">Installation Not Found</h2>
+            <h2 className="text-2xl font-bold">Welcome to Analytics Dashboard</h2>
             <p className="text-muted-foreground">
-              This experience doesn't have an active installation yet.
+              Please log in to access your dashboard.
             </p>
             <p className="text-sm text-muted-foreground">
               Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
@@ -57,15 +109,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 Login with Whop <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <p className="text-xs text-muted-foreground">
-              After logging in, your installation will be created automatically.
-            </p>
-            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded">
-              <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                💡 <strong>Note:</strong> If this is a duplicate installation created during upgrade, 
-                you can safely close this tab and return to your main dashboard.
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>
