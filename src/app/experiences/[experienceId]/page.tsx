@@ -183,6 +183,16 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 </p>
               </div>
             )}
+            
+            {/* Pro membership explanation banner */}
+            {plan === 'pro' && (
+              <div className="mt-4 p-4 rounded-lg border border-green-500/20 bg-green-500/5">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">💡 Pro Tip:</span>
+                  {' '}If you see "Quantivo Solutions" in your sidebar, that's your Pro membership portal. Your Analytics Dashboard is here in your company's Whop.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Dashboard view */}
