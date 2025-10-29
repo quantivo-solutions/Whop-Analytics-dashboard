@@ -17,7 +17,7 @@ import { ExperienceNotFound } from '@/components/experience-not-found'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-export const maxDuration = 10 // Fail fast if taking too long
+export const maxDuration = 5 // Fail fast
 
 interface PageProps {
   params: Promise<{
@@ -29,12 +29,22 @@ interface PageProps {
 }
 
 export default async function ExperienceDashboardPage({ params, searchParams }: PageProps) {
+  const startTime = Date.now()
   const { experienceId } = await params
   const { token } = await searchParams
 
+  console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none')
+
   try {
-    // Look up installation by experienceId
-    const installation = await getInstallationByExperience(experienceId)
+    // Look up installation by experienceId with timeout
+    console.log('[Experience Page] Looking up installation...')
+    const installation = await Promise.race([
+      getInstallationByExperience(experienceId),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 3000))
+    ]).catch(err => {
+      console.error('[Experience Page] Installation lookup failed:', err.message)
+      return null
+    }) as any
 
   // If not found, quickly determine scenario and render client component
   if (!installation) {
@@ -76,6 +86,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
     
     // Render client component immediately
+    console.log('[Experience Page] Rendering ExperienceNotFound - hasOther:', hasOtherInstallation, 'elapsed:', Date.now() - startTime, 'ms')
     return (
       <ExperienceNotFound 
         experienceId={experienceId}
@@ -84,6 +95,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       />
     )
   }
+
+  console.log('[Experience Page] Installation found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
 
     // Fetch dashboard data and plan for this company
     const [dashboardData, plan] = await Promise.all([
