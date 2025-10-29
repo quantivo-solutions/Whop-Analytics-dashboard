@@ -45,9 +45,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             <div className="rounded-full bg-primary/10 p-3 w-12 h-12 mx-auto flex items-center justify-center">
               <AlertCircle className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold">Welcome to Analytics Dashboard!</h2>
+            <h2 className="text-2xl font-bold">Installation Not Found</h2>
             <p className="text-muted-foreground">
-              To use this app, please log in first to connect your Whop account.
+              This experience doesn't have an active installation yet.
             </p>
             <p className="text-sm text-muted-foreground">
               Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
@@ -58,8 +58,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               </Button>
             </Link>
             <p className="text-xs text-muted-foreground">
-              After logging in, your installation will be automatically created.
+              After logging in, your installation will be created automatically.
             </p>
+            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded">
+              <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                💡 <strong>Note:</strong> If this is a duplicate installation created during upgrade, 
+                you can safely close this tab and return to your main dashboard.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
