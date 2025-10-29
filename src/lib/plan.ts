@@ -127,13 +127,22 @@ export function getPlanBadgeClasses(plan: Plan): string {
 
 /**
  * Get Whop upgrade URL
- * Direct link to Pro product purchase page
+ * Links to Access Pass purchase for Pro plan
  * @param companyId - Optional company ID (not used currently, but kept for future)
- * @returns URL to Pro product purchase page
+ * @returns URL to Pro Access Pass purchase
  */
 export function getUpgradeUrl(companyId?: string): string {
-  // Direct link to Pro product for immediate purchase
-  // This works for both logged-in and new users
-  return 'https://whop.com/quantivo-solutions/analytics-dashboard-pro/'
+  // Use environment variable for Access Pass URL if set
+  // Format: https://whop.com/apps/{app_id}/passes/{pass_id}
+  // Or use the install URL which will show available Access Passes
+  const accessPassUrl = process.env.NEXT_PUBLIC_WHOP_PRO_ACCESS_PASS_URL
+  
+  if (accessPassUrl) {
+    return accessPassUrl
+  }
+  
+  // Fallback: Direct to app install page where they can see Access Passes
+  const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID || 'app_vDbFW0gw0f19QE'
+  return `https://whop.com/apps/${appId}/install/`
 }
 
