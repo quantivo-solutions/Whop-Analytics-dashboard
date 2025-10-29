@@ -46,7 +46,7 @@ export function UpgradeButtonIframe({ plan, experienceId }: UpgradeButtonIframeP
       
       if (result.status === 'ok') {
         toast.success('Successfully upgraded to Pro! 🎉')
-        console.log('[Upgrade] Receipt ID:', result.data?.receipt_id)
+        console.log('[Upgrade] Receipt ID:', result.data?.receiptId)
         
         // Reload page to show updated plan
         setTimeout(() => {
