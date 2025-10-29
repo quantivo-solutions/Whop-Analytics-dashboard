@@ -48,40 +48,51 @@ export async function POST(request: Request) {
     // Log the FULL raw body to see structure
     console.log('📦 Raw webhook body:', JSON.stringify(body, null, 2))
     
-    const { event, data } = body
+    // Whop uses "action" field, not "event"
+    // Data might be null or at root level
+    const action = body.action || body.event
+    const data = body.data || body // If data is null, use body itself
 
-    console.log(`📥 Whop webhook event: ${event}`)
+    console.log(`📥 Whop webhook action: ${action}`)
     console.log(`📦 Webhook data keys:`, Object.keys(data || {}))
 
-    switch (event) {
+    // Map Whop's action names to our handlers
+    switch (action) {
       case 'app.installed':
+      case 'app_installed':
         await handleAppInstalled(data)
         break
       
       case 'app.uninstalled':
+      case 'app_uninstalled':
         await handleAppUninstalled(data)
         break
       
       case 'app.plan.updated':
+      case 'app_plan_updated':
         await handlePlanUpdated(data)
         break
       
-      // Handle product membership events (for direct purchases)
+      // Handle membership events - Whop uses "app_membership.went_valid"
+      case 'app_membership.went_valid':
       case 'membership.went_valid':
       case 'membership.activated':
+      case 'membership_activated':
         await handleMembershipActivated(data)
         break
       
+      case 'app_membership.went_invalid':
       case 'membership.went_invalid':
       case 'membership.cancelled':
+      case 'membership_cancelled':
         await handleMembershipCancelled(data)
         break
       
       default:
-        console.log(`ℹ️  Unhandled webhook event: ${event}`)
+        console.log(`ℹ️  Unhandled webhook action: ${action}`)
     }
 
-    return NextResponse.json({ ok: true, event })
+    return NextResponse.json({ ok: true, action })
   } catch (error) {
     console.error('❌ Webhook error:', error)
     return NextResponse.json(
