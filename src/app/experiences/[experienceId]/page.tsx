@@ -36,79 +36,56 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     // Look up installation by experienceId
     const installation = await getInstallationByExperience(experienceId)
 
-  // If not found, check if this is a Pro membership access attempt
+  // If not found, this is likely the Pro membership Whop (seller's company)
   if (!installation) {
-    // Check if user has ANY installations (they might have Pro membership but accessing wrong Whop)
-    const { getSession } = await import('@/lib/session')
-    const { prisma } = await import('@/lib/prisma')
-    const session = await getSession(token)
+    // This is the seller's Whop where Pro memberships are managed
+    // The actual app is installed in the customer's Whop
+    // Show a helpful message regardless of login state
     
-    if (session?.userId) {
-      // User is logged in, check if they have installations elsewhere
-      const userInstallations = await prisma.whopInstallation.findMany({
-        where: { userId: session.userId },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      })
-      
-      if (userInstallations.length > 0) {
-        // User has an installation in a different Whop!
-        const mainInstallation = userInstallations[0]
-        return (
-          <div className="min-h-screen bg-background flex items-center justify-center p-6">
-            <Card className="max-w-md">
-              <CardContent className="pt-6 text-center space-y-4">
-                <div className="rounded-full bg-blue-100 dark:bg-blue-950 p-3 w-12 h-12 mx-auto flex items-center justify-center">
-                  <AlertCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h2 className="text-2xl font-bold">Wrong Dashboard</h2>
-                <p className="text-muted-foreground">
-                  You're viewing the Pro membership page, but your Analytics Dashboard is installed elsewhere.
-                </p>
-                <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <strong>💡 How this works:</strong><br/>
-                    When you upgrade to Pro, you join the seller's Whop to manage your membership,
-                    but your app remains where you originally installed it.
-                  </p>
-                </div>
-                {mainInstallation.experienceId && (
-                  <Link href={`/experiences/${mainInstallation.experienceId}`}>
-                    <Button className="gap-2 w-full" size="lg">
-                      Go to Your Dashboard <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  You can safely close this tab or use the button above to return to your dashboard.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )
-      }
-    }
-    
-    // No session or no installations - show login prompt
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <Card className="max-w-md">
-          <CardContent className="pt-6 text-center space-y-4">
-            <div className="rounded-full bg-primary/10 p-3 w-12 h-12 mx-auto flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-primary" />
+        <Card className="max-w-lg">
+          <CardContent className="pt-6 text-center space-y-6">
+            <div className="rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-4 w-16 h-16 mx-auto flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-white" />
             </div>
-            <h2 className="text-2xl font-bold">Welcome to Analytics Dashboard</h2>
-            <p className="text-muted-foreground">
-              Please log in to access your dashboard.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
-            </p>
-            <Link href={`/login?experienceId=${experienceId}`}>
-              <Button className="gap-2 w-full">
-                Login with Whop <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Pro Membership Portal</h2>
+              <p className="text-muted-foreground">
+                You're viewing your Pro membership management page.
+              </p>
+            </div>
+            
+            <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg text-left space-y-3">
+              <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                💡 How the Analytics Dashboard works:
+              </p>
+              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2 list-disc list-inside">
+                <li>Your dashboard is installed in <strong>your company's Whop</strong></li>
+                <li>This page manages your <strong>Pro membership subscription</strong></li>
+                <li>To access your analytics, go back to where you installed the app</li>
+              </ul>
+            </div>
+
+            <div className="pt-4 border-t space-y-3">
+              <p className="text-sm text-muted-foreground">
+                <strong>To access your Analytics Dashboard:</strong>
+              </p>
+              <ol className="text-sm text-muted-foreground text-left space-y-2 list-decimal list-inside">
+                <li>Look for <strong>your company's Whop</strong> in the sidebar (e.g., "Hafiz Usama", not "Quantivo Solutions")</li>
+                <li>Click on it to switch Whops</li>
+                <li>You'll see your Analytics Dashboard with the Pro badge! 🎉</li>
+              </ol>
+            </div>
+
+            <div className="pt-4">
+              <p className="text-xs text-muted-foreground">
+                Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                You can safely close this tab and return to your main dashboard.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
