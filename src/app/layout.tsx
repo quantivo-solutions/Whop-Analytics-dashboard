@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
-import { WhopSdkLoader } from '@/components/whop-sdk-loader'
+import { WhopProvider } from '@/components/whop-provider'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -19,9 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <WhopSdkLoader />
-        {children}
-        <Toaster position="bottom-right" richColors />
+        <WhopProvider>
+          {children}
+          <Toaster position="bottom-right" richColors />
+        </WhopProvider>
       </body>
     </html>
   )
