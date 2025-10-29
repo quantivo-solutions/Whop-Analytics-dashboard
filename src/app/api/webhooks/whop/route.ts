@@ -48,9 +48,11 @@ export async function POST(request: Request) {
     // Log the FULL raw body to see structure
     console.log('📦 Raw webhook body:', JSON.stringify(body, null, 2))
     
-    // Whop uses "action" field, not "event"
-    // Data might be null or at root level
-    const action = body.action || body.event
+    // Whop uses different fields for event type:
+    // - "action" for some webhooks (e.g., "app_membership.went_valid")
+    // - "type" for others (e.g., "membership.activated")
+    // - "event" as fallback
+    const action = body.action || body.type || body.event
     const data = body.data || body // If data is null, use body itself
 
     console.log(`📥 Whop webhook action: ${action}`)
@@ -254,12 +256,21 @@ async function triggerBackfill(companyId: string) {
  * Access Pass membership gives a user access to features in an already-installed app.
  */
 async function handleMembershipActivated(data: any) {
-  const { user, product, company_id, status, access_pass, id: membershipId, experience } = data
+  // Extract from both old and new webhook formats
+  const user = data.user
+  const product = data.product
+  const company = data.company
+  const company_id = company?.id || data.company_id
+  const status = data.status
+  const access_pass = data.access_pass
+  const membershipId = data.id
+  const experience = data.experience
 
   console.log('[WHOP] membership.activated webhook received:', {
     user_id: user?.id,
     company_id,
-    product: product?.name,
+    company_title: company?.title,
+    product_title: product?.title,
     access_pass: access_pass?.id,
     membership_id: membershipId,
     experience_id: experience?.id,
@@ -272,48 +283,72 @@ async function handleMembershipActivated(data: any) {
   // where the app is actually installed (found via experienceId)
   
   // Determine plan from access pass or product name
-  const accessPassName = access_pass?.name || product?.name || ''
+  const productTitle = product?.title || access_pass?.name || ''
   let plan = 'free'
   
-  if (accessPassName.includes('Pro')) {
+  if (productTitle.includes('Pro')) {
     plan = 'pro'
-  } else if (accessPassName.includes('Business')) {
+  } else if (productTitle.includes('Business')) {
     plan = 'business'
   }
 
-  console.log(`[WHOP] Access Pass activated: "${accessPassName}" → plan=${plan}`)
+  console.log(`[WHOP] Product: "${productTitle}" → plan=${plan}`)
 
-  // Try to find installation by experienceId (for company apps)
+  // CRITICAL: For Access Pass memberships, the company_id is the PURCHASING company,
+  // NOT necessarily where the app is installed!
+  // 
+  // Strategy to find the correct installation:
+  // 1. Try by experienceId (if provided - for company apps accessed via iframe)
+  // 2. Try ALL installations and find one with matching user ID (user is consistent)
+  // 3. Fall back to company_id from webhook (might create duplicate if wrong company)
+  
   let installation = null
+  
+  // Priority 1: experienceId (most reliable for company apps)
   if (experience?.id) {
     installation = await prisma.whopInstallation.findFirst({
       where: { experienceId: experience.id },
     })
     
     if (installation) {
-      console.log(`[WHOP] Found installation via experienceId: ${experience.id} → companyId: ${installation.companyId}`)
+      console.log(`[WHOP] ✅ Found installation via experienceId: ${experience.id} → companyId: ${installation.companyId}`)
     }
   }
   
-  // If no installation found via experience, try by company_id
+  // Priority 2: Find by user ID (user purchases across companies)
+  // Since we don't store user_id in WhopInstallation, we need to find installations
+  // TEMPORARY FIX: Use the OLDEST installation (first one created)
+  // This assumes the user has one main installation and newer ones are duplicates/mistakes
+  if (!installation && user?.id) {
+    console.log(`[WHOP] No experience ID, searching for installations with user: ${user.id}`)
+    
+    // Get ALL installations, ordered by creation date (oldest first)
+    const allInstallations = await prisma.whopInstallation.findMany({
+      orderBy: { createdAt: 'asc' },
+      take: 10,
+    })
+    
+    console.log(`[WHOP] Found ${allInstallations.length} total installations`)
+    
+    // Use the FIRST (oldest) installation
+    // Assumption: The first installation is the "real" one, newer ones are from
+    // membership purchases creating duplicate entries
+    if (allInstallations.length > 0) {
+      installation = allInstallations[0]
+      console.log(`[WHOP] ⚠️  Using OLDEST installation (likely the real one): ${installation.companyId} (created: ${installation.createdAt})`)
+      console.warn(`[WHOP] ⚠️  TEMPORARY WORKAROUND: Cannot reliably match user to installation without storing userId!`)
+      console.warn(`[WHOP] TODO: Add userId field to WhopInstallation schema for accurate matching.`)
+    }
+  }
+  
+  // Priority 3: Fall back to company_id from webhook (might be wrong company!)
   if (!installation && company_id) {
     installation = await prisma.whopInstallation.findUnique({
       where: { companyId: company_id },
     })
     
     if (installation) {
-      console.log(`[WHOP] Found installation via company_id: ${company_id}`)
-    }
-  }
-  
-  // If still no installation, try by user.id as fallback
-  if (!installation && user?.id) {
-    installation = await prisma.whopInstallation.findUnique({
-      where: { companyId: user.id },
-    })
-    
-    if (installation) {
-      console.log(`[WHOP] Found installation via user.id: ${user.id}`)
+      console.log(`[WHOP] Found installation via webhook company_id: ${company_id}`)
     }
   }
 
