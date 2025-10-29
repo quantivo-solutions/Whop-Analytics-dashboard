@@ -11,6 +11,12 @@ export function UpgradeButtonIframe({ upgradeUrl, plan }: UpgradeButtonIframePro
   if (plan !== 'free') return null
 
   const handleUpgrade = () => {
+    // Check if upgrade URL is properly configured
+    if (!upgradeUrl || upgradeUrl === '#upgrade-not-configured') {
+      alert('Upgrade is not configured yet. Please contact support.')
+      return
+    }
+    
     // Try multiple methods to break out of iframe
     try {
       // Method 1: Use _top target (breaks out of all frames)

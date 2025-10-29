@@ -16,6 +16,12 @@ interface UpgradeButtonProps {
 
 export function UpgradeButton({ upgradeUrl, size = 'default', variant = 'default' }: UpgradeButtonProps) {
   const handleClick = () => {
+    // Check if upgrade URL is properly configured
+    if (!upgradeUrl || upgradeUrl === '#upgrade-not-configured') {
+      alert('Upgrade is not configured yet. Please contact support or set NEXT_PUBLIC_WHOP_PRO_PASS_ID environment variable.')
+      return
+    }
+    
     window.open(upgradeUrl, '_blank', 'noopener,noreferrer')
   }
 
