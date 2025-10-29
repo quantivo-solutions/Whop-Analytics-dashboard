@@ -38,10 +38,13 @@ model WorkspaceSettings {
 model WhopInstallation {
   id           String         @id @default(cuid())
   companyId    String         @unique
+  userId       String?        // Whop user ID for matching memberships
   experienceId String?        @unique
   plan         String?
   accessToken  String
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   metrics      MetricsDaily[]
+  
+  @@index([userId])
 }

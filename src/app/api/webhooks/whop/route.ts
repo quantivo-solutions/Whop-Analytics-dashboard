@@ -316,28 +316,19 @@ async function handleMembershipActivated(data: any) {
   }
   
   // Priority 2: Find by user ID (user purchases across companies)
-  // Since we don't store user_id in WhopInstallation, we need to find installations
-  // TEMPORARY FIX: Use the OLDEST installation (first one created)
-  // This assumes the user has one main installation and newer ones are duplicates/mistakes
   if (!installation && user?.id) {
-    console.log(`[WHOP] No experience ID, searching for installations with user: ${user.id}`)
+    console.log(`[WHOP] No experience ID, searching for installation with userId: ${user.id}`)
     
-    // Get ALL installations, ordered by creation date (oldest first)
-    const allInstallations = await prisma.whopInstallation.findMany({
-      orderBy: { createdAt: 'asc' },
-      take: 10,
+    // Find installation by userId
+    installation = await prisma.whopInstallation.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' }, // Get most recent if multiple
     })
     
-    console.log(`[WHOP] Found ${allInstallations.length} total installations`)
-    
-    // Use the FIRST (oldest) installation
-    // Assumption: The first installation is the "real" one, newer ones are from
-    // membership purchases creating duplicate entries
-    if (allInstallations.length > 0) {
-      installation = allInstallations[0]
-      console.log(`[WHOP] ⚠️  Using OLDEST installation (likely the real one): ${installation.companyId} (created: ${installation.createdAt})`)
-      console.warn(`[WHOP] ⚠️  TEMPORARY WORKAROUND: Cannot reliably match user to installation without storing userId!`)
-      console.warn(`[WHOP] TODO: Add userId field to WhopInstallation schema for accurate matching.`)
+    if (installation) {
+      console.log(`[WHOP] ✅ Found installation via userId: ${user.id} → companyId: ${installation.companyId}`)
+    } else {
+      console.warn(`[WHOP] ⚠️  No installation found for userId: ${user.id}`)
     }
   }
   
