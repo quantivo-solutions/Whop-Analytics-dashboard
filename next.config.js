@@ -5,8 +5,9 @@ const nextConfig = {
   experimental: {
     outputFileTracingIncludes: {
       '/api/**/*': ['./node_modules/.prisma/client/**/*'],
-      '/dashboard': ['./node_modules/.prisma/client/**/*'],
-      '/settings': ['./node_modules/.prisma/client/**/*'],
+      '/dashboard/**/*': ['./node_modules/.prisma/client/**/*'],
+      '/experiences/**/*': ['./node_modules/.prisma/client/**/*'],
+      '/settings/**/*': ['./node_modules/.prisma/client/**/*'],
     },
   },
 }
