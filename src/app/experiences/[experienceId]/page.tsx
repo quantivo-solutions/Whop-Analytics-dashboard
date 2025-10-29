@@ -14,6 +14,8 @@ import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { ErrorDisplay } from '@/components/error-boundary'
 import { DashboardSettingsButton } from '@/components/dashboard-settings-button'
+import { getSession } from '@/lib/session'
+import { prisma } from '@/lib/prisma'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -38,10 +40,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   // If not found, check if this is the Pro membership Whop or a new installation
   if (!installation) {
+    console.log('[Experience Page] No installation found for:', experienceId)
+    
     // Check if user has a session and other installations (Pro membership Whop scenario)
-    const { getSession } = await import('@/lib/session')
-    const { prisma } = await import('@/lib/prisma')
     const session = await getSession(token)
+    console.log('[Experience Page] Session userId:', session?.userId || 'none')
     
     // If user is logged in, check if they have installations elsewhere
     if (session?.userId) {
@@ -50,6 +53,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         orderBy: { createdAt: 'desc' },
         take: 1,
       })
+      
+      console.log('[Experience Page] Found', userInstallations.length, 'installations for user')
       
       // If they have installations elsewhere, this is the Pro membership Whop
       if (userInstallations.length > 0) {
