@@ -8,7 +8,7 @@ import { getCompanySeries, getInstallationByExperience } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { ErrorDisplay } from '@/components/error-boundary'
-import { UserProfileMenu } from '@/components/user-profile-menu'
+import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { ExperienceNotFound } from '@/components/experience-not-found'
@@ -97,44 +97,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   console.log('[Experience Page] Installation found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
 
-    // Fetch dashboard data, plan, and user info
+    // Fetch dashboard data and plan
     const [dashboardData, plan] = await Promise.all([
       getCompanySeries(installation.companyId, 30),
       getPlanForCompany(installation.companyId),
     ])
-
-    // Try to get company data
-    let companyData = null
-    try {
-      console.log('[Experience Page] Fetching company data...')
-      const companyResponse = await fetch('https://api.whop.com/api/v5/company', {
-        headers: {
-          'Authorization': `Bearer ${installation.accessToken}`,
-        },
-      })
-      
-      console.log('[Experience Page] Company response status:', companyResponse.status)
-      
-      if (companyResponse.ok) {
-        const rawData = await companyResponse.json()
-        console.log('[Experience Page] Raw company data:', JSON.stringify(rawData).substring(0, 500))
-        
-        // Handle both direct object and data wrapper
-        companyData = rawData.data || rawData
-        
-        console.log('[Experience Page] Parsed company data:', {
-          id: companyData?.id,
-          title: companyData?.title,
-          name: companyData?.name,
-          image_url: companyData?.image_url ? 'present' : 'missing',
-        })
-      } else {
-        const errorText = await companyResponse.text()
-        console.error('[Experience Page] Company fetch failed:', companyResponse.status, errorText)
-      }
-    } catch (error) {
-      console.error('[Experience Page] Failed to fetch company data:', error)
-    }
 
     // Get upgrade URL with company context for better Whop integration
     const upgradeUrl = getUpgradeUrl(installation.companyId)
@@ -163,10 +130,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               {/* Right: Actions */}
               <div className="flex items-center gap-2">
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
-                <UserProfileMenu 
+                <UserProfileMenuClient 
                   companyId={installation.companyId}
-                  username={companyData?.title || companyData?.name || 'My Business'}
-                  profilePicture={companyData?.image_url}
                   plan={plan}
                 />
               </div>
