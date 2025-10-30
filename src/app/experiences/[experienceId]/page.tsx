@@ -96,12 +96,27 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   }
 
   console.log('[Experience Page] Installation found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
+    console.log('[Experience Page] Installation details:', {
+      companyId: installation.companyId,
+      plan: installation.plan,
+      userId: installation.userId,
+      username: installation.username
+    })
 
-    // Fetch dashboard data and plan
-    const [dashboardData, plan] = await Promise.all([
-      getCompanySeries(installation.companyId, 30),
-      getPlanForCompany(installation.companyId),
-    ])
+    // Fetch dashboard data and plan with error handling
+    console.log('[Experience Page] Fetching dashboard data for companyId:', installation.companyId)
+    
+    let dashboardData, plan
+    try {
+      [dashboardData, plan] = await Promise.all([
+        getCompanySeries(installation.companyId, 30),
+        getPlanForCompany(installation.companyId),
+      ])
+      console.log('[Experience Page] Dashboard data fetched successfully, plan:', plan)
+    } catch (fetchError) {
+      console.error('[Experience Page] Failed to fetch dashboard data:', fetchError)
+      throw fetchError
+    }
 
     // Get upgrade URL with company context for better Whop integration
     const upgradeUrl = getUpgradeUrl(installation.companyId)

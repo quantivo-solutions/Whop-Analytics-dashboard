@@ -12,15 +12,14 @@ function LoadingContent() {
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
   useEffect(() => {
-    // Wait 500ms to ensure database operations complete
+    console.log('[Auth Loading] Starting redirect process to:', redirectTo)
+    
+    // Wait 800ms to ensure database operations complete
     const timer = setTimeout(() => {
-      console.log('[Auth Loading] Redirecting to:', redirectTo)
-      router.push(redirectTo)
-      // Force a hard refresh to ensure fresh data
-      setTimeout(() => {
-        window.location.href = redirectTo
-      }, 100)
-    }, 500)
+      console.log('[Auth Loading] Performing redirect to:', redirectTo)
+      // Use window.location for a clean hard refresh
+      window.location.href = redirectTo
+    }, 800)
 
     return () => clearTimeout(timer)
   }, [redirectTo, router])
