@@ -4,12 +4,12 @@
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, Users, UserPlus, UserMinus, CheckCircle, TrendingUp, TrendingDown, Info } from 'lucide-react'
+import { DollarSign, Users, UserPlus, UserMinus, CheckCircle, TrendingUp, TrendingDown, Info, Zap, Activity } from 'lucide-react'
 import type { DashboardData } from '@/lib/metrics'
 import type { Plan } from '@/lib/plan'
 import { getPlanFeatures, hasPro } from '@/lib/plan'
 import { ProFeatureLock } from './pro-feature-lock'
-import { SimpleChart } from './simple-chart'
+import { ModernChart } from './modern-chart'
 
 interface DashboardViewProps {
   data: DashboardData
@@ -74,88 +74,120 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
   ]
 
   return (
-    <div className="space-y-8">
-      {/* Header with optional badge */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        {showBadge && (
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border ${
-              effectiveBadgeType === 'live'
-                ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
-            }`}
-            title={
-              kpis.latestDate
-                ? `Data from Whop webhooks. Last sync: ${new Date(kpis.latestDate).toLocaleString()}`
-                : 'No data available yet'
-            }
-          >
-            {effectiveBadgeType === 'live' ? (
-              <>
+    <div className="space-y-6">
+      {/* Header with status badge */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+              Analytics
+            </h1>
+            {showBadge && effectiveBadgeType === 'live' && (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                 </span>
-                LIVE (Whop)
-              </>
-            ) : (
-              <>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-400"></span>
-                {hasData ? 'STALE' : 'NO DATA'}
-              </>
+                Live Data
+              </span>
             )}
-          </span>
+          </div>
+          <p className="text-muted-foreground">
+            {hasData 
+              ? `Real-time insights from your Whop business` 
+              : 'Waiting for your first customer'
+            }
+          </p>
+        </div>
+        
+        {kpis.latestDate && (
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">Last updated</p>
+            <p className="text-sm font-medium">{new Date(kpis.latestDate).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</p>
+          </div>
         )}
       </div>
 
       {/* Empty state */}
       {!hasData && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="rounded-full bg-muted p-3 mb-4">
-              <TrendingUp className="h-6 w-6 text-muted-foreground" />
+        <Card className="border-dashed border-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur-xl opacity-20 animate-pulse" />
+              <div className="relative rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 p-6 border border-blue-500/20">
+                <Activity className="h-12 w-12 text-blue-500" />
+              </div>
             </div>
-            <h3 className="text-lg font-semibold mb-2">No activity yet</h3>
-            <p className="text-sm text-muted-foreground max-w-md">
-              We'll populate metrics as soon as your store gets its first member or payment.
-              Data syncs automatically via webhooks.
+            
+            <h3 className="text-2xl font-bold mb-2">No activity yet</h3>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Your analytics will appear here as soon as customers start joining your Whop.
+              Data syncs automatically in real-time via webhooks.
             </p>
+            
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
+              <Zap className="h-4 w-4 text-yellow-500" />
+              <span>Waiting for your first member or payment...</span>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Stats cards */}
+      {/* Stats cards with stagger animation */}
       {hasData && (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {statsData.map((stat, index) => {
             const Icon = stat.icon
+            const colors = [
+              'from-green-500/10 to-emerald-500/10 border-green-500/20 text-green-600',
+              'from-blue-500/10 to-cyan-500/10 border-blue-500/20 text-blue-600',
+              'from-purple-500/10 to-indigo-500/10 border-purple-500/20 text-purple-600',
+              'from-orange-500/10 to-red-500/10 border-orange-500/20 text-orange-600',
+              'from-pink-500/10 to-rose-500/10 border-pink-500/20 text-pink-600',
+            ]
+            
             return (
-              <Card key={index} className="hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+              <Card 
+                key={index} 
+                className={`relative overflow-hidden bg-gradient-to-br ${colors[index]} border group hover:shadow-lg hover:scale-105 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4`}
+                style={{ 
+                  animationDelay: `${index * 100}ms`,
+                  animationFillMode: 'backwards'
+                }}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {stat.title}
+                    </CardTitle>
+                    <Icon className="h-4 w-4 text-muted-foreground group-hover:scale-110 transition-transform" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    {stat.trend === 'up' ? (
-                      <TrendingUp className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3 text-red-500" />
-                    )}
+                  <div className="text-2xl font-bold mb-1">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground">
                     {stat.description}
                   </p>
                 </CardContent>
+                
+                {/* Subtle shine effect on hover */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
               </Card>
             )
           })}
         </div>
       )}
 
-      {/* Charts */}
+      {/* Modern Charts */}
       {hasData && (
-        <SimpleChart data={series} />
+        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700" style={{ animationDelay: '600ms', animationFillMode: 'backwards' }}>
+          <ModernChart data={series} />
+        </div>
       )}
 
       {/* Pro features section */}
