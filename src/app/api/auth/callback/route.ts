@@ -242,7 +242,7 @@ export async function GET(request: Request) {
       where: { companyId },
     })
 
-    // Upsert installation with synced plan, experienceId, and userId
+    // Upsert installation with synced plan, experienceId, userId, and user data
     if (!installation) {
       installation = await prisma.whopInstallation.create({
         data: {
@@ -251,11 +251,14 @@ export async function GET(request: Request) {
           experienceId,
           accessToken: access_token,
           plan: userPlan,
+          username: userData.username,
+          email: userData.email,
+          profilePicUrl: userData.profile_pic_url,
         },
       })
-      console.log(`[OAuth] Created new installation for ${companyId} (user: ${userData.id}) with plan: ${userPlan}, experienceId: ${experienceId || 'none'}`)
+      console.log(`[OAuth] Created new installation for ${companyId} (user: ${userData.id}, username: ${userData.username}) with plan: ${userPlan}`)
     } else {
-      // Update access token, plan, experienceId, and userId
+      // Update access token, plan, experienceId, userId, and user data
       await prisma.whopInstallation.update({
         where: { companyId },
         data: { 
@@ -263,9 +266,12 @@ export async function GET(request: Request) {
           experienceId: experienceId || installation.experienceId, // Keep existing if not provided
           accessToken: access_token,
           plan: userPlan, // Sync plan from Whop
+          username: userData.username,
+          email: userData.email,
+          profilePicUrl: userData.profile_pic_url,
         },
       })
-      console.log(`[OAuth] Updated installation for ${companyId} (user: ${userData.id}) with plan: ${userPlan}`)
+      console.log(`[OAuth] Updated installation for ${companyId} (user: ${userData.id}, username: ${userData.username}) with plan: ${userPlan}`)
     }
 
     // Create session cookie

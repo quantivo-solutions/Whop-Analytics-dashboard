@@ -42,6 +42,9 @@ model WhopInstallation {
   experienceId   String?        @unique
   plan           String?
   accessToken    String
+  username       String?        // User's Whop username
+  email          String?        // User's email
+  profilePicUrl  String?        // User's profile picture URL
   reportEmail    String?        // Per-company email for reports
   weeklyEmail    Boolean        @default(true)
   dailyEmail     Boolean        @default(false)

@@ -132,6 +132,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
                 <UserProfileMenuClient 
                   companyId={installation.companyId}
+                  username={installation.username}
+                  email={installation.email}
+                  profilePicUrl={installation.profilePicUrl}
                   plan={plan}
                 />
               </div>
