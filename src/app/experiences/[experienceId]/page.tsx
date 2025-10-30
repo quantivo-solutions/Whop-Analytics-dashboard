@@ -34,18 +34,18 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none')
 
-  try {
-    // Look up installation by experienceId with increased timeout
-    console.log('[Experience Page] Looking up installation...')
-    const installation = await Promise.race([
-      getInstallationByExperience(experienceId),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 4000))
-    ]).catch(err => {
-      console.error('[Experience Page] Installation lookup failed:', err.message)
-      return null
-    }) as any
+  // Look up installation by experienceId with increased timeout
+  console.log('[Experience Page] Looking up installation...')
+  const installation = await Promise.race([
+    getInstallationByExperience(experienceId),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 4000))
+  ]).catch(err => {
+    console.error('[Experience Page] Installation lookup failed:', err.message)
+    return null
+  }) as any
 
   // If not found, quickly determine scenario and render client component
+  // This is NOT an error - it's expected for new installations
   if (!installation) {
     console.log('[Experience Page] No installation found for:', experienceId)
     
@@ -84,7 +84,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       // Continue with defaults (hasOtherInstallation = false)
     }
     
-    // Render client component immediately
+    // Render client component immediately - this will auto-redirect to login
     console.log('[Experience Page] Rendering ExperienceNotFound - hasOther:', hasOtherInstallation, 'elapsed:', Date.now() - startTime, 'ms')
     return (
       <ExperienceNotFound 
@@ -94,6 +94,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       />
     )
   }
+
+  // Installation found - proceed to load dashboard with error handling
+  try {
 
   console.log('[Experience Page] Installation found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
     console.log('[Experience Page] Installation details:', {
