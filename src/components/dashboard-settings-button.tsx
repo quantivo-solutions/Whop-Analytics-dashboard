@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Settings } from 'lucide-react'
 import {
@@ -19,6 +19,15 @@ interface DashboardSettingsButtonProps {
 
 export function DashboardSettingsButton({ companyId }: DashboardSettingsButtonProps) {
   const [open, setOpen] = useState(false)
+  const [key, setKey] = useState(0)
+
+  // Force remount of settings component when modal opens
+  // This ensures fresh data is loaded (especially after upgrade)
+  useEffect(() => {
+    if (open) {
+      setKey(prev => prev + 1)
+    }
+  }, [open])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -36,7 +45,7 @@ export function DashboardSettingsButton({ companyId }: DashboardSettingsButtonPr
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">
-          <DashboardSettingsInline companyId={companyId} />
+          <DashboardSettingsInline key={key} companyId={companyId} />
         </div>
       </DialogContent>
     </Dialog>

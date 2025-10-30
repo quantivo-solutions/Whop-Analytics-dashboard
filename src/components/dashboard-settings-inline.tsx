@@ -28,25 +28,37 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
   const isPro = plan === 'pro' || plan === 'business'
   const iframeSdk = useIframeSdk()
 
-  // Load settings on mount
-  useEffect(() => {
-    async function loadSettings() {
-      try {
-        const response = await fetch(`/api/settings?companyId=${companyId}`)
-        if (response.ok) {
-          const data = await response.json()
-          setEmail(data.reportEmail || '')
-          setDiscordWebhook(data.discordWebhook || '')
-          setWeeklyEmail(data.weeklyEmail !== false)
-          setDailyEmail(data.dailyEmail || false)
-          setPlan(data.plan || 'free')
-        }
-      } catch (error) {
-        console.error('Failed to load settings:', error)
-      } finally {
-        setLoading(false)
+  // Load settings function
+  const loadSettings = async () => {
+    setLoading(true)
+    try {
+      console.log('[Settings Component] Loading settings for companyId:', companyId)
+      const response = await fetch(`/api/settings?companyId=${companyId}`)
+      console.log('[Settings Component] Response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('[Settings Component] Loaded data:', data)
+        setEmail(data.reportEmail || '')
+        setDiscordWebhook(data.discordWebhook || '')
+        setWeeklyEmail(data.weeklyEmail !== false)
+        setDailyEmail(data.dailyEmail || false)
+        setPlan(data.plan || 'free')
+      } else {
+        const errorText = await response.text()
+        console.error('[Settings Component] Failed to load:', response.status, errorText)
+        toast.error('Failed to load settings')
       }
+    } catch (error) {
+      console.error('[Settings Component] Error loading settings:', error)
+      toast.error('Failed to load settings')
+    } finally {
+      setLoading(false)
     }
+  }
+
+  // Load settings on mount and when companyId changes
+  useEffect(() => {
     loadSettings()
   }, [companyId])
 
@@ -55,6 +67,14 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
     setSaved(false)
     
     try {
+      console.log('[Settings Component] Saving settings:', {
+        companyId,
+        reportEmail: email,
+        weeklyEmail,
+        dailyEmail,
+        discordWebhook: discordWebhook ? 'SET' : 'empty',
+      })
+
       const response = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,15 +87,26 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
         }),
       })
 
+      console.log('[Settings Component] Save response status:', response.status)
+
       if (response.ok) {
+        const result = await response.json()
+        console.log('[Settings Component] Save result:', result)
+        
         setSaved(true)
         toast.success('Settings saved successfully!')
+        
+        // Reload settings to confirm save
+        await loadSettings()
+        
         setTimeout(() => setSaved(false), 3000)
       } else {
+        const errorText = await response.text()
+        console.error('[Settings Component] Save failed:', response.status, errorText)
         toast.error('Failed to save settings')
       }
     } catch (error) {
-      console.error('Failed to save settings:', error)
+      console.error('[Settings Component] Error saving settings:', error)
       toast.error('Failed to save settings')
     } finally {
       setSaving(false)
@@ -109,8 +140,12 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
       if (result.status === 'ok') {
         toast.success('Successfully upgraded to Pro! 🎉')
         console.log('[Upgrade] Receipt ID:', result.data?.receiptId)
-        // Reload settings to reflect new plan
-        setTimeout(() => { window.location.reload() }, 1500)
+        
+        // Wait a moment for webhook to process, then reload settings
+        setTimeout(async () => {
+          await loadSettings()
+          toast.success('Settings updated with Pro features!')
+        }, 2000)
       } else {
         console.error('[Upgrade] Purchase failed:', result.error)
         toast.error(result.error || 'Purchase failed. Please try again.')

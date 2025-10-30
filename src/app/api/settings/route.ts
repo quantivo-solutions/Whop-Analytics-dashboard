@@ -7,22 +7,25 @@ export const runtime = 'nodejs'
 // GET - Fetch current settings (supports optional companyId query param)
 export async function GET(request: Request) {
   try {
-    // Get session to determine user's company
+    const { searchParams } = new URL(request.url)
+    const queryCompanyId = searchParams.get('companyId')
+    
+    // Get session (optional for iframe context)
     const session = await getSession()
     
-    if (!session) {
+    // Require either companyId in query or session
+    const companyId = queryCompanyId || session?.companyId
+    
+    if (!companyId) {
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'Not authenticated and no companyId provided' },
         { status: 401 }
       )
     }
 
-    const { searchParams } = new URL(request.url)
-    const companyId = searchParams.get('companyId') || session.companyId
-
     console.log('[Settings GET] Request details:', {
-      queryCompanyId: searchParams.get('companyId'),
-      sessionCompanyId: session.companyId,
+      queryCompanyId,
+      sessionCompanyId: session?.companyId,
       targetCompanyId: companyId,
     })
 
@@ -70,25 +73,25 @@ export async function GET(request: Request) {
 // POST - Update settings (supports companyId for per-company settings)
 export async function POST(request: Request) {
   try {
-    // Get session to verify authentication
+    const body = await request.json()
+    const { reportEmail, weeklyEmail, dailyEmail, discordWebhook, companyId: requestCompanyId } = body
+
+    // Get session (optional for iframe context)
     const session = await getSession()
+
+    // Use companyId from request body if provided, otherwise fall back to session
+    const targetCompanyId = requestCompanyId || session?.companyId
     
-    if (!session) {
+    if (!targetCompanyId) {
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'Not authenticated and no companyId provided' },
         { status: 401 }
       )
     }
 
-    const body = await request.json()
-    const { reportEmail, weeklyEmail, dailyEmail, discordWebhook, companyId: requestCompanyId } = body
-
-    // Use companyId from request body if provided, otherwise fall back to session
-    const targetCompanyId = requestCompanyId || session.companyId
-
     console.log('[Settings POST] Request details:', {
       requestCompanyId,
-      sessionCompanyId: session.companyId,
+      sessionCompanyId: session?.companyId,
       targetCompanyId,
       reportEmail,
       bodyKeys: Object.keys(body),
