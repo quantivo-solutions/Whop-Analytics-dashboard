@@ -103,7 +103,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       getPlanForCompany(installation.companyId),
     ])
 
-    // Try to get company data which may include owner info
+    // Try to get company data
     let companyData = null
     try {
       console.log('[Experience Page] Fetching company data...')
@@ -113,13 +113,24 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         },
       })
       
+      console.log('[Experience Page] Company response status:', companyResponse.status)
+      
       if (companyResponse.ok) {
-        companyData = await companyResponse.json()
-        console.log('[Experience Page] Company data received:', {
+        const rawData = await companyResponse.json()
+        console.log('[Experience Page] Raw company data:', JSON.stringify(rawData).substring(0, 500))
+        
+        // Handle both direct object and data wrapper
+        companyData = rawData.data || rawData
+        
+        console.log('[Experience Page] Parsed company data:', {
           id: companyData?.id,
           title: companyData?.title,
-          image: companyData?.image_url ? 'present' : 'missing',
+          name: companyData?.name,
+          image_url: companyData?.image_url ? 'present' : 'missing',
         })
+      } else {
+        const errorText = await companyResponse.text()
+        console.error('[Experience Page] Company fetch failed:', companyResponse.status, errorText)
       }
     } catch (error) {
       console.error('[Experience Page] Failed to fetch company data:', error)
@@ -154,7 +165,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
                 <UserProfileMenu 
                   companyId={installation.companyId}
-                  username={companyData?.title || 'My Business'}
+                  username={companyData?.title || companyData?.name || 'My Business'}
                   profilePicture={companyData?.image_url}
                   plan={plan}
                 />
