@@ -83,6 +83,7 @@ export async function GET(request: Request) {
       id: userData.id,
       username: userData.username,
       email: userData.email,
+      profile_pic_url: userData.profile_pic_url || 'none',
       hasCompany: !!userData.company_id,
     })
     
@@ -251,12 +252,12 @@ export async function GET(request: Request) {
           experienceId,
           accessToken: access_token,
           plan: userPlan,
-          username: userData.username,
-          email: userData.email,
-          profilePicUrl: userData.profile_pic_url,
+          username: userData.username || null,
+          email: userData.email || null,
+          profilePicUrl: userData.profile_pic_url || null,
         },
       })
-      console.log(`[OAuth] Created new installation for ${companyId} (user: ${userData.id}, username: ${userData.username}) with plan: ${userPlan}`)
+      console.log(`[OAuth] Created new installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
     } else {
       // Update access token, plan, experienceId, userId, and user data
       await prisma.whopInstallation.update({
@@ -266,12 +267,12 @@ export async function GET(request: Request) {
           experienceId: experienceId || installation.experienceId, // Keep existing if not provided
           accessToken: access_token,
           plan: userPlan, // Sync plan from Whop
-          username: userData.username,
-          email: userData.email,
-          profilePicUrl: userData.profile_pic_url,
+          username: userData.username || null,
+          email: userData.email || null,
+          profilePicUrl: userData.profile_pic_url || null,
         },
       })
-      console.log(`[OAuth] Updated installation for ${companyId} (user: ${userData.id}, username: ${userData.username}) with plan: ${userPlan}`)
+      console.log(`[OAuth] Updated installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
     }
 
     // Create session cookie
