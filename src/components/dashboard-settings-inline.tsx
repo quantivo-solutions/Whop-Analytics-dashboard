@@ -8,6 +8,7 @@ import { Label } from './ui/label'
 import { Switch } from './ui/switch'
 import { Mail, MessageSquare, Save, Check, Lock, Crown, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { useIframeSdk } from '@whop/react'
 
 interface DashboardSettingsInlineProps {
   companyId: string
@@ -22,8 +23,10 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [upgrading, setUpgrading] = useState(false)
 
   const isPro = plan === 'pro' || plan === 'business'
+  const iframeSdk = useIframeSdk()
 
   // Load settings on mount
   useEffect(() => {
@@ -83,6 +86,41 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
     toast.error('This feature requires Pro plan', {
       description: 'Upgrade to Pro to unlock daily reports and Discord integration'
     })
+  }
+
+  const handleUpgrade = async () => {
+    setUpgrading(true)
+    try {
+      const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
+      if (!planId) {
+        toast.error('Upgrade is not configured. Please contact support.')
+        console.error('[Upgrade] NEXT_PUBLIC_WHOP_PRO_PLAN_ID not set!')
+        setUpgrading(false)
+        return
+      }
+
+      console.log('[Upgrade] Starting upgrade flow from settings...')
+      console.log('[Upgrade] Plan ID:', planId)
+      console.log('[Upgrade] iframeSdk available:', !!iframeSdk)
+      
+      const result = await iframeSdk.inAppPurchase({ planId: planId })
+      console.log('[Upgrade] Purchase result:', result)
+      
+      if (result.status === 'ok') {
+        toast.success('Successfully upgraded to Pro! 🎉')
+        console.log('[Upgrade] Receipt ID:', result.data?.receiptId)
+        // Reload settings to reflect new plan
+        setTimeout(() => { window.location.reload() }, 1500)
+      } else {
+        console.error('[Upgrade] Purchase failed:', result.error)
+        toast.error(result.error || 'Purchase failed. Please try again.')
+      }
+    } catch (error) {
+      console.error('[Upgrade] Error during purchase:', error)
+      toast.error('Failed to start upgrade process. Please try again.')
+    } finally {
+      setUpgrading(false)
+    }
   }
 
   if (loading) {
@@ -208,15 +246,11 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
                 <Button 
                   size="sm" 
                   className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-                  onClick={() => {
-                    window.parent.postMessage({ type: 'close-modal' }, '*')
-                    setTimeout(() => {
-                      window.location.href = '/dashboard'
-                    }, 100)
-                  }}
+                  onClick={handleUpgrade}
+                  disabled={upgrading}
                 >
                   <Sparkles className="h-3 w-3 mr-2" />
-                  Upgrade to Pro
+                  {upgrading ? 'Processing...' : 'Upgrade to Pro'}
                 </Button>
               </div>
             </div>
