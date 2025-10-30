@@ -34,15 +34,34 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none')
 
-  // Look up installation by experienceId with increased timeout
+  // Look up installation by experienceId with retry logic
   console.log('[Experience Page] Looking up installation...')
-  const installation = await Promise.race([
-    getInstallationByExperience(experienceId),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 4000))
-  ]).catch(err => {
-    console.error('[Experience Page] Installation lookup failed:', err.message)
-    return null
-  }) as any
+  let installation = null
+  let retries = 0
+  const maxRetries = 3
+  
+  while (!installation && retries < maxRetries) {
+    if (retries > 0) {
+      console.log(`[Experience Page] Retry ${retries}/${maxRetries} - waiting 500ms...`)
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    
+    installation = await Promise.race([
+      getInstallationByExperience(experienceId),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 3000))
+    ]).catch(err => {
+      console.error(`[Experience Page] Installation lookup attempt ${retries + 1} failed:`, err.message)
+      return null
+    }) as any
+    
+    retries++
+  }
+  
+  if (installation) {
+    console.log(`[Experience Page] Installation found after ${retries} attempt(s)`)
+  } else {
+    console.log(`[Experience Page] Installation not found after ${retries} attempts`)
+  }
 
   // If not found, quickly determine scenario and render client component
   // This is NOT an error - it's expected for new installations
