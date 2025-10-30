@@ -14,12 +14,13 @@ function LoadingContent() {
   useEffect(() => {
     console.log('[Auth Loading] Starting redirect process to:', redirectTo)
     
-    // Wait 800ms to ensure database operations complete
+    // Wait 1500ms to ensure database operations complete
+    // This gives Prisma time to write the installation and for any DB replication lag
     const timer = setTimeout(() => {
       console.log('[Auth Loading] Performing redirect to:', redirectTo)
       // Use window.location for a clean hard refresh
       window.location.href = redirectTo
-    }, 800)
+    }, 1500)
 
     return () => clearTimeout(timer)
   }, [redirectTo, router])
