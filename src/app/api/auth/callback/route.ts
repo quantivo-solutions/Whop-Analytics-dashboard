@@ -294,12 +294,14 @@ export async function GET(request: Request) {
       path: '/',
     })
 
+    // Small delay to ensure database write completes before redirect
+    await new Promise(resolve => setTimeout(resolve, 100))
+
     // Redirect based on whether we have an experienceId (Whop iframe) or not
     let redirectUrl = '/dashboard'
     if (experienceId) {
-      // User came from Whop iframe, redirect to experience dashboard with token
-      // Include token in URL for iframe compatibility (cookies may be blocked)
-      redirectUrl = `/experiences/${experienceId}?token=${encodeURIComponent(sessionToken)}`
+      // User came from Whop iframe, redirect to experience dashboard
+      redirectUrl = `/experiences/${experienceId}`
       console.log('[OAuth] Redirecting to experience dashboard:', experienceId)
     } else {
       // User came from direct access, redirect to main dashboard
