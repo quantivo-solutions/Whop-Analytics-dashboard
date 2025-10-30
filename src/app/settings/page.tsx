@@ -8,13 +8,16 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { NavHeader } from '@/components/nav-header'
-import { Save, Mail, MessageSquare } from 'lucide-react'
+import { PlanBadge } from '@/components/plan-badge'
+import { Save, Mail, MessageSquare, Crown, Lock } from 'lucide-react'
+import type { Plan } from '@/lib/plan'
 
 interface Settings {
   reportEmail: string
   weeklyEmail: boolean
   dailyEmail: boolean
   discordWebhook: string
+  plan?: Plan
 }
 
 export default function SettingsPage() {
@@ -25,7 +28,10 @@ export default function SettingsPage() {
     weeklyEmail: true,
     dailyEmail: false,
     discordWebhook: '',
+    plan: 'free',
   })
+
+  const isPro = settings.plan === 'pro' || settings.plan === 'business'
 
   // Fetch settings on mount
   useEffect(() => {
@@ -38,10 +44,11 @@ export default function SettingsPage() {
       if (!response.ok) throw new Error('Failed to fetch settings')
       const data = await response.json()
       setSettings({
-        reportEmail: data.reportEmail,
-        weeklyEmail: data.weeklyEmail,
-        dailyEmail: data.dailyEmail,
+        reportEmail: data.reportEmail || '',
+        weeklyEmail: data.weeklyEmail ?? true,
+        dailyEmail: data.dailyEmail ?? false,
         discordWebhook: data.discordWebhook || '',
+        plan: data.plan || 'free',
       })
     } catch (error) {
       console.error('Error fetching settings:', error)
@@ -52,6 +59,12 @@ export default function SettingsPage() {
   }
 
   const handleSaveSettings = async () => {
+    // Validate email if provided
+    if (settings.reportEmail && !settings.reportEmail.includes('@')) {
+      toast.error('Please enter a valid email address')
+      return
+    }
+
     setSaving(true)
     try {
       const response = await fetch('/api/settings', {
@@ -73,6 +86,12 @@ export default function SettingsPage() {
     }
   }
 
+  const handleProFeatureClick = () => {
+    toast.error('This feature requires Pro plan', {
+      description: 'Upgrade to Pro to unlock daily reports and Discord integration'
+    })
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -90,18 +109,19 @@ export default function SettingsPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+              <PlanBadge plan={settings.plan || 'free'} />
             </div>
-            <p className="text-muted-foreground">Manage your workspace preferences and integrations.</p>
+            <p className="text-muted-foreground mt-1">Manage your workspace preferences and integrations.</p>
           </div>
           <Button onClick={handleSaveSettings} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Settings'}
+            {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Email Reports Card */}
-          <Card>
+          <Card className="relative">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5" /> Email Reports
@@ -121,37 +141,85 @@ export default function SettingsPage() {
                   placeholder="your@email.com"
                   className="mt-1"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  We'll send analytics reports to this email address
+                </p>
               </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="weekly-report">Weekly Report</Label>
+              
+              {/* Weekly Report - Always available */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex-1">
+                  <Label htmlFor="weekly-report" className="cursor-pointer">
+                    Weekly Report
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Free for all users</p>
+                </div>
                 <Switch
                   id="weekly-report"
                   checked={settings.weeklyEmail}
                   onCheckedChange={(checked) => setSettings({ ...settings, weeklyEmail: checked })}
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="daily-report">Daily Report</Label>
+              
+              {/* Daily Report - Pro only */}
+              <div className={`relative flex items-center justify-between p-3 rounded-lg border-2 ${
+                isPro 
+                  ? 'bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20' 
+                  : 'bg-muted/30 border-muted'
+              }`}>
+                {!isPro && (
+                  <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] rounded-lg flex items-center justify-center">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-background border rounded-lg px-4 py-2 shadow-sm">
+                      <Lock className="h-4 w-4" />
+                      Pro Feature
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Label 
+                    htmlFor="daily-report" 
+                    className={`flex items-center gap-2 ${isPro ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                  >
+                    Daily Report
+                    {isPro && <Crown className="h-3 w-3 text-yellow-500" />}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Get daily insights every morning</p>
+                </div>
                 <Switch
                   id="daily-report"
-                  checked={settings.dailyEmail}
-                  onCheckedChange={(checked) => setSettings({ ...settings, dailyEmail: checked })}
+                  checked={isPro && settings.dailyEmail}
+                  onCheckedChange={(checked) => {
+                    if (isPro) {
+                      setSettings({ ...settings, dailyEmail: checked })
+                    } else {
+                      handleProFeatureClick()
+                    }
+                  }}
+                  disabled={!isPro}
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* Discord Integration Card */}
-          <Card>
+          {/* Discord Integration Card - Pro only */}
+          <Card className={`relative ${
+            !isPro ? 'opacity-75' : ''
+          }`}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" /> Discord Integration
+                {isPro && <Crown className="h-4 w-4 text-yellow-500" />}
+                {!isPro && <Lock className="h-4 w-4 text-muted-foreground" />}
               </CardTitle>
               <CardDescription>
                 Send daily/weekly summaries to a Discord webhook.
+                {!isPro && <span className="text-orange-600 dark:text-orange-400"> (Pro only)</span>}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 relative">
+              {!isPro && (
+                <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] rounded-lg z-10" />
+              )}
               <div>
                 <Label htmlFor="discord-webhook">Discord Webhook URL</Label>
                 <Input
@@ -161,11 +229,36 @@ export default function SettingsPage() {
                   onChange={(e) => setSettings({ ...settings, discordWebhook: e.target.value })}
                   placeholder="https://discord.com/api/webhooks/..."
                   className="mt-1"
+                  disabled={!isPro}
                 />
               </div>
               <p className="text-sm text-muted-foreground">
                 Get your webhook URL from Discord server settings (Integrations &gt; Webhooks).
               </p>
+              
+              {!isPro && (
+                <div className="mt-4 p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Crown className="h-5 w-5 text-yellow-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium mb-1">Upgrade to Pro</p>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Get Discord alerts, daily reports, and advanced insights
+                      </p>
+                      <Button 
+                        size="sm" 
+                        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                        onClick={() => {
+                          // Navigate to upgrade
+                          window.location.href = '/dashboard'
+                        }}
+                      >
+                        Upgrade Now
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

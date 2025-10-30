@@ -1,38 +1,38 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/session'
 
 export const runtime = 'nodejs'
 
 // GET - Fetch current settings (supports optional companyId query param)
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const companyId = searchParams.get('companyId')
-
-    // If companyId provided, get company-specific settings
-    if (companyId) {
-      const installation = await prisma.whopInstallation.findUnique({
-        where: { companyId },
-      })
-
-      if (!installation) {
-        return NextResponse.json(
-          { error: 'Installation not found' },
-          { status: 404 }
-        )
-      }
-
-      // Return installation data as settings (companyId acts as workspace)
-      return NextResponse.json({
-        reportEmail: '',  // Can be stored in installation or separate table
-        weeklyEmail: true,
-        dailyEmail: installation.plan === 'pro' || installation.plan === 'business',
-        discordWebhook: '',
-        companyId: installation.companyId,
-      })
+    // Get session to determine user's company
+    const session = await getSession()
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      )
     }
 
-    // Fallback: Get workspace-wide settings
+    const { searchParams } = new URL(request.url)
+    const companyId = searchParams.get('companyId') || session.companyId
+
+    // Get installation to determine plan
+    const installation = await prisma.whopInstallation.findUnique({
+      where: { companyId },
+    })
+
+    if (!installation) {
+      return NextResponse.json(
+        { error: 'Installation not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get workspace settings
     let settings = await prisma.workspaceSettings.findFirst()
 
     // If no settings exist, create default settings
@@ -46,7 +46,15 @@ export async function GET(request: Request) {
       })
     }
 
-    return NextResponse.json(settings)
+    // Return settings with plan info
+    return NextResponse.json({
+      reportEmail: settings.reportEmail || '',
+      weeklyEmail: settings.weeklyEmail ?? true,
+      dailyEmail: settings.dailyEmail ?? false,
+      discordWebhook: settings.discordWebhook || '',
+      plan: installation.plan || 'free',
+      companyId: installation.companyId,
+    })
   } catch (error) {
     console.error('Error fetching settings:', error)
     return NextResponse.json(
@@ -59,20 +67,30 @@ export async function GET(request: Request) {
 // POST - Update settings (supports companyId for per-company settings)
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { companyId, reportEmail, weeklyEmail, dailyEmail, discordWebhook } = body
-
-    // If companyId provided, store in WorkspaceSettings with companyId reference
-    // For now, we'll use a simple approach: store in WorkspaceSettings table
-    // In future, could create a separate CompanySettings table
+    // Get session to verify authentication
+    const session = await getSession()
     
-    // Validate required fields
-    if (typeof reportEmail !== 'string' || !reportEmail) {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Report email is required' },
-        { status: 400 }
+        { error: 'Not authenticated' },
+        { status: 401 }
       )
     }
+
+    const body = await request.json()
+    const { reportEmail, weeklyEmail, dailyEmail, discordWebhook, plan } = body
+
+    // Get user's installation to check plan
+    const installation = await prisma.whopInstallation.findUnique({
+      where: { companyId: session.companyId },
+    })
+
+    const userPlan = installation?.plan || 'free'
+    const isPro = userPlan === 'pro' || userPlan === 'business'
+
+    // Enforce Pro-only features
+    const sanitizedDailyEmail = isPro ? (dailyEmail ?? false) : false
+    const sanitizedDiscordWebhook = isPro ? (discordWebhook || null) : null
 
     // For simplicity, store as workspace settings
     // In production, you'd want a proper CompanySettings table
@@ -83,28 +101,30 @@ export async function POST(request: Request) {
       settings = await prisma.workspaceSettings.update({
         where: { id: settings.id },
         data: {
-          reportEmail,
+          reportEmail: reportEmail || '',
           weeklyEmail: weeklyEmail ?? true,
-          dailyEmail: dailyEmail ?? false,
-          discordWebhook: discordWebhook ?? null,
+          dailyEmail: sanitizedDailyEmail,
+          discordWebhook: sanitizedDiscordWebhook,
         },
       })
     } else {
       // Create new settings
       settings = await prisma.workspaceSettings.create({
         data: {
-          reportEmail,
+          reportEmail: reportEmail || '',
           weeklyEmail: weeklyEmail ?? true,
-          dailyEmail: dailyEmail ?? false,
-          discordWebhook: discordWebhook ?? null,
+          dailyEmail: sanitizedDailyEmail,
+          discordWebhook: sanitizedDiscordWebhook,
         },
       })
     }
 
-    console.log(`[Settings] Saved for ${companyId || 'workspace'}:`, {
+    console.log(`[Settings] Saved for ${session.companyId}:`, {
       email: reportEmail,
       weekly: weeklyEmail,
-      daily: dailyEmail,
+      daily: sanitizedDailyEmail,
+      discord: sanitizedDiscordWebhook ? 'set' : 'none',
+      plan: userPlan,
     })
 
     return NextResponse.json({
