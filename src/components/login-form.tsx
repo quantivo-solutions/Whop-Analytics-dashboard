@@ -11,7 +11,10 @@ export function LoginForm() {
   const experienceId = searchParams.get('experienceId')
   const companyId = searchParams.get('companyId') || searchParams.get('company_id')
 
+  console.log('[LoginForm] Component loaded, experienceId:', experienceId || 'none', 'companyId:', companyId || 'none')
+
   const handleLogin = async () => {
+    console.log('[LoginForm] Login button clicked, experienceId:', experienceId || 'none')
     try {
       // Call our API route to generate OAuth URL
       // The server will automatically determine the correct redirect URI based on the request origin
@@ -19,6 +22,8 @@ export function LoginForm() {
       const params = new URLSearchParams()
       if (experienceId) params.set('experienceId', experienceId)
       if (companyId) params.set('companyId', companyId)
+      
+      console.log('[LoginForm] OAuth params:', params.toString() || 'none')
       
       const apiUrl = params.toString() 
         ? `/api/auth/init?${params.toString()}`
