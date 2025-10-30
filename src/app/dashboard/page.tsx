@@ -63,11 +63,17 @@ export default async function Dashboard() {
         </div>
       </div>
     )
-  } catch (error) {
+  } catch (error: any) {
     // Log error for debugging
     console.error('Error loading dashboard:', error)
     
-    // Show user-friendly error message
+    // If it's a redirect error (from redirect() call), re-throw it
+    // Next.js uses special errors for redirects that should not be caught
+    if (error?.digest?.startsWith('NEXT_REDIRECT')) {
+      throw error
+    }
+    
+    // Show user-friendly error message for actual errors
     return (
       <ErrorDisplay
         title="Unable to Load Dashboard"

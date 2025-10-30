@@ -296,16 +296,19 @@ export async function GET(request: Request) {
 
     // Redirect to loading page which will wait for DB sync, then redirect to dashboard
     let finalDestination = '/dashboard'
+    console.log('[OAuth] Determining redirect destination, experienceId:', experienceId || 'none')
+    
     if (experienceId) {
       finalDestination = `/experiences/${experienceId}`
       console.log('[OAuth] Will redirect to experience dashboard:', experienceId)
     } else {
-      console.log('[OAuth] Will redirect to main dashboard')
+      console.log('[OAuth] No experienceId, will redirect to main dashboard')
     }
 
     // Use loading page to ensure smooth transition after database operations complete
     const loadingUrl = `/auth/loading?redirectTo=${encodeURIComponent(finalDestination)}`
-    console.log('[OAuth] Redirecting to loading page, then to:', finalDestination)
+    console.log('[OAuth] Redirecting to loading page with URL:', loadingUrl)
+    console.log('[OAuth] Final destination will be:', finalDestination)
     
     return NextResponse.redirect(new URL(loadingUrl, request.url))
   } catch (error) {
