@@ -87,6 +87,8 @@ export async function POST(request: Request) {
       case 'membership.went_invalid':
       case 'membership.cancelled':
       case 'membership_cancelled':
+      case 'membership.deactivated':
+      case 'membership_deactivated':
         await handleMembershipCancelled(data)
         break
       
@@ -380,29 +382,72 @@ async function handleMembershipActivated(data: any) {
 }
 
 /**
- * Handle membership.went_invalid event
+ * Handle membership.went_invalid / membership.deactivated event
  * This fires when a user cancels or subscription expires
  */
 async function handleMembershipCancelled(data: any) {
-  const { user, company_id } = data
+  const user = data.user
+  const company = data.company
+  const company_id = company?.id || data.company_id
+  const experience = data.experience
+  const product = data.product
 
-  if (!user?.id && !company_id) {
-    console.error('Missing user or company_id in membership cancellation webhook')
-    return
+  console.log('[WHOP] membership.deactivated webhook received:', {
+    user_id: user?.id,
+    company_id,
+    company_title: company?.title,
+    product_title: product?.title,
+    experience_id: experience?.id,
+  })
+
+  // Use same lookup strategy as handleMembershipActivated
+  let installation = null
+  
+  // Priority 1: experienceId
+  if (experience?.id) {
+    installation = await prisma.whopInstallation.findFirst({
+      where: { experienceId: experience.id },
+    })
+    
+    if (installation) {
+      console.log(`[WHOP] ✅ Found installation via experienceId: ${experience.id}`)
+    }
+  }
+  
+  // Priority 2: userId
+  if (!installation && user?.id) {
+    installation = await prisma.whopInstallation.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    })
+    
+    if (installation) {
+      console.log(`[WHOP] ✅ Found installation via userId: ${user.id}`)
+    }
+  }
+  
+  // Priority 3: company_id from webhook
+  if (!installation && company_id) {
+    installation = await prisma.whopInstallation.findUnique({
+      where: { companyId: company_id },
+    })
+    
+    if (installation) {
+      console.log(`[WHOP] Found installation via webhook company_id: ${company_id}`)
+    }
   }
 
-  const companyId = company_id || user.id
-
-  console.log(`[WHOP] membership cancelled: company=${companyId} → reverting to free`)
-
-  // Check if user has any other active Pro/Business memberships
-  // For now, just set to free - could enhance to check all memberships
-  await prisma.whopInstallation.update({
-    where: { companyId },
-    data: {
-      plan: 'free',
-      updatedAt: new Date(),
-    },
-  })
+  if (installation) {
+    await prisma.whopInstallation.update({
+      where: { companyId: installation.companyId },
+      data: {
+        plan: 'free',
+        updatedAt: new Date(),
+      },
+    })
+    console.log(`[WHOP] ✅ Downgraded installation ${installation.companyId} to free plan`)
+  } else {
+    console.error(`[WHOP] ❌ No installation found to downgrade for user ${user?.id}`)
+  }
 }
 
