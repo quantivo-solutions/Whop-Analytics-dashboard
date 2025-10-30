@@ -6,10 +6,9 @@
 import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries, getInstallationByExperience } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
-import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { ErrorDisplay } from '@/components/error-boundary'
-import { DashboardSettingsButton } from '@/components/dashboard-settings-button'
+import { UserProfileMenu } from '@/components/user-profile-menu'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { ExperienceNotFound } from '@/components/experience-not-found'
@@ -130,9 +129,12 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
               {/* Right: Actions */}
               <div className="flex items-center gap-2">
-                <PlanBadge plan={plan} />
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
-                <DashboardSettingsButton companyId={installation.companyId} />
+                <UserProfileMenu 
+                  companyId={installation.companyId}
+                  userId={installation.userId || undefined}
+                  plan={plan}
+                />
               </div>
             </div>
           </div>
