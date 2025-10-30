@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings, LogOut, User, Crown } from 'lucide-react'
+import { Settings, LogOut, User, Crown, Sparkles } from 'lucide-react'
+import { Badge } from './ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,16 +79,21 @@ export function UserProfileMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>
-            <div className="flex flex-col space-y-1">
+            <div className="flex flex-col space-y-2">
               <p className="text-sm font-medium leading-none">{username}</p>
-              {isPro && (
-                <div className="flex items-center gap-1 pt-1">
-                  <Crown className="h-3 w-3 text-purple-500" />
-                  <span className="text-xs font-semibold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+              <Badge 
+                variant={isPro ? "default" : "secondary"}
+                className={isPro ? "bg-gradient-to-r from-purple-500 to-pink-500 border-0 w-fit" : "w-fit"}
+              >
+                {isPro ? (
+                  <>
+                    <Crown className="h-3 w-3 mr-1" />
                     Pro Plan
-                  </span>
-                </div>
-              )}
+                  </>
+                ) : (
+                  'Free Plan'
+                )}
+              </Badge>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />

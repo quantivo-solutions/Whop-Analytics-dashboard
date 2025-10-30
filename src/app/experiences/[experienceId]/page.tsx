@@ -106,13 +106,25 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     // Fetch user data from Whop API
     let userData = null
     try {
+      console.log('[Experience Page] Fetching user data with token:', installation.accessToken.substring(0, 20) + '...')
       const userResponse = await fetch('https://api.whop.com/api/v5/me', {
         headers: {
           'Authorization': `Bearer ${installation.accessToken}`,
         },
       })
+      console.log('[Experience Page] User data response status:', userResponse.status)
+      
       if (userResponse.ok) {
         userData = await userResponse.json()
+        console.log('[Experience Page] User data received:', {
+          id: userData?.id,
+          username: userData?.username,
+          email: userData?.email,
+          profile_pic: userData?.profile_pic_url ? 'present' : 'missing',
+        })
+      } else {
+        const errorText = await userResponse.text()
+        console.error('[Experience Page] User data fetch failed:', userResponse.status, errorText)
       }
     } catch (error) {
       console.error('[Experience Page] Failed to fetch user data:', error)
