@@ -103,31 +103,26 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       getPlanForCompany(installation.companyId),
     ])
 
-    // Fetch user data from Whop API
-    let userData = null
+    // Try to get company data which may include owner info
+    let companyData = null
     try {
-      console.log('[Experience Page] Fetching user data with token:', installation.accessToken.substring(0, 20) + '...')
-      const userResponse = await fetch('https://api.whop.com/api/v5/me', {
+      console.log('[Experience Page] Fetching company data...')
+      const companyResponse = await fetch('https://api.whop.com/api/v5/company', {
         headers: {
           'Authorization': `Bearer ${installation.accessToken}`,
         },
       })
-      console.log('[Experience Page] User data response status:', userResponse.status)
       
-      if (userResponse.ok) {
-        userData = await userResponse.json()
-        console.log('[Experience Page] User data received:', {
-          id: userData?.id,
-          username: userData?.username,
-          email: userData?.email,
-          profile_pic: userData?.profile_pic_url ? 'present' : 'missing',
+      if (companyResponse.ok) {
+        companyData = await companyResponse.json()
+        console.log('[Experience Page] Company data received:', {
+          id: companyData?.id,
+          title: companyData?.title,
+          image: companyData?.image_url ? 'present' : 'missing',
         })
-      } else {
-        const errorText = await userResponse.text()
-        console.error('[Experience Page] User data fetch failed:', userResponse.status, errorText)
       }
     } catch (error) {
-      console.error('[Experience Page] Failed to fetch user data:', error)
+      console.error('[Experience Page] Failed to fetch company data:', error)
     }
 
     // Get upgrade URL with company context for better Whop integration
@@ -159,8 +154,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
                 <UserProfileMenu 
                   companyId={installation.companyId}
-                  username={userData?.username || userData?.email || 'User'}
-                  profilePicture={userData?.profile_pic_url}
+                  username={companyData?.title || 'My Business'}
+                  profilePicture={companyData?.image_url}
                   plan={plan}
                 />
               </div>
