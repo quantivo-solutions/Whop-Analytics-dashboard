@@ -64,14 +64,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { reportEmail, weeklyEmail, dailyEmail, discordWebhook, plan } = body
+    const { reportEmail, weeklyEmail, dailyEmail, discordWebhook, companyId: requestCompanyId } = body
+
+    // Use companyId from request body if provided, otherwise fall back to session
+    const targetCompanyId = requestCompanyId || session.companyId
 
     // Get user's installation to check plan
     const installation = await prisma.whopInstallation.findUnique({
-      where: { companyId: session.companyId },
+      where: { companyId: targetCompanyId },
     })
 
-    const userPlan = installation?.plan || 'free'
+    if (!installation) {
+      return NextResponse.json(
+        { error: 'Installation not found' },
+        { status: 404 }
+      )
+    }
+
+    const userPlan = installation.plan || 'free'
     const isPro = userPlan === 'pro' || userPlan === 'business'
 
     // Enforce Pro-only features
@@ -80,16 +90,16 @@ export async function POST(request: Request) {
 
     // Update installation with settings (per-company)
     const updatedInstallation = await prisma.whopInstallation.update({
-      where: { companyId: session.companyId },
+      where: { companyId: targetCompanyId },
       data: {
-        reportEmail: reportEmail || '',
+        reportEmail: reportEmail || null,
         weeklyEmail: weeklyEmail ?? true,
         dailyEmail: sanitizedDailyEmail,
         discordWebhook: sanitizedDiscordWebhook,
       },
     })
 
-    console.log(`[Settings] Saved for ${session.companyId}:`, {
+    console.log(`[Settings] Saved for ${targetCompanyId}:`, {
       email: reportEmail,
       weekly: weeklyEmail,
       daily: sanitizedDailyEmail,
