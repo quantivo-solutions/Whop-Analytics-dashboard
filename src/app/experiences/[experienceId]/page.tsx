@@ -97,11 +97,26 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   console.log('[Experience Page] Installation found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
 
-    // Fetch dashboard data and plan for this company
+    // Fetch dashboard data, plan, and user info
     const [dashboardData, plan] = await Promise.all([
       getCompanySeries(installation.companyId, 30),
       getPlanForCompany(installation.companyId),
     ])
+
+    // Fetch user data from Whop API
+    let userData = null
+    try {
+      const userResponse = await fetch('https://api.whop.com/api/v5/me', {
+        headers: {
+          'Authorization': `Bearer ${installation.accessToken}`,
+        },
+      })
+      if (userResponse.ok) {
+        userData = await userResponse.json()
+      }
+    } catch (error) {
+      console.error('[Experience Page] Failed to fetch user data:', error)
+    }
 
     // Get upgrade URL with company context for better Whop integration
     const upgradeUrl = getUpgradeUrl(installation.companyId)
@@ -132,7 +147,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
                 <UserProfileMenu 
                   companyId={installation.companyId}
-                  userId={installation.userId || undefined}
+                  username={userData?.username || userData?.email || 'User'}
+                  profilePicture={userData?.profile_pic_url}
                   plan={plan}
                 />
               </div>

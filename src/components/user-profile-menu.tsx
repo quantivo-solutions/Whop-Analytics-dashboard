@@ -16,7 +16,6 @@ import { DashboardSettingsInline } from './dashboard-settings-inline'
 
 interface UserProfileMenuProps {
   companyId: string
-  userId?: string
   username?: string
   profilePicture?: string
   plan?: 'free' | 'pro' | 'business'
@@ -24,8 +23,7 @@ interface UserProfileMenuProps {
 
 export function UserProfileMenu({ 
   companyId, 
-  userId, 
-  username, 
+  username = 'User', 
   profilePicture,
   plan = 'free'
 }: UserProfileMenuProps) {
@@ -34,11 +32,20 @@ export function UserProfileMenu({
 
   // Get initials from username
   const getInitials = () => {
-    if (!username) return '?'
+    if (!username || username === 'User') return 'U'
+    
+    // Handle email addresses
+    if (username.includes('@')) {
+      return username.charAt(0).toUpperCase()
+    }
+    
+    // Handle names with spaces
     const parts = username.split(' ')
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
     }
+    
+    // Single word username
     return username.substring(0, 2).toUpperCase()
   }
 
@@ -72,12 +79,7 @@ export function UserProfileMenu({
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">{username || 'User'}</p>
-              {userId && (
-                <p className="text-xs leading-none text-muted-foreground">
-                  {userId.substring(0, 20)}...
-                </p>
-              )}
+              <p className="text-sm font-medium leading-none">{username}</p>
               {isPro && (
                 <div className="flex items-center gap-1 pt-1">
                   <Crown className="h-3 w-3 text-purple-500" />
