@@ -19,22 +19,11 @@ export function ExperienceNotFound({
   otherExperienceId 
 }: ExperienceNotFoundProps) {
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-    console.log('[ExperienceNotFound] Rendered for:', experienceId)
+    console.log('[ExperienceNotFound] Component mounted, experienceId:', experienceId)
     console.log('[ExperienceNotFound] Has other installation:', hasOtherInstallation)
   }, [experienceId, hasOtherInstallation])
-
-  if (!mounted) {
-    // Show loading state briefly
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
-  }
 
   // CASE 1: User has an installation elsewhere (Pro membership Whop)
   if (hasOtherInstallation) {
@@ -95,24 +84,23 @@ export function ExperienceNotFound({
 
   // CASE 2: New installation - auto-redirect to login
   useEffect(() => {
-    if (!hasOtherInstallation && mounted) {
-      console.log('[ExperienceNotFound] Auto-redirecting to login for new installation')
+    if (!hasOtherInstallation) {
+      console.log('[ExperienceNotFound] Starting auto-redirect to login')
       const loginUrl = `/login?experienceId=${experienceId}`
       console.log('[ExperienceNotFound] Redirect URL:', loginUrl)
       
       // Immediate redirect using Next.js router
-      console.log('[ExperienceNotFound] Executing router.push...')
+      console.log('[ExperienceNotFound] Calling router.push...')
       router.push(loginUrl)
       
-      // Fallback: also use window.location after a short delay
-      const timer = setTimeout(() => {
-        console.log('[ExperienceNotFound] Fallback: using window.location...')
+      // Also use window.location as fallback
+      console.log('[ExperienceNotFound] Also setting window.location...')
+      setTimeout(() => {
+        console.log('[ExperienceNotFound] Executing window.location redirect')
         window.location.href = loginUrl
-      }, 500)
-      
-      return () => clearTimeout(timer)
+      }, 300)
     }
-  }, [hasOtherInstallation, experienceId, mounted, router])
+  }, [hasOtherInstallation, experienceId, router])
 
   // Show loading while redirecting
   return (
