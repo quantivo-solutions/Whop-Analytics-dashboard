@@ -35,11 +35,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none')
 
   try {
-    // Look up installation by experienceId with timeout
+    // Look up installation by experienceId with increased timeout
     console.log('[Experience Page] Looking up installation...')
     const installation = await Promise.race([
       getInstallationByExperience(experienceId),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 3000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 4000))
     ]).catch(err => {
       console.error('[Experience Page] Installation lookup failed:', err.message)
       return null

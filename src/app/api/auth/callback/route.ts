@@ -294,22 +294,20 @@ export async function GET(request: Request) {
       path: '/',
     })
 
-    // Small delay to ensure database write completes before redirect
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-    // Redirect based on whether we have an experienceId (Whop iframe) or not
-    let redirectUrl = '/dashboard'
+    // Redirect to loading page which will wait for DB sync, then redirect to dashboard
+    let finalDestination = '/dashboard'
     if (experienceId) {
-      // User came from Whop iframe, redirect to experience dashboard
-      redirectUrl = `/experiences/${experienceId}`
-      console.log('[OAuth] Redirecting to experience dashboard:', experienceId)
+      finalDestination = `/experiences/${experienceId}`
+      console.log('[OAuth] Will redirect to experience dashboard:', experienceId)
     } else {
-      // User came from direct access, redirect to main dashboard
-      redirectUrl = '/dashboard'
-      console.log('[OAuth] Redirecting to main dashboard')
+      console.log('[OAuth] Will redirect to main dashboard')
     }
 
-    return NextResponse.redirect(new URL(redirectUrl, request.url))
+    // Use loading page to ensure smooth transition after database operations complete
+    const loadingUrl = `/auth/loading?redirectTo=${encodeURIComponent(finalDestination)}`
+    console.log('[OAuth] Redirecting to loading page, then to:', finalDestination)
+    
+    return NextResponse.redirect(new URL(loadingUrl, request.url))
   } catch (error) {
     console.error('OAuth callback error:', error)
     return NextResponse.redirect(new URL('/login?error=internal_error', request.url))

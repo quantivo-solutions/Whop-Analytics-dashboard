@@ -91,28 +91,26 @@ export function ExperienceNotFound({
     )
   }
 
-  // CASE 2: New installation - show login
+  // CASE 2: New installation - auto-redirect to login
+  useEffect(() => {
+    if (!hasOtherInstallation) {
+      console.log('[ExperienceNotFound] Auto-redirecting to login for new installation')
+      window.location.href = `/login?experienceId=${experienceId}`
+    }
+  }, [hasOtherInstallation, experienceId])
+
+  // Show loading while redirecting
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <Card className="max-w-md">
         <CardContent className="pt-6 text-center space-y-4">
-          <div className="rounded-full bg-primary/10 p-3 w-12 h-12 mx-auto flex items-center justify-center">
-            <AlertCircle className="h-6 w-6 text-primary" />
+          <div className="relative w-12 h-12 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-primary/30"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin"></div>
           </div>
-          <h2 className="text-2xl font-bold">Welcome to Analytics Dashboard!</h2>
-          <p className="text-muted-foreground">
-            To use this app, please log in first to connect your Whop account.
-          </p>
+          <h2 className="text-xl font-semibold">Redirecting to login...</h2>
           <p className="text-sm text-muted-foreground">
-            Experience ID: <code className="text-xs bg-muted px-2 py-1 rounded">{experienceId}</code>
-          </p>
-          <Link href={`/login?experienceId=${experienceId}`}>
-            <Button className="gap-2 w-full">
-              Login with Whop <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-          <p className="text-xs text-muted-foreground">
-            After logging in, your installation will be automatically created.
+            Please wait a moment
           </p>
         </CardContent>
       </Card>
