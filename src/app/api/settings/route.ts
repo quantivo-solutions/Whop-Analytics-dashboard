@@ -20,9 +20,22 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const companyId = searchParams.get('companyId') || session.companyId
 
+    console.log('[Settings GET] Request details:', {
+      queryCompanyId: searchParams.get('companyId'),
+      sessionCompanyId: session.companyId,
+      targetCompanyId: companyId,
+    })
+
     // Get installation with settings
     const installation = await prisma.whopInstallation.findUnique({
       where: { companyId },
+    })
+
+    console.log('[Settings GET] Installation found:', {
+      found: !!installation,
+      companyId: installation?.companyId,
+      reportEmail: installation?.reportEmail,
+      plan: installation?.plan,
     })
 
     if (!installation) {
@@ -33,14 +46,18 @@ export async function GET(request: Request) {
     }
 
     // Return settings from installation (per-company)
-    return NextResponse.json({
+    const response = {
       reportEmail: installation.reportEmail || '',
       weeklyEmail: installation.weeklyEmail ?? true,
       dailyEmail: installation.dailyEmail ?? false,
       discordWebhook: installation.discordWebhook || '',
       plan: installation.plan || 'free',
       companyId: installation.companyId,
-    })
+    }
+
+    console.log('[Settings GET] Returning:', response)
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error('Error fetching settings:', error)
     return NextResponse.json(
@@ -69,9 +86,24 @@ export async function POST(request: Request) {
     // Use companyId from request body if provided, otherwise fall back to session
     const targetCompanyId = requestCompanyId || session.companyId
 
+    console.log('[Settings POST] Request details:', {
+      requestCompanyId,
+      sessionCompanyId: session.companyId,
+      targetCompanyId,
+      reportEmail,
+      bodyKeys: Object.keys(body),
+    })
+
     // Get user's installation to check plan
     const installation = await prisma.whopInstallation.findUnique({
       where: { companyId: targetCompanyId },
+    })
+
+    console.log('[Settings POST] Installation found:', {
+      found: !!installation,
+      companyId: installation?.companyId,
+      currentEmail: installation?.reportEmail,
+      plan: installation?.plan,
     })
 
     if (!installation) {
@@ -89,6 +121,14 @@ export async function POST(request: Request) {
     const sanitizedDiscordWebhook = isPro ? (discordWebhook || null) : null
 
     // Update installation with settings (per-company)
+    console.log('[Settings POST] About to update with:', {
+      companyId: targetCompanyId,
+      reportEmail: reportEmail || null,
+      weeklyEmail: weeklyEmail ?? true,
+      dailyEmail: sanitizedDailyEmail,
+      discordWebhook: sanitizedDiscordWebhook ? 'SET' : 'null',
+    })
+
     const updatedInstallation = await prisma.whopInstallation.update({
       where: { companyId: targetCompanyId },
       data: {
@@ -99,11 +139,11 @@ export async function POST(request: Request) {
       },
     })
 
-    console.log(`[Settings] Saved for ${targetCompanyId}:`, {
-      email: reportEmail,
-      weekly: weeklyEmail,
-      daily: sanitizedDailyEmail,
-      discord: sanitizedDiscordWebhook ? 'set' : 'none',
+    console.log(`[Settings POST] ✅ Successfully saved for ${targetCompanyId}:`, {
+      savedEmail: updatedInstallation.reportEmail,
+      weekly: updatedInstallation.weeklyEmail,
+      daily: updatedInstallation.dailyEmail,
+      discord: updatedInstallation.discordWebhook ? 'set' : 'none',
       plan: userPlan,
     })
 
