@@ -19,7 +19,7 @@ model MetricsDaily {
   trialsStarted Int
   trialsPaid    Int
   createdAt     DateTime          @default(now())
-  installation  WhopInstallation? @relation(fields: [companyId], references: [companyId])
+  installation  WhopInstallation? @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
 
   @@unique([companyId, date])
   @@index([companyId, date])
