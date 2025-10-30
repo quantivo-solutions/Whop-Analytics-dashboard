@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,6 +18,7 @@ export function ExperienceNotFound({
   hasOtherInstallation = false,
   otherExperienceId 
 }: ExperienceNotFoundProps) {
+  const router = useRouter()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -98,23 +100,19 @@ export function ExperienceNotFound({
       const loginUrl = `/login?experienceId=${experienceId}`
       console.log('[ExperienceNotFound] Redirect URL:', loginUrl)
       
-      // Use a small delay to ensure the component is fully mounted
+      // Immediate redirect using Next.js router
+      console.log('[ExperienceNotFound] Executing router.push...')
+      router.push(loginUrl)
+      
+      // Fallback: also use window.location after a short delay
       const timer = setTimeout(() => {
-        console.log('[ExperienceNotFound] Executing redirect...')
-        try {
-          window.location.href = loginUrl
-        } catch (error) {
-          console.error('[ExperienceNotFound] Redirect failed:', error)
-          // Fallback: try window.top for iframe context
-          if (window.top) {
-            window.top.location.href = loginUrl
-          }
-        }
-      }, 100)
+        console.log('[ExperienceNotFound] Fallback: using window.location...')
+        window.location.href = loginUrl
+      }, 500)
       
       return () => clearTimeout(timer)
     }
-  }, [hasOtherInstallation, experienceId, mounted])
+  }, [hasOtherInstallation, experienceId, mounted, router])
 
   // Show loading while redirecting
   return (
