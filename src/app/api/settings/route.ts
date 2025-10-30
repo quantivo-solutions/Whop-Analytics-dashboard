@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const companyId = searchParams.get('companyId') || session.companyId
 
-    // Get installation to determine plan
+    // Get installation with settings
     const installation = await prisma.whopInstallation.findUnique({
       where: { companyId },
     })
@@ -32,26 +32,12 @@ export async function GET(request: Request) {
       )
     }
 
-    // Get workspace settings
-    let settings = await prisma.workspaceSettings.findFirst()
-
-    // If no settings exist, create default settings
-    if (!settings) {
-      settings = await prisma.workspaceSettings.create({
-        data: {
-          reportEmail: process.env.REPORT_EMAIL || '',
-          weeklyEmail: true,
-          dailyEmail: false,
-        },
-      })
-    }
-
-    // Return settings with plan info
+    // Return settings from installation (per-company)
     return NextResponse.json({
-      reportEmail: settings.reportEmail || '',
-      weeklyEmail: settings.weeklyEmail ?? true,
-      dailyEmail: settings.dailyEmail ?? false,
-      discordWebhook: settings.discordWebhook || '',
+      reportEmail: installation.reportEmail || '',
+      weeklyEmail: installation.weeklyEmail ?? true,
+      dailyEmail: installation.dailyEmail ?? false,
+      discordWebhook: installation.discordWebhook || '',
       plan: installation.plan || 'free',
       companyId: installation.companyId,
     })
@@ -92,32 +78,16 @@ export async function POST(request: Request) {
     const sanitizedDailyEmail = isPro ? (dailyEmail ?? false) : false
     const sanitizedDiscordWebhook = isPro ? (discordWebhook || null) : null
 
-    // For simplicity, store as workspace settings
-    // In production, you'd want a proper CompanySettings table
-    let settings = await prisma.workspaceSettings.findFirst()
-
-    if (settings) {
-      // Update existing settings
-      settings = await prisma.workspaceSettings.update({
-        where: { id: settings.id },
-        data: {
-          reportEmail: reportEmail || '',
-          weeklyEmail: weeklyEmail ?? true,
-          dailyEmail: sanitizedDailyEmail,
-          discordWebhook: sanitizedDiscordWebhook,
-        },
-      })
-    } else {
-      // Create new settings
-      settings = await prisma.workspaceSettings.create({
-        data: {
-          reportEmail: reportEmail || '',
-          weeklyEmail: weeklyEmail ?? true,
-          dailyEmail: sanitizedDailyEmail,
-          discordWebhook: sanitizedDiscordWebhook,
-        },
-      })
-    }
+    // Update installation with settings (per-company)
+    const updatedInstallation = await prisma.whopInstallation.update({
+      where: { companyId: session.companyId },
+      data: {
+        reportEmail: reportEmail || '',
+        weeklyEmail: weeklyEmail ?? true,
+        dailyEmail: sanitizedDailyEmail,
+        discordWebhook: sanitizedDiscordWebhook,
+      },
+    })
 
     console.log(`[Settings] Saved for ${session.companyId}:`, {
       email: reportEmail,
@@ -129,7 +99,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      settings,
+      settings: {
+        reportEmail: updatedInstallation.reportEmail,
+        weeklyEmail: updatedInstallation.weeklyEmail,
+        dailyEmail: updatedInstallation.dailyEmail,
+        discordWebhook: updatedInstallation.discordWebhook,
+      },
     })
   } catch (error) {
     console.error('Error updating settings:', error)

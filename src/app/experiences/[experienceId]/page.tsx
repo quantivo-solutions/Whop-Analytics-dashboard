@@ -151,14 +151,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
           {/* Dashboard view */}
           <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
-
-          {/* Subtle footer with installation info */}
-          <div className="mt-12 pt-6 border-t border-border/50">
-            <p className="text-xs text-muted-foreground text-center">
-              Connected to {installation.companyId}
-              {installation.experienceId && ` • Experience: ${installation.experienceId}`}
-            </p>
-          </div>
         </div>
       </div>
     )

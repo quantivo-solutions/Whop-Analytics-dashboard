@@ -36,15 +36,19 @@ model WorkspaceSettings {
 }
 
 model WhopInstallation {
-  id           String         @id @default(cuid())
-  companyId    String         @unique
-  userId       String?        // Whop user ID for matching memberships
-  experienceId String?        @unique
-  plan         String?
-  accessToken  String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  metrics      MetricsDaily[]
+  id             String         @id @default(cuid())
+  companyId      String         @unique
+  userId         String?        // Whop user ID for matching memberships
+  experienceId   String?        @unique
+  plan           String?
+  accessToken    String
+  reportEmail    String?        // Per-company email for reports
+  weeklyEmail    Boolean        @default(true)
+  dailyEmail     Boolean        @default(false)
+  discordWebhook String?        // Per-company Discord webhook
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  metrics        MetricsDaily[]
   
   @@index([userId])
 }
