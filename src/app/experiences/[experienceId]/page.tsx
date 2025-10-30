@@ -108,45 +108,33 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     const upgradeUrl = getUpgradeUrl(installation.companyId)
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-        <div className="container mx-auto p-6 max-w-7xl">
-          {/* Professional Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  Analytics Dashboard
-                </h1>
-                <p className="text-muted-foreground mt-2 text-lg">
-                  Real-time insights into your Whop business performance
-                </p>
-              </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
+          {/* Elegant Compact Header */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* Left: Branding */}
               <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg">
+                    <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-foreground">Analytics</h1>
+                    <p className="text-xs text-muted-foreground hidden sm:block">Business insights at a glance</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Actions */}
+              <div className="flex items-center gap-2">
                 <PlanBadge plan={plan} />
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
                 <DashboardSettingsButton companyId={installation.companyId} />
               </div>
             </div>
-            
-            {/* Plan benefits banner for free users */}
-            {plan === 'free' && (
-              <div className="mt-4 p-4 rounded-lg border border-primary/20 bg-primary/5">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">🚀 Unlock more with Pro:</span>
-                  {' '}Daily email reports, Discord alerts, extended analytics history, and priority support
-                </p>
-              </div>
-            )}
-            
-            {/* Pro membership explanation banner */}
-            {plan === 'pro' && (
-              <div className="mt-4 p-4 rounded-lg border border-green-500/20 bg-green-500/5">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">💡 Pro Tip:</span>
-                  {' '}If you see "Quantivo Solutions" in your sidebar, that's your Pro membership portal. Your Analytics Dashboard is here in your company's Whop.
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Dashboard view */}

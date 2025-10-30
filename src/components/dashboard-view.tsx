@@ -75,43 +75,28 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
 
   return (
     <div className="space-y-6">
-      {/* Header with status badge */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-              Analytics
-            </h1>
-            {showBadge && effectiveBadgeType === 'live' && (
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-                Live Data
-              </span>
-            )}
+      {/* Status Badge - Compact & Elegant */}
+      {showBadge && hasData && effectiveBadgeType === 'live' && (
+        <div className="flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-2.5 animate-in fade-in slide-in-from-top duration-500">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+            </span>
+            <span className="text-sm font-medium text-green-900 dark:text-green-100">Live Data</span>
           </div>
-          <p className="text-muted-foreground">
-            {hasData 
-              ? `Real-time insights from your Whop business` 
-              : 'Waiting for your first customer'
-            }
-          </p>
+          {kpis.latestDate && (
+            <span className="text-xs text-green-700 dark:text-green-300">
+              Updated {new Date(kpis.latestDate).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
+          )}
         </div>
-        
-        {kpis.latestDate && (
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Last updated</p>
-            <p className="text-sm font-medium">{new Date(kpis.latestDate).toLocaleDateString('en-US', { 
-              month: 'short', 
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}</p>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Empty state */}
       {!hasData && (
@@ -138,78 +123,65 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
         </Card>
       )}
 
-      {/* Stats cards with stagger animation */}
+      {/* Stats cards - Modern & Clean */}
       {hasData && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-5">
           {statsData.map((stat, index) => {
             const Icon = stat.icon
-            const colors = [
-              'from-green-500/10 to-emerald-500/10 border-green-500/20 text-green-600',
-              'from-blue-500/10 to-cyan-500/10 border-blue-500/20 text-blue-600',
-              'from-purple-500/10 to-indigo-500/10 border-purple-500/20 text-purple-600',
-              'from-orange-500/10 to-red-500/10 border-orange-500/20 text-orange-600',
-              'from-pink-500/10 to-rose-500/10 border-pink-500/20 text-pink-600',
+            const iconColors = [
+              'bg-green-500',
+              'bg-blue-500',
+              'bg-purple-500',
+              'bg-orange-500',
+              'bg-pink-500',
             ]
             
             return (
               <Card 
                 key={index} 
-                className={`relative overflow-hidden bg-gradient-to-br ${colors[index]} border group hover:shadow-lg hover:scale-105 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4`}
+                className="relative overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-200 animate-in fade-in slide-in-from-bottom-2"
                 style={{ 
-                  animationDelay: `${index * 100}ms`,
+                  animationDelay: `${index * 50}ms`,
                   animationFillMode: 'backwards'
                 }}
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      {stat.title}
-                    </CardTitle>
-                    <Icon className="h-4 w-4 text-muted-foreground group-hover:scale-110 transition-transform" />
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`${iconColors[index]} rounded-lg p-2 shadow-sm`}>
+                      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold mb-1">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {stat.description}
-                  </p>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      {stat.title}
+                    </p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground mb-0.5">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stat.description}
+                    </p>
+                  </div>
                 </CardContent>
-                
-                {/* Subtle shine effect on hover */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
               </Card>
             )
           })}
         </div>
       )}
 
-      {/* Modern Charts */}
+      {/* Charts Section */}
       {hasData && (
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700" style={{ animationDelay: '600ms', animationFillMode: 'backwards' }}>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
           <ModernChart data={series} />
         </div>
       )}
 
-      {/* Pro features section */}
+      {/* Pro Features Section - Elegant Lock */}
       {hasData && !isPro && upgradeUrl && (
-        <div className="mt-8">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '400ms', animationFillMode: 'backwards' }}>
           <ProFeatureLock
             title="Daily Trend Breakdown"
             description="Unlock daily email reports, Discord alerts, and advanced insights with Pro."
             upgradeUrl={upgradeUrl}
           />
-        </div>
-      )}
-
-      {/* Feature availability note */}
-      {hasData && (
-        <div className="mt-4 text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
-          <Info className="h-3 w-3" />
-          {features.dailyEmail ? (
-            <span>Daily reports enabled (Pro)</span>
-          ) : (
-            <span>Daily reports are Pro-only. Weekly reports are free for all users.</span>
-          )}
         </div>
       )}
     </div>
