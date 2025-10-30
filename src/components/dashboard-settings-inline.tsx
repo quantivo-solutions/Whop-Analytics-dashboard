@@ -6,9 +6,10 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Switch } from './ui/switch'
-import { Mail, MessageSquare, Save, Check, Lock, Crown, Sparkles } from 'lucide-react'
+import { Mail, MessageSquare, Save, Check, Lock, Crown, Sparkles, Bell, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIframeSdk } from '@whop/react'
+import { Badge } from './ui/badge'
 
 interface DashboardSettingsInlineProps {
   companyId: string
@@ -159,43 +160,74 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
   }
 
   if (loading) {
-    return <div className="text-muted-foreground text-sm">Loading settings...</div>
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading settings...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <Card className="border-0 shadow-none">
-      <CardHeader className="px-0">
-        <CardTitle className="flex items-center gap-2">
-          <Mail className="h-5 w-5" />
-          Report Settings
-        </CardTitle>
-        <CardDescription>
-          Configure email and Discord notifications for your analytics reports
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6 px-0">
-        {/* Email Settings */}
-        <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Plan Badge */}
+      <div className="flex items-center justify-between pb-4 border-b">
+        <div>
+          <h3 className="text-lg font-semibold">Notification Settings</h3>
+          <p className="text-sm text-muted-foreground">Manage your email and Discord alerts</p>
+        </div>
+        <Badge 
+          variant={isPro ? "default" : "secondary"} 
+          className={isPro ? "bg-gradient-to-r from-purple-500 to-pink-500 border-0" : ""}
+        >
+          {isPro ? (
+            <>
+              <Crown className="h-3 w-3 mr-1" />
+              Pro Plan
+            </>
+          ) : (
+            'Free Plan'
+          )}
+        </Badge>
+      </div>
+
+      {/* Email Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg bg-primary/10 p-2">
+            <Mail className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <h4 className="font-medium text-sm">Email Notifications</h4>
+            <p className="text-xs text-muted-foreground">Get reports delivered to your inbox</p>
+          </div>
+        </div>
+
+        <div className="space-y-3 pl-10">
+          {/* Email Input */}
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
+            <Label htmlFor="email" className="text-sm">Email Address</Label>
             <Input
               id="email"
               type="email"
               placeholder="your@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="max-w-md"
             />
-            <p className="text-xs text-muted-foreground">
-              Where to send your analytics reports
-            </p>
           </div>
 
-          {/* Weekly Report - Always available */}
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          {/* Weekly Report Toggle */}
+          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
             <div className="space-y-0.5">
-              <Label>Weekly Email Report</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Weekly Reports</Label>
+                <Badge variant="secondary" className="text-xs">Free</Badge>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Receive a summary every Monday (Free plan)
+                Every Monday at 9 AM
               </p>
             </div>
             <Switch
@@ -204,27 +236,33 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
             />
           </div>
 
-          {/* Daily Report - Pro only */}
-          <div className={`relative flex items-center justify-between p-3 rounded-lg border-2 ${
+          {/* Daily Report Toggle - Pro */}
+          <div className={`relative flex items-center justify-between p-3 rounded-lg border transition-all ${
             isPro 
-              ? 'bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20' 
-              : 'bg-muted/30 border-muted'
+              ? 'bg-gradient-to-br from-purple-500/5 to-pink-500/5 border-purple-500/30' 
+              : 'bg-muted/20 border-muted'
           }`}>
             {!isPro && (
-              <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] rounded-lg flex items-center justify-center">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-background border rounded-lg px-4 py-2 shadow-sm">
-                  <Lock className="h-4 w-4" />
-                  Pro Feature
+              <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px] rounded-lg flex items-center justify-center cursor-not-allowed">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-background/90 border rounded-md px-3 py-1.5 shadow-sm">
+                  <Lock className="h-3 w-3" />
+                  Upgrade to Pro
                 </div>
               </div>
             )}
             <div className="space-y-0.5">
-              <Label className="flex items-center gap-2">
-                Daily Email Report
-                {isPro && <Crown className="h-3 w-3 text-yellow-500" />}
-              </Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Daily Reports</Label>
+                <Badge 
+                  variant={isPro ? "default" : "secondary"} 
+                  className={isPro ? "text-xs bg-gradient-to-r from-purple-500 to-pink-500" : "text-xs"}
+                >
+                  <Crown className="h-2.5 w-2.5 mr-1" />
+                  Pro
+                </Badge>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Receive a summary every day (Pro plan required)
+                Every day at 9 AM
               </p>
             </div>
             <Switch
@@ -240,18 +278,33 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
             />
           </div>
         </div>
+      </div>
 
-        {/* Discord Settings - Pro only */}
-        <div className={`space-y-2 relative ${!isPro ? 'opacity-75' : ''}`}>
+      {/* Discord Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className={`rounded-lg p-2 ${isPro ? 'bg-purple-500/10' : 'bg-muted'}`}>
+            <MessageSquare className={`h-4 w-4 ${isPro ? 'text-purple-500' : 'text-muted-foreground'}`} />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium text-sm">Discord Integration</h4>
+              {!isPro && (
+                <Badge variant="secondary" className="text-xs">
+                  <Lock className="h-2.5 w-2.5 mr-1" />
+                  Pro Only
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">Send alerts to your Discord server</p>
+          </div>
+        </div>
+
+        <div className={`space-y-2 pl-10 relative ${!isPro ? 'pointer-events-none' : ''}`}>
           {!isPro && (
-            <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] rounded-lg z-10" />
+            <div className="absolute inset-0 bg-background/40 backdrop-blur-[1px] rounded-lg z-10" />
           )}
-          <Label htmlFor="discord" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Discord Webhook URL
-            {isPro && <Crown className="h-3 w-3 text-yellow-500" />}
-            {!isPro && <Lock className="h-3 w-3 text-muted-foreground" />}
-          </Label>
+          <Label htmlFor="discord" className="text-sm">Webhook URL</Label>
           <Input
             id="discord"
             type="url"
@@ -259,60 +312,69 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
             value={discordWebhook}
             onChange={(e) => setDiscordWebhook(e.target.value)}
             disabled={!isPro}
+            className="max-w-md"
           />
           <p className="text-xs text-muted-foreground">
-            Optional: Get notifications in your Discord server
-            {!isPro && <span className="text-orange-600 dark:text-orange-400"> (Pro only)</span>}
+            {isPro ? 'Paste your Discord webhook URL here' : 'Upgrade to Pro to enable Discord notifications'}
           </p>
         </div>
+      </div>
 
-        {/* Pro Upgrade CTA */}
-        {!isPro && (
-          <div className="mt-4 p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg animate-in fade-in slide-in-from-bottom-4">
-            <div className="flex items-start gap-3">
-              <div className="rounded-full bg-gradient-to-br from-purple-500 to-pink-500 p-2">
-                <Sparkles className="h-4 w-4 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold mb-1">Unlock Pro Features</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Get daily email reports, Discord alerts, and advanced analytics insights
+      {/* Pro Upgrade CTA */}
+      {!isPro && (
+        <div className="relative overflow-hidden rounded-xl border border-purple-500/20 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-purple-500/10 p-6">
+          <div className="absolute inset-0 bg-grid-white/5 [mask-image:radial-gradient(white,transparent_85%)]" />
+          <div className="relative flex items-start gap-4">
+            <div className="rounded-full bg-gradient-to-br from-purple-500 to-pink-500 p-2.5 shadow-lg">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1 space-y-3">
+              <div>
+                <h4 className="font-semibold mb-1">Unlock Pro Features</h4>
+                <p className="text-sm text-muted-foreground">
+                  Get daily email reports, Discord integration, and advanced analytics insights
                 </p>
-                <Button 
-                  size="sm" 
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-                  onClick={handleUpgrade}
-                  disabled={upgrading}
-                >
-                  <Sparkles className="h-3 w-3 mr-2" />
-                  {upgrading ? 'Processing...' : 'Upgrade to Pro'}
-                </Button>
               </div>
+              <Button 
+                size="sm" 
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl transition-all"
+                onClick={handleUpgrade}
+                disabled={upgrading}
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-2" />
+                {upgrading ? 'Processing...' : 'Upgrade to Pro'}
+              </Button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Save Button */}
+      {/* Save Button */}
+      <div className="pt-4 border-t">
         <Button 
           onClick={handleSave} 
           disabled={saving}
           className="w-full"
+          size="lg"
         >
           {saving ? (
-            'Saving...'
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+              Saving...
+            </>
           ) : saved ? (
             <>
               <Check className="h-4 w-4 mr-2" />
-              Saved!
+              Saved Successfully!
             </>
           ) : (
             <>
               <Save className="h-4 w-4 mr-2" />
-              Save Settings
+              Save Changes
             </>
           )}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
