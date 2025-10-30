@@ -93,11 +93,28 @@ export function ExperienceNotFound({
 
   // CASE 2: New installation - auto-redirect to login
   useEffect(() => {
-    if (!hasOtherInstallation) {
+    if (!hasOtherInstallation && mounted) {
       console.log('[ExperienceNotFound] Auto-redirecting to login for new installation')
-      window.location.href = `/login?experienceId=${experienceId}`
+      const loginUrl = `/login?experienceId=${experienceId}`
+      console.log('[ExperienceNotFound] Redirect URL:', loginUrl)
+      
+      // Use a small delay to ensure the component is fully mounted
+      const timer = setTimeout(() => {
+        console.log('[ExperienceNotFound] Executing redirect...')
+        try {
+          window.location.href = loginUrl
+        } catch (error) {
+          console.error('[ExperienceNotFound] Redirect failed:', error)
+          // Fallback: try window.top for iframe context
+          if (window.top) {
+            window.top.location.href = loginUrl
+          }
+        }
+      }, 100)
+      
+      return () => clearTimeout(timer)
     }
-  }, [hasOtherInstallation, experienceId])
+  }, [hasOtherInstallation, experienceId, mounted])
 
   // Show loading while redirecting
   return (
@@ -112,6 +129,14 @@ export function ExperienceNotFound({
           <p className="text-sm text-muted-foreground">
             Please wait a moment
           </p>
+          {/* Manual link as fallback */}
+          <div className="pt-4">
+            <Link href={`/login?experienceId=${experienceId}`}>
+              <Button variant="outline" className="gap-2">
+                Click here if not redirected <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
