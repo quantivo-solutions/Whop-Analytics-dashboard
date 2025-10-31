@@ -47,12 +47,10 @@ export default async function Home({ searchParams }: PageProps) {
     }
   }
   
-  // No Whop context, check normal session
-  const session = await getSession()
-  
-  if (session) {
-    redirect('/dashboard')
-  } else {
-    redirect('/login')
-  }
+  // No Whop context - redirect to login
+  // Don't check session here because:
+  // 1. Fresh installs should always go to login first
+  // 2. If user has session, they should access via /experiences/[experienceId] with experienceId from Whop
+  // 3. Preventing auto-redirect to old /dashboard route
+  redirect('/login')
 }

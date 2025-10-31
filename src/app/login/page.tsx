@@ -9,11 +9,9 @@ import { Suspense } from 'react'
 import { LoginForm } from '@/components/login-form'
 
 export default async function LoginPage() {
-  // If already logged in, redirect to dashboard
-  const session = await getSession()
-  if (session) {
-    redirect('/dashboard')
-  }
+  // Don't auto-redirect logged-in users here
+  // They should access via /experiences/[experienceId] with proper experienceId context
+  // This prevents redirects to old /dashboard route
 
   return (
     <Suspense fallback={

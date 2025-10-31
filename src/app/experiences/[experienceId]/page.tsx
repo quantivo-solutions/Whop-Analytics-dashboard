@@ -106,12 +106,35 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   // Installation found and matches experienceId - check for session
   // IMPORTANT: For fresh installs, we MUST require a valid session
-  // Do NOT auto-login from installation data - that bypasses authentication
+  // Support both cookie-based and token-based auth (token for immediate post-OAuth redirects)
   console.log('[Experience Page] Installation found and matches experienceId, checking session...')
+  console.log('[Experience Page] Token provided:', token ? 'yes' : 'no')
+  
   let session = await getSession(token).catch(() => null)
   
-  // If no session, redirect to login - NO AUTO-LOGIN
-  // This ensures fresh installs always require authentication
+  // If no session found, but we have a token in URL, wait a moment for cookie propagation
+  // This handles the case where OAuth just completed and cookie might not be readable yet
+  if (!session && token) {
+    console.log('[Experience Page] Token provided but session not found via cookie yet')
+    console.log('[Experience Page] This might be immediate post-OAuth redirect - trying token directly...')
+    
+    // Try to parse token directly
+    try {
+      const sessionData = JSON.parse(Buffer.from(token, 'base64').toString())
+      if (sessionData.exp && sessionData.exp > Date.now()) {
+        console.log('[Experience Page] Token is valid - using it for this request')
+        session = sessionData
+      } else {
+        console.log('[Experience Page] Token expired, redirecting to login')
+        redirect(`/login?experienceId=${experienceId}`)
+      }
+    } catch (tokenError) {
+      console.error('[Experience Page] Failed to parse token:', tokenError)
+      redirect(`/login?experienceId=${experienceId}`)
+    }
+  }
+  
+  // If still no session, redirect to login - NO AUTO-LOGIN
   if (!session) {
     console.log('[Experience Page] No valid session found - redirecting to login')
     console.log('[Experience Page] Installation exists but requires authentication')
