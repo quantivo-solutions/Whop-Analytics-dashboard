@@ -92,7 +92,8 @@ export function UrlCleanup() {
           }
         } catch (err) {
           // Expected to fail due to cross-origin restrictions, but doesn't hurt to try
-          console.log('[UrlCleanup] Cannot update parent frame URL (cross-origin):', err.message)
+          const message = err instanceof Error ? err.message : String(err)
+          console.log('[UrlCleanup] Cannot update parent frame URL (cross-origin):', message)
         }
 
         setCleaned(true)
