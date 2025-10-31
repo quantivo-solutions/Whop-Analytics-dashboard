@@ -78,22 +78,10 @@ export function LoginForm() {
       sessionStorage.setItem('oauth_state', state)
 
       // Redirect to Whop OAuth page
-      // If we're in an iframe, try to break out to parent window, otherwise redirect normally
-      try {
-        if (window.parent && window.parent !== window) {
-          // In iframe - redirect parent window to OAuth (breaks out of iframe)
-          console.log('[LoginForm] In iframe, redirecting parent window to OAuth')
-          window.parent.location.href = oauthUrl
-        } else {
-          // Not in iframe - normal redirect
-          console.log('[LoginForm] Not in iframe, redirecting normally')
-          window.location.href = oauthUrl
-        }
-      } catch (err) {
-        // Cross-origin restriction - fallback to normal redirect
-        console.warn('[LoginForm] Cannot redirect parent (cross-origin), using normal redirect')
-        window.location.href = oauthUrl
-      }
+      // Always redirect within the current window/iframe to keep user in context
+      // This will show Whop OAuth within the iframe, which is acceptable for OAuth flow
+      console.log('[LoginForm] Redirecting to OAuth (staying in iframe context)')
+      window.location.href = oauthUrl
     } catch (error) {
       console.error('Login error:', error)
       alert('Failed to start login process. Please try again.')
