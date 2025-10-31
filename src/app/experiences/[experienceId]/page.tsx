@@ -27,7 +27,6 @@ interface PageProps {
   }>
   searchParams: Promise<{
     token?: string
-    loggedOut?: string
   }>
 }
 
@@ -35,10 +34,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   const startTime = Date.now()
   const { experienceId } = await params
   const resolvedSearchParams = await searchParams
-  const { token, loggedOut } = resolvedSearchParams
-  const isLoggedOut = loggedOut === 'true'
+  const { token } = resolvedSearchParams
 
-  console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none', 'loggedOut:', isLoggedOut)
+  console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none')
 
   // Look up installation by experienceId with retry logic
   console.log('[Experience Page] Looking up installation...')
@@ -126,18 +124,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   // If no session but installation exists, we're in iframe context where cookies might be blocked
   // Allow auto-login to restore cookie access, BUT check for explicit logout first
+  // Note: We check sessionStorage on client-side, not URL params (to keep URL clean)
   let needsSessionRefresh = false
   if (!session) {
-    // Check if there's a "loggedOut" query param (set during logout redirect)
-    // If present, don't auto-login - user explicitly logged out
-    if (isLoggedOut) {
-      console.log('[Experience Page] Logout flag detected - redirecting to login')
-      redirect(`/login?experienceId=${experienceId}`)
-    }
-    
-    // No logout flag - allow auto-login (cookie not readable, likely iframe issue)
+    // Logout flag is checked client-side via sessionStorage, not URL param
+    // This keeps URLs clean while still preventing auto-login after explicit logout
     console.log('[Experience Page] No session found, but installation exists - allowing iframe access')
     // Create temporary session from installation data for this request
+    // Client-side component will check sessionStorage and redirect if needed
     session = {
       companyId: installation.companyId,
       userId: installation.userId || installation.companyId,

@@ -76,10 +76,10 @@ export function UserProfileMenu({
       const pathMatch = window.location.pathname.match(/\/experiences\/(exp_[^\/]+)/)
       if (pathMatch) {
         const experienceId = pathMatch[1]
-        console.log('[Logout] Redirecting to login page with experienceId and logout flag')
-        // Redirect to login with experienceId and loggedOut flag
-        // This prevents auto-login if user accidentally navigates back to experience page
-        window.location.href = `/login?experienceId=${experienceId}&loggedOut=true`
+        console.log('[Logout] Redirecting to login page with experienceId (clean URL, using sessionStorage for logout flag)')
+        // Redirect to login with experienceId ONLY - no loggedOut param in URL
+        // The sessionStorage flag prevents auto-login without polluting the URL
+        window.location.href = `/login?experienceId=${experienceId}`
       } else {
         console.log('[Logout] Redirecting to login page')
         // No experienceId in URL, just go to login

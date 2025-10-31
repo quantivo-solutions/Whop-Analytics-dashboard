@@ -21,6 +21,7 @@ export function UrlCleanup() {
     if (cleaned) return
 
     // Check if we need to clean up any parameters
+    // Note: loggedOut should not be in URL (we use sessionStorage now), but clean it up if present
     const loggedOut = searchParams.get('loggedOut')
     const token = searchParams.get('token')
     
