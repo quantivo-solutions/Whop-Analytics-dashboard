@@ -82,25 +82,18 @@ export function ExperienceNotFound({
     )
   }
 
-  // CASE 2: New installation - auto-redirect to login
+  // CASE 2: New installation - auto-redirect to login IMMEDIATELY
   useEffect(() => {
     if (!hasOtherInstallation) {
-      console.log('[ExperienceNotFound] Starting auto-redirect to login')
+      console.log('[ExperienceNotFound] New installation detected - redirecting to login immediately')
       const loginUrl = `/login?experienceId=${experienceId}`
       console.log('[ExperienceNotFound] Redirect URL:', loginUrl)
       
-      // Immediate redirect using Next.js router
-      console.log('[ExperienceNotFound] Calling router.push...')
-      router.push(loginUrl)
-      
-      // Also use window.location as fallback
-      console.log('[ExperienceNotFound] Also setting window.location...')
-      setTimeout(() => {
-        console.log('[ExperienceNotFound] Executing window.location redirect')
-        window.location.href = loginUrl
-      }, 300)
+      // Use window.location.href for immediate redirect (no delay, no router)
+      // This ensures we get to login page right away for fresh installs
+      window.location.href = loginUrl
     }
-  }, [hasOtherInstallation, experienceId, router])
+  }, [hasOtherInstallation, experienceId])
 
   // Show loading while redirecting
   return (

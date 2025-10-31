@@ -68,53 +68,22 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     console.log(`[Experience Page] Installation not found after ${retries} attempts`)
   }
 
-  // If not found, quickly determine scenario and render client component
-  // This is NOT an error - it's expected for new installations
+  // If not found, this is a new installation - always redirect to login
+  // Don't check for "other installations" here because:
+  // 1. Fresh installs should always go to login first
+  // 2. The OAuth callback will create the installation
+  // 3. Checking for other installations can cause false positives (old installations for the same user)
   if (!installation) {
-    console.log('[Experience Page] No installation found for:', experienceId)
+    console.log('[Experience Page] No installation found for:', experienceId, '- redirecting to login')
+    console.log('[Experience Page] This is expected for new installations - elapsed:', Date.now() - startTime, 'ms')
     
-    // Try to get session info quickly (with timeout)
-    let hasOtherInstallation = false
-    let otherExperienceId: string | undefined
-    
-    try {
-      const session = await Promise.race([
-        getSession(token),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Session timeout')), 2000))
-      ]) as any
-      
-      console.log('[Experience Page] Session userId:', session?.userId || 'none')
-      
-      if (session?.userId) {
-        // Quick check for other installations
-        const userInstallations = await Promise.race([
-          prisma.whopInstallation.findMany({
-            where: { userId: session.userId },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('DB timeout')), 2000))
-        ]) as any[]
-        
-        console.log('[Experience Page] Found', userInstallations.length, 'installations')
-        
-        if (userInstallations.length > 0) {
-          hasOtherInstallation = true
-          otherExperienceId = userInstallations[0].experienceId
-        }
-      }
-    } catch (error) {
-      console.error('[Experience Page] Quick check failed:', error)
-      // Continue with defaults (hasOtherInstallation = false)
-    }
-    
-    // Render client component immediately - this will auto-redirect to login
-    console.log('[Experience Page] Rendering ExperienceNotFound - hasOther:', hasOtherInstallation, 'elapsed:', Date.now() - startTime, 'ms')
+    // Always redirect new installations to login - no need to check for other installations
+    // The ExperienceNotFound component will handle the redirect
     return (
       <ExperienceNotFound 
         experienceId={experienceId}
-        hasOtherInstallation={hasOtherInstallation}
-        otherExperienceId={otherExperienceId}
+        hasOtherInstallation={false}
+        otherExperienceId={undefined}
       />
     )
   }
