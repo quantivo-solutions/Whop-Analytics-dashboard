@@ -309,9 +309,11 @@ export async function GET(request: Request) {
     }
 
     // Use loading page to ensure smooth transition after database operations complete
-    const loadingUrl = `/auth/loading?redirectTo=${encodeURIComponent(finalDestination)}`
+    // Pass session token through URL as fallback for iframe cookie issues
+    const loadingUrl = `/auth/loading?redirectTo=${encodeURIComponent(finalDestination)}&token=${encodeURIComponent(sessionToken)}`
     console.log('[OAuth] Redirecting to loading page with URL:', loadingUrl)
     console.log('[OAuth] Final destination will be:', finalDestination)
+    console.log('[OAuth] Session token passed through URL (fallback for iframe cookies)')
     
     return NextResponse.redirect(new URL(loadingUrl, request.url))
   } catch (error) {

@@ -10,6 +10,7 @@ function LoadingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
+  const sessionToken = searchParams.get('token') // Get token from URL if passed
 
   useEffect(() => {
     console.log('[Auth Loading] Starting redirect process to:', redirectTo)
@@ -20,13 +21,20 @@ function LoadingContent() {
     // 3. Cookie propagation completes across redirects
     const timer = setTimeout(() => {
       console.log('[Auth Loading] Performing redirect to:', redirectTo)
+      
+      // If we have a session token, pass it through URL as fallback for iframe cookie issues
+      const finalUrl = sessionToken 
+        ? `${redirectTo}${redirectTo.includes('?') ? '&' : '?'}token=${encodeURIComponent(sessionToken)}`
+        : redirectTo
+      
+      console.log('[Auth Loading] Final redirect URL:', finalUrl)
       // Use window.location for a clean hard refresh
       // This ensures cookies are read correctly after redirect
-      window.location.href = redirectTo
+      window.location.href = finalUrl
     }, 2000)
 
     return () => clearTimeout(timer)
-  }, [redirectTo, router])
+  }, [redirectTo, router, sessionToken])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
