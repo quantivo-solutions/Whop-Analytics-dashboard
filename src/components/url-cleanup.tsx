@@ -25,20 +25,20 @@ export function UrlCleanup() {
     const loggedOut = searchParams.get('loggedOut')
     const token = searchParams.get('token')
     
+    // IMPORTANT: Don't remove token immediately - it's needed for authentication
+    // when cookies aren't readable yet in iframe context
+    // Only remove loggedOut for now - token will be removed after session is confirmed
+    
     // If we have loggedOut=true, remove it (user has successfully logged in)
-    // Also remove token param as it's only needed for initial iframe cookie setup
-    if (loggedOut || token) {
+    if (loggedOut) {
       // Clean the iframe URL
       const params = new URLSearchParams(window.location.search)
       
-      // Remove temporary parameters
+      // Remove loggedOut parameter only
+      // Don't remove token - it's needed until cookie is confirmed working
       let shouldUpdate = false
       if (loggedOut) {
         params.delete('loggedOut')
-        shouldUpdate = true
-      }
-      if (token) {
-        params.delete('token')
         shouldUpdate = true
       }
       
@@ -79,7 +79,7 @@ export function UrlCleanup() {
           if (window.parent && window.parent !== window) {
             const parentUrl = new URL(window.parent.location.href)
             parentUrl.searchParams.delete('loggedOut')
-            parentUrl.searchParams.delete('token')
+            // Don't remove token from parent URL - let it stay until session is confirmed
             
             // Only update if we actually changed something
             if (parentUrl.search !== window.parent.location.search) {
