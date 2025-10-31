@@ -65,6 +65,10 @@ export function UserProfileMenu({
       
       console.log('[Logout] Logout API call successful, waiting for cookie deletion...')
       
+      // Set logout flag to prevent auto-login on redirect
+      sessionStorage.setItem('whop_logged_out', 'true')
+      sessionStorage.setItem('whop_logout_time', Date.now().toString())
+      
       // Wait a moment for cookie deletion to propagate
       await new Promise(resolve => setTimeout(resolve, 200))
       
@@ -72,9 +76,10 @@ export function UserProfileMenu({
       const pathMatch = window.location.pathname.match(/\/experiences\/(exp_[^\/]+)/)
       if (pathMatch) {
         const experienceId = pathMatch[1]
-        console.log('[Logout] Reloading page without token to trigger redirect to login')
-        // Reload without token in URL - remove any query params including token
-        window.location.href = `/experiences/${experienceId}`
+        console.log('[Logout] Redirecting to login page with experienceId and logout flag')
+        // Redirect to login with experienceId and loggedOut flag
+        // This prevents auto-login if user accidentally navigates back to experience page
+        window.location.href = `/login?experienceId=${experienceId}&loggedOut=true`
       } else {
         console.log('[Logout] Redirecting to login page')
         // No experienceId in URL, just go to login

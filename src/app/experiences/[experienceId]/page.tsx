@@ -26,15 +26,18 @@ interface PageProps {
   }>
   searchParams: Promise<{
     token?: string
+    loggedOut?: string
   }>
 }
 
 export default async function ExperienceDashboardPage({ params, searchParams }: PageProps) {
   const startTime = Date.now()
   const { experienceId } = await params
-  const { token } = await searchParams
+  const resolvedSearchParams = await searchParams
+  const { token, loggedOut } = resolvedSearchParams
+  const isLoggedOut = loggedOut === 'true'
 
-  console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none')
+  console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none', 'loggedOut:', isLoggedOut)
 
   // Look up installation by experienceId with retry logic
   console.log('[Experience Page] Looking up installation...')
@@ -121,9 +124,17 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   let session = await getSession(token).catch(() => null)
   
   // If no session but installation exists, we're in iframe context where cookies might be blocked
-  // Allow access since installation validates user ownership of this experience
+  // Allow auto-login to restore cookie access, BUT check for explicit logout first
   let needsSessionRefresh = false
   if (!session) {
+    // Check if there's a "loggedOut" query param (set during logout redirect)
+    // If present, don't auto-login - user explicitly logged out
+    if (isLoggedOut) {
+      console.log('[Experience Page] Logout flag detected - redirecting to login')
+      redirect(`/login?experienceId=${experienceId}`)
+    }
+    
+    // No logout flag - allow auto-login (cookie not readable, likely iframe issue)
     console.log('[Experience Page] No session found, but installation exists - allowing iframe access')
     // Create temporary session from installation data for this request
     session = {
