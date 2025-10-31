@@ -30,9 +30,8 @@ export function LogoutCheck({ experienceId, children }: LogoutCheckProps) {
       
       if (timeSinceLogout < fiveMinutes) {
         console.log('[LogoutCheck] Logout flag detected - redirecting to login')
-        // Clear logout flag
-        sessionStorage.removeItem('whop_logged_out')
-        sessionStorage.removeItem('whop_logout_time')
+        // DO NOT clear logout flag here - it must persist until user actually logs in
+        // The flag will be cleared in OAuth callback after successful login
         
         // Redirect to login immediately
         const loginUrl = `/login?experienceId=${experienceId}`

@@ -296,6 +296,10 @@ export async function GET(request: Request) {
       path: '/',
     })
     console.log('[OAuth] Session cookie set successfully')
+    
+    // Clear logout flags after successful login
+    // We'll set this in a cookie that the client can read, or pass it through redirect
+    // For now, we'll clear it client-side via the loading page
 
     // Redirect to loading page which will wait for DB sync, then redirect to dashboard
     let finalDestination = '/dashboard'

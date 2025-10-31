@@ -15,6 +15,12 @@ function LoadingContent() {
   useEffect(() => {
     console.log('[Auth Loading] Starting redirect process to:', redirectTo)
     
+    // Clear logout flags after successful OAuth login
+    // User has successfully authenticated, so logout flags are no longer needed
+    sessionStorage.removeItem('whop_logged_out')
+    sessionStorage.removeItem('whop_logout_time')
+    console.log('[Auth Loading] Cleared logout flags after successful login')
+    
     // Wait 2000ms to ensure:
     // 1. Database operations complete (Prisma write)
     // 2. Session cookie is properly set and accessible in iframe context
