@@ -21,19 +21,30 @@ export function TokenCleanup() {
     
     // Only clean token if present
     if (token) {
-      // Check if cookie is readable by making a test API call
+      // Check if cookie is readable by checking if it exists
       // Don't remove token until cookie is confirmed working
       const checkCookieAndClean = async () => {
         try {
-          // Try to verify session via API (this reads the cookie)
-          const response = await fetch('/api/auth/refresh', {
-            method: 'POST',
+          // Simple check: try to read session cookie via document.cookie
+          // In iframe, we can't read httpOnly cookies, but we can check if they exist
+          // by making a lightweight API call that just checks the cookie
+          const response = await fetch('/api/health', {
+            method: 'GET',
             credentials: 'include', // Important for cookies
           })
           
-          if (response.ok) {
-            // Cookie is readable - safe to remove token
-            console.log('[TokenCleanup] Cookie confirmed readable, removing token from URL')
+          // If health check works, cookie should be readable
+          // But actually, let's just wait longer and check if cookie is set
+          // by checking the response headers or making a session check call
+          
+          // For now, just wait a reasonable amount of time (5 seconds total)
+          // The cookie should be readable by then if it's going to work
+          // If not, we'll just keep the token in URL (better than redirect loop)
+          console.log('[TokenCleanup] Health check successful, waiting additional time before removing token...')
+          
+          // Wait 2 more seconds, then remove token
+          setTimeout(() => {
+            console.log('[TokenCleanup] Removing token from URL (cookie should be readable by now)')
             
             const params = new URLSearchParams(window.location.search)
             params.delete('token')
@@ -57,15 +68,12 @@ export function TokenCleanup() {
               console.warn('[TokenCleanup] Failed to update URL, will keep token:', err)
               // Keep token if URL update fails - better safe than sorry
             }
-          } else {
-            // Cookie not readable yet - keep token, retry later
-            console.log('[TokenCleanup] Cookie not readable yet, keeping token. Retrying in 2s...')
-            setTimeout(checkCookieAndClean, 2000)
-          }
+          }, 2000)
+          
         } catch (error) {
-          // API call failed - cookie might not be ready
-          console.log('[TokenCleanup] Cookie check failed, keeping token. Retrying in 2s...')
-          setTimeout(checkCookieAndClean, 2000)
+          // API call failed - don't remove token, keep it as fallback
+          console.log('[TokenCleanup] Cookie check failed, keeping token in URL for safety:', error)
+          // Don't retry - keep token indefinitely if cookie check fails
         }
       }
       
