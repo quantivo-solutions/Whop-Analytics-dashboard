@@ -43,10 +43,20 @@ export function TokenCleanup() {
               ? `${pathname}?${newSearch}`
               : pathname
             
-            // Clean URL via router (without causing page reload)
-            router.replace(newPath, { scroll: false })
-            console.log('[TokenCleanup] Removed token from URL')
-            setCleaned(true)
+            // Clean URL using window.history.replaceState (doesn't cause page reload)
+            // This is safer than router.replace which can trigger a full navigation
+            try {
+              window.history.replaceState(
+                { ...window.history.state, as: newPath, url: newPath },
+                '',
+                newPath
+              )
+              console.log('[TokenCleanup] Removed token from URL (via window.history)')
+              setCleaned(true)
+            } catch (err) {
+              console.warn('[TokenCleanup] Failed to update URL, will keep token:', err)
+              // Keep token if URL update fails - better safe than sorry
+            }
           } else {
             // Cookie not readable yet - keep token, retry later
             console.log('[TokenCleanup] Cookie not readable yet, keeping token. Retrying in 2s...')
