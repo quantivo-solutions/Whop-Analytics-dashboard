@@ -14,6 +14,7 @@ import { prisma } from '@/lib/prisma'
 import { ExperienceNotFound } from '@/components/experience-not-found'
 import { redirect } from 'next/navigation'
 import { SessionRefresher } from '@/components/session-refresher'
+import { UrlCleanup } from '@/components/url-cleanup'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -186,6 +187,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             username={installation.username}
           />
         )}
+        <UrlCleanup />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
           {/* Elegant Compact Header */}
           <div className="mb-6 sm:mb-8">
