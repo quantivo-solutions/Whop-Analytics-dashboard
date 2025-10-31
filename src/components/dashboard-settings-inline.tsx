@@ -143,8 +143,8 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
   }
 
   const handleProFeatureClick = () => {
-    toast.error('This feature requires Pro plan', {
-      description: 'Upgrade to Pro to unlock daily reports and Discord integration'
+        toast.error('This feature requires Pro plan', {
+      description: 'Upgrade to Whoplytics Pro to unlock daily reports and Discord integration'
     })
   }
 
@@ -286,7 +286,7 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
               <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px] rounded-lg flex items-center justify-center cursor-not-allowed">
                 <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-background/90 border rounded-md px-3 py-1.5 shadow-sm">
                   <Lock className="h-3 w-3" />
-                  Upgrade to Pro
+                  Upgrade to Whoplytics Pro
                 </div>
               </div>
             )}
@@ -355,7 +355,7 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
             className="max-w-md"
           />
           <p className="text-xs text-muted-foreground">
-            {isPro ? 'Paste your Discord webhook URL here' : 'Upgrade to Pro to enable Discord notifications'}
+            {isPro ? 'Paste your Discord webhook URL here' : 'Upgrade to Whoplytics Pro to enable Discord notifications'}
           </p>
         </div>
       </div>
@@ -383,7 +383,7 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
                 title={!isSdkReady ? 'Initializing...' : undefined}
               >
                 <Sparkles className="h-3.5 w-3.5 mr-2" />
-                {upgrading ? 'Processing...' : 'Upgrade to Pro'}
+                {upgrading ? 'Processing...' : 'Upgrade to Whoplytics Pro'}
               </Button>
             </div>
           </div>

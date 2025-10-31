@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       )
     }
     
-    console.log('✅ Weekly report sent successfully:', result.data?.id)
+    console.log('[Whoplytics] ✅ Weekly report sent successfully:', result.data?.id)
     
     // Check for Discord webhook in settings
     const settings = await prisma.workspaceSettings.findFirst()

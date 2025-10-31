@@ -88,7 +88,7 @@ export default function SettingsPage() {
 
   const handleProFeatureClick = () => {
     toast.error('This feature requires Pro plan', {
-      description: 'Upgrade to Pro to unlock daily reports and Discord integration'
+      description: 'Upgrade to Whoplytics Pro to unlock daily reports and Discord integration'
     })
   }
 
@@ -241,7 +241,7 @@ export default function SettingsPage() {
                   <div className="flex items-start gap-3">
                     <Crown className="h-5 w-5 text-yellow-500 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium mb-1">Upgrade to Pro</p>
+                      <p className="text-sm font-medium mb-1">Upgrade to Whoplytics Pro</p>
                       <p className="text-xs text-muted-foreground mb-3">
                         Get Discord alerts, daily reports, and advanced insights
                       </p>

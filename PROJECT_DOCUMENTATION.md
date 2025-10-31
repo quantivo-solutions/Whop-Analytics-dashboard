@@ -1,4 +1,4 @@
-# Whop Analytics Dashboard - Complete Project Documentation
+# Whoplytics - Complete Project Documentation
 
 ## 📋 Table of Contents
 1. [Project Overview](#project-overview)
@@ -18,7 +18,7 @@
 
 ## 🎯 Project Overview
 
-**Whop Analytics Dashboard** is a comprehensive analytics application built for Whop platform creators. It provides real-time insights into revenue, membership metrics, and business performance data directly within the Whop ecosystem.
+**Whoplytics** is a comprehensive analytics application built for Whop platform creators. It provides real-time insights into revenue, membership metrics, and business performance data directly within the Whop ecosystem.
 
 ### Purpose
 - Help creators understand what drives their revenue and engagement

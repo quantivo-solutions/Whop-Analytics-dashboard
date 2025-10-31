@@ -7,8 +7,12 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Analytics Dashboard',
-  description: 'A clean and simple analytics dashboard built with Next.js 14',
+  title: 'Whoplytics - Your Whop Business Analytics Companion',
+  description: 'Track revenue, members, and churn in real time with automated email reports.',
+  openGraph: {
+    title: 'Whoplytics - Your Whop Business Analytics Companion',
+    description: 'Track revenue, members, and churn in real time with automated email reports.',
+  },
 }
 
 export default function RootLayout({

@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
     // Validate secret
     if (!secret || secret !== process.env.CRON_SECRET) {
-      console.log('Unauthorized daily report request - invalid or missing secret')
+      console.log('[Whoplytics] Unauthorized daily report request - invalid or missing secret')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
     // Check if daily email is enabled
     if (!settings) {
-      console.log('⚠️  No workspace settings found')
+      console.log('[Whoplytics] ⚠️  No workspace settings found')
       return NextResponse.json(
         { ok: false, message: 'No workspace settings configured' },
         { status: 200 }
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     }
 
     if (!settings.dailyEmail) {
-      console.log('ℹ️  Daily email is disabled in settings')
+      console.log('[Whoplytics] ℹ️  Daily email is disabled in settings')
       return NextResponse.json(
         { ok: false, message: 'Daily email reports are disabled' },
         { status: 200 }
@@ -56,9 +56,9 @@ export async function GET(request: Request) {
     // Check if company has Pro plan (daily reports are Pro-only)
     const plan = await getPlanForCompany(companyId)
     if (!hasPro(plan)) {
-      console.log(`⚠️  Daily reports require Pro plan. Current plan: ${plan} for company: ${companyId}`)
+      console.log(`[Whoplytics] ⚠️  Daily reports require Pro plan. Current plan: ${plan} for company: ${companyId}`)
       return NextResponse.json(
-        { ok: false, error: 'Daily reports require Pro plan. Upgrade to enable daily email reports.' },
+        { ok: false, error: 'Daily reports require Whoplytics Pro plan. Upgrade to enable daily email reports.' },
         { status: 402 }
       )
     }
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
     const result = await sendDailyReportEmail(settings.reportEmail, metric)
 
     if (result.success) {
-      console.log(`✅ Daily report sent successfully: ${result.data?.id}`)
+      console.log(`[Whoplytics] ✅ Daily report sent successfully: ${result.data?.id}`)
       
       // Post to Discord if webhook is configured
       if (settings.discordWebhook) {

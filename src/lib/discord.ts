@@ -27,7 +27,7 @@ export async function postToDiscord(
 
     const payload: DiscordWebhookPayload = {
       content,
-      username: 'Analytics Dashboard',
+      username: 'Whoplytics',
       avatar_url: 'https://cdn.discordapp.com/embed/avatars/0.png'
     }
 

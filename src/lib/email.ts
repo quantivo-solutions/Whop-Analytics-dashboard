@@ -352,7 +352,7 @@ function generateEmailHTML(summary: WeeklySummary): string {
         This is your automated weekly analytics report. Keep up the great work! 🚀
       </p>
       <p style="margin: 12px 0 0 0; font-size: 12px; color: #94a3b8;">
-        Analytics Dashboard • Generated on ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        Whoplytics • Generated on ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
       </p>
     </div>
 
@@ -446,7 +446,7 @@ Generated on ${new Date().toLocaleDateString('en-GB', { weekday: 'long', year: '
 
     // Send email via Resend
     const result = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Analytics Dashboard <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM_EMAIL || 'Whoplytics <onboarding@resend.dev>',
       to: Array.isArray(to) ? to : [to],
       subject: `📊 Your Weekly Analytics - £${totalRevenue.toFixed(2)} revenue`,
       html,
@@ -623,7 +623,7 @@ Generated on ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: '
 
     // Send email via Resend
     const result = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Analytics Dashboard <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM_EMAIL || 'Whoplytics <onboarding@resend.dev>',
       to: Array.isArray(to) ? to : [to],
       subject: `📊 Daily Analytics - ${metricDate}`,
       html,

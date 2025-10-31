@@ -95,7 +95,7 @@ export function LoginForm() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <BarChart3 className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Welcome to Analytics Dashboard</CardTitle>
+          <CardTitle className="text-2xl">Welcome to Whoplytics</CardTitle>
           <CardDescription>
             Login with your Whop account to view your analytics
           </CardDescription>

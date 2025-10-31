@@ -110,7 +110,7 @@ export async function exampleSendEmail() {
   const html = exampleBasicUsage()
 
   const result = await resend.emails.send({
-    from: 'Analytics Dashboard <onboarding@resend.dev>',
+    from: 'Whoplytics <onboarding@resend.dev>',
     to: 'user@example.com',
     subject: '📊 Your Weekly Analytics - £10,847.32 revenue',
     html

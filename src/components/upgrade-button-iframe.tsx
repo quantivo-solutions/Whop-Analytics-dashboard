@@ -114,7 +114,7 @@ export function UpgradeButtonIframe({ plan, experienceId }: UpgradeButtonIframeP
       title={!isSdkReady ? 'Initializing...' : undefined}
     >
       <Sparkles className="h-4 w-4" />
-      {isLoading ? 'Processing...' : 'Upgrade to Pro'}
+      {isLoading ? 'Processing...' : 'Upgrade to Whoplytics Pro'}
     </Button>
   )
 }

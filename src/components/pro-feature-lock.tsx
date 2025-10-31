@@ -114,7 +114,7 @@ export function ProFeatureLock({ title, description }: ProFeatureLockProps) {
           title={!isSdkReady ? 'Initializing...' : undefined}
         >
           <Sparkles className="h-4 w-4" />
-          {isUpgrading ? 'Processing...' : 'Upgrade to Pro'}
+          {isUpgrading ? 'Processing...' : 'Upgrade to Whoplytics Pro'}
         </Button>
       </CardContent>
     </Card>

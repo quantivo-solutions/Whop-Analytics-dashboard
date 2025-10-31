@@ -35,7 +35,7 @@ export function ExperienceNotFound({
               <AlertCircle className="h-8 w-8 text-white" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Analytics Dashboard Not Available Here</h2>
+              <h2 className="text-2xl font-bold">Whoplytics Not Available Here</h2>
               <p className="text-muted-foreground">
                 You're viewing your Pro membership management page.
               </p>
@@ -43,10 +43,10 @@ export function ExperienceNotFound({
             
             <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg text-left space-y-3">
               <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                💡 How the Analytics Dashboard works:
+                💡 How Whoplytics works:
               </p>
               <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2 list-disc list-inside">
-                <li>The dashboard is installed in <strong>your company's Whop</strong></li>
+                <li>Whoplytics is installed in <strong>your company's Whop</strong></li>
                 <li>This page is for <strong>Pro membership management</strong></li>
                 <li>To access your analytics, switch to where the app is installed</li>
               </ul>
@@ -62,12 +62,12 @@ export function ExperienceNotFound({
 
             <div className="pt-4 border-t space-y-3">
               <p className="text-sm text-muted-foreground">
-                <strong>To access the Analytics Dashboard:</strong>
+                <strong>To access Whoplytics:</strong>
               </p>
               <ol className="text-sm text-muted-foreground text-left space-y-2 list-decimal list-inside">
                 <li>Look for <strong>your company's Whop</strong> in the sidebar</li>
                 <li>Click on it to switch Whops</li>
-                <li>You'll see your Analytics Dashboard there! 🎉</li>
+                <li>You'll see your Whoplytics dashboard there! 🎉</li>
               </ol>
             </div>
 

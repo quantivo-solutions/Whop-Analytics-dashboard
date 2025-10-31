@@ -1,7 +1,7 @@
 {
-  "name": "analyticsdashboard",
+  "name": "whoplytics",
   "version": "1.0.0",
-  "description": "",
+  "description": "Whoplytics - Your Whop Business Analytics Companion",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
@@ -27,8 +27,8 @@
     "test:webhook:pay": "node scripts/send-whop-webhook.mjs payment_succeeded biz_test_company_123 1299",
     "test:webhook:refund": "node scripts/send-whop-webhook.mjs refund_created biz_test_company_123 1299"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["whop", "analytics", "dashboard", "business-insights"],
+  "author": "Whoplytics",
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.18.0",
