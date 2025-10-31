@@ -27,29 +27,47 @@ function LoadingContent() {
     // 3. Cookie propagation completes across redirects
     const timer = setTimeout(() => {
       console.log('[Auth Loading] Performing redirect to:', redirectTo)
+      console.log('[Auth Loading] Session token present:', sessionToken ? 'yes' : 'no')
+      console.log('[Auth Loading] Session token length:', sessionToken?.length || 0)
       
-      // Parse redirectTo to ensure clean URL (remove any unwanted params like loggedOut)
-      const redirectUrl = new URL(redirectTo, window.location.origin)
-      // Remove any unwanted query parameters from the redirect URL
-      redirectUrl.searchParams.delete('loggedOut')
+      // Build final URL - always include token if we have it
+      // The token is critical for iframe cookie issues
+      let finalUrl = redirectTo
       
-      // If we have a session token, add it temporarily (will be cleaned up by UrlCleanup)
-      // Only add token if redirectTo doesn't already have it
-      if (sessionToken && !redirectUrl.searchParams.has('token')) {
-        redirectUrl.searchParams.set('token', sessionToken)
+      // If redirectTo is just a pathname, we need to add the token
+      if (redirectTo.startsWith('/')) {
+        // Check if redirectTo already has query params
+        const hasQuery = redirectTo.includes('?')
+        
+        if (sessionToken) {
+          if (hasQuery) {
+            finalUrl = `${redirectTo}&token=${encodeURIComponent(sessionToken)}`
+          } else {
+            finalUrl = `${redirectTo}?token=${encodeURIComponent(sessionToken)}`
+          }
+        }
+      } else {
+        // Full URL - parse and add token
+        try {
+          const redirectUrl = new URL(redirectTo, window.location.origin)
+          redirectUrl.searchParams.delete('loggedOut') // Clean unwanted params
+          
+          if (sessionToken && !redirectUrl.searchParams.has('token')) {
+            redirectUrl.searchParams.set('token', sessionToken)
+          }
+          
+          finalUrl = redirectUrl.pathname + redirectUrl.search
+        } catch (error) {
+          console.error('[Auth Loading] Failed to parse redirectTo URL:', error)
+          // Fallback: just append token
+          finalUrl = `${redirectTo}${redirectTo.includes('?') ? '&' : '?'}token=${encodeURIComponent(sessionToken || '')}`
+        }
       }
       
-      // Build clean final URL (pathname + clean query params)
-      const cleanPath = redirectUrl.pathname
-      const cleanQuery = redirectUrl.searchParams.toString()
-      const finalUrl = cleanQuery 
-        ? `${cleanPath}?${cleanQuery}`
-        : cleanPath
-      
-      console.log('[Auth Loading] Final redirect URL (cleaned):', finalUrl)
+      console.log('[Auth Loading] Final redirect URL with token:', finalUrl)
       
       // Use window.location.replace() for a clean redirect (removes from history)
-      // This ensures cookies are read correctly and old URL params are gone
+      // This ensures cookies are read correctly
       window.location.replace(finalUrl)
     }, 2000)
 
