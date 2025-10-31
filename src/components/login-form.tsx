@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BarChart3, ExternalLink } from 'lucide-react'
@@ -8,8 +9,39 @@ import { useSearchParams } from 'next/navigation'
 export function LoginForm() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
-  const experienceId = searchParams.get('experienceId')
+  const urlExperienceId = searchParams.get('experienceId')
   const companyId = searchParams.get('companyId') || searchParams.get('company_id')
+  
+  const [experienceId, setExperienceId] = useState<string | null>(urlExperienceId)
+
+  // If no experienceId in URL, try to extract it from the current page URL (if in Whop iframe)
+  // Whop URLs are like: /experiences/exp_XXX or /joined/company/app-name-expXXX/app/
+  useEffect(() => {
+    if (!experienceId && typeof window !== 'undefined') {
+      // Try to extract from current URL path
+      const pathMatch = window.location.pathname.match(/\/experiences\/(exp_[^\/]+)/)
+      if (pathMatch) {
+        console.log('[LoginForm] Extracted experienceId from URL path:', pathMatch[1])
+        setExperienceId(pathMatch[1])
+        return
+      }
+      
+      // Also try to get from referrer or document referrer
+      try {
+        if (document.referrer) {
+          const referrerMatch = document.referrer.match(/exp_[\w]+/i)
+          if (referrerMatch) {
+            console.log('[LoginForm] Extracted experienceId from referrer:', referrerMatch[0])
+            setExperienceId(referrerMatch[0])
+            return
+          }
+        }
+      } catch (e) {
+        // Can't access, that's okay
+        console.log('[LoginForm] Cannot extract from referrer')
+      }
+    }
+  }, [experienceId])
 
   console.log('[LoginForm] Component loaded, experienceId:', experienceId || 'none', 'companyId:', companyId || 'none')
 

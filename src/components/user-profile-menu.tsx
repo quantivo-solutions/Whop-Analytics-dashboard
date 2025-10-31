@@ -53,7 +53,16 @@ export function UserProfileMenu({
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      window.location.href = '/login'
+      
+      // Extract experienceId from current URL if present
+      const pathMatch = window.location.pathname.match(/\/experiences\/(exp_[^\/]+)/)
+      if (pathMatch) {
+        // Reload current page - it will detect no session and redirect to login with experienceId
+        window.location.reload()
+      } else {
+        // No experienceId in URL, just go to login
+        window.location.href = '/login'
+      }
     } catch (error) {
       console.error('Logout failed:', error)
     }
