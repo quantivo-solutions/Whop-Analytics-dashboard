@@ -118,7 +118,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     redirect(`/login?experienceId=${experienceId}`)
   }
   
-    console.log('[Experience Page] Valid session found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
+  console.log('[Experience Page] Valid session found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
   
   // Proceed to load dashboard with error handling
   try {
