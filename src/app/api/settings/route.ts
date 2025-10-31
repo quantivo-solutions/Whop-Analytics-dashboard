@@ -13,8 +13,27 @@ export async function GET(request: Request) {
     // Get session (optional for iframe context)
     const session = await getSession()
     
-    // Require either companyId in query or session
-    const companyId = queryCompanyId || session?.companyId
+    // SECURITY: If companyId is provided in query, verify it matches session
+    // Prevent users from accessing other companies' settings
+    let companyId: string
+    
+    if (queryCompanyId) {
+      // If companyId is provided in query, verify it matches the session
+      if (session?.companyId && session.companyId !== queryCompanyId) {
+        console.warn('[Settings GET] Security: Attempt to access different companyId blocked', {
+          sessionCompanyId: session.companyId,
+          requestedCompanyId: queryCompanyId,
+        })
+        return NextResponse.json(
+          { error: 'Unauthorized: Cannot access settings for different company' },
+          { status: 403 }
+        )
+      }
+      companyId = queryCompanyId
+    } else {
+      // No companyId in query, use session
+      companyId = session?.companyId || ''
+    }
     
     if (!companyId) {
       return NextResponse.json(
@@ -79,8 +98,27 @@ export async function POST(request: Request) {
     // Get session (optional for iframe context)
     const session = await getSession()
 
-    // Use companyId from request body if provided, otherwise fall back to session
-    const targetCompanyId = requestCompanyId || session?.companyId
+    // SECURITY: Only allow companyId from request body if session matches
+    // Prevent users from modifying other companies' settings
+    let targetCompanyId: string
+    
+    if (requestCompanyId) {
+      // If companyId is provided in body, verify it matches the session
+      if (session?.companyId && session.companyId !== requestCompanyId) {
+        console.warn('[Settings POST] Security: Attempt to modify different companyId blocked', {
+          sessionCompanyId: session.companyId,
+          requestedCompanyId: requestCompanyId,
+        })
+        return NextResponse.json(
+          { error: 'Unauthorized: Cannot modify settings for different company' },
+          { status: 403 }
+        )
+      }
+      targetCompanyId = requestCompanyId
+    } else {
+      // No companyId in body, use session
+      targetCompanyId = session?.companyId || ''
+    }
     
     if (!targetCompanyId) {
       return NextResponse.json(

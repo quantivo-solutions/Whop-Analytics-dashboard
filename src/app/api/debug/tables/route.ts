@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/debug/tables
-// Shows all tables in the database (protected by query param)
+// Shows all tables in the database (protected by CRON_SECRET)
 export async function GET(req: Request) {
-  // Simple protection
-  const secret = req.url.includes('?show=true')
+  // SECURITY: Require CRON_SECRET for access (not just show=true)
+  const { searchParams } = new URL(req.url)
+  const secret = searchParams.get('secret')
   
-  if (!secret) {
+  if (!secret || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   }
 
