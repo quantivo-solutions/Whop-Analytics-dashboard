@@ -12,6 +12,7 @@ import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { ExperienceNotFound } from '@/components/experience-not-found'
+import { redirect } from 'next/navigation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -114,10 +115,20 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     )
   }
 
-  // Installation found - proceed to load dashboard with error handling
+  // Installation found - check for session before loading dashboard
+  console.log('[Experience Page] Installation found, checking session...')
+  const session = await getSession(token).catch(() => null)
+  
+  if (!session) {
+    console.log('[Experience Page] No session found, redirecting to login with experienceId')
+    // Redirect to login with experienceId to preserve context
+    redirect(`/login?experienceId=${experienceId}`)
+  }
+  
+  console.log('[Experience Page] Session found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
+  
+  // Proceed to load dashboard with error handling
   try {
-
-  console.log('[Experience Page] Installation found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
     console.log('[Experience Page] Installation details:', {
       companyId: installation.companyId,
       plan: installation.plan,
