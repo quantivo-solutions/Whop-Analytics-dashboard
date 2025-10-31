@@ -15,6 +15,7 @@ import { ExperienceNotFound } from '@/components/experience-not-found'
 import { redirect } from 'next/navigation'
 import { SessionRefresher } from '@/components/session-refresher'
 import { UrlCleanup } from '@/components/url-cleanup'
+import { LogoutCheck } from '@/components/logout-check'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -126,10 +127,15 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   // Allow auto-login to restore cookie access, BUT check for explicit logout first
   // Note: We check sessionStorage on client-side, not URL params (to keep URL clean)
   let needsSessionRefresh = false
+  let shouldShowLogin = false // Flag for client-side logout check
+  
   if (!session) {
     // Logout flag is checked client-side via sessionStorage, not URL param
     // This keeps URLs clean while still preventing auto-login after explicit logout
-    console.log('[Experience Page] No session found, but installation exists - allowing iframe access')
+    // We'll create a client component that checks sessionStorage BEFORE rendering dashboard
+    console.log('[Experience Page] No session found, but installation exists - will check sessionStorage client-side')
+    // Set flag to show login check component first
+    shouldShowLogin = true
     // Create temporary session from installation data for this request
     // Client-side component will check sessionStorage and redirect if needed
     session = {
@@ -139,7 +145,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       exp: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days from now
     }
     needsSessionRefresh = true
-    console.log('[Experience Page] Created temporary session from installation - will refresh cookie via client')
+    console.log('[Experience Page] Created temporary session from installation - client will check logout flag first')
   } else {
     console.log('[Experience Page] Session found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
   }
@@ -170,6 +176,64 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
     // Get upgrade URL with company context for better Whop integration
     const upgradeUrl = getUpgradeUrl(installation.companyId)
+
+    // If no session found, we need to check sessionStorage for logout flag BEFORE showing dashboard
+    // This prevents auto-login after explicit logout
+    // Wrap dashboard content in LogoutCheck component to verify user didn't explicitly logout
+    const dashboardContent = (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        {/* Refresh session cookie if needed (for iframe cookie issues) */}
+        {needsSessionRefresh && (
+          <SessionRefresher
+            companyId={installation.companyId}
+            userId={installation.userId}
+            username={installation.username}
+          />
+        )}
+        <UrlCleanup />
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
+          {/* Elegant Compact Header */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* Left: Branding */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg">
+                    <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-foreground">Analytics</h1>
+                    <p className="text-xs text-muted-foreground hidden sm:block">Business insights at a glance</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Actions */}
+              <div className="flex items-center gap-2">
+                <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
+                <UserProfileMenuClient 
+                  companyId={installation.companyId}
+                  username={installation.username}
+                  email={installation.email}
+                  profilePicUrl={installation.profilePicUrl}
+                  plan={plan}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Dashboard view */}
+          <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
+        </div>
+      </div>
+    )
+
+    // If no session, wrap content in LogoutCheck to verify logout flag
+    if (shouldShowLogin) {
+      return <LogoutCheck experienceId={experienceId}>{dashboardContent}</LogoutCheck>
+    }
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">

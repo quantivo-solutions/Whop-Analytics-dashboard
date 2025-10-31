@@ -47,6 +47,11 @@ export function LoginForm() {
 
   const handleLogin = async () => {
     console.log('[LoginForm] Login button clicked, experienceId:', experienceId || 'none')
+    
+    // Clear any existing logout flags - user is explicitly starting a new login
+    sessionStorage.removeItem('whop_logged_out')
+    sessionStorage.removeItem('whop_logout_time')
+    
     try {
       // Call our API route to generate OAuth URL
       // The server will automatically determine the correct redirect URI based on the request origin
@@ -73,7 +78,22 @@ export function LoginForm() {
       sessionStorage.setItem('oauth_state', state)
 
       // Redirect to Whop OAuth page
-      window.location.href = oauthUrl
+      // If we're in an iframe, try to break out to parent window, otherwise redirect normally
+      try {
+        if (window.parent && window.parent !== window) {
+          // In iframe - redirect parent window to OAuth (breaks out of iframe)
+          console.log('[LoginForm] In iframe, redirecting parent window to OAuth')
+          window.parent.location.href = oauthUrl
+        } else {
+          // Not in iframe - normal redirect
+          console.log('[LoginForm] Not in iframe, redirecting normally')
+          window.location.href = oauthUrl
+        }
+      } catch (err) {
+        // Cross-origin restriction - fallback to normal redirect
+        console.warn('[LoginForm] Cannot redirect parent (cross-origin), using normal redirect')
+        window.location.href = oauthUrl
+      }
     } catch (error) {
       console.error('Login error:', error)
       alert('Failed to start login process. Please try again.')
