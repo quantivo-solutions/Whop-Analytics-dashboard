@@ -22,15 +22,29 @@ function LoadingContent() {
     const timer = setTimeout(() => {
       console.log('[Auth Loading] Performing redirect to:', redirectTo)
       
-      // If we have a session token, pass it through URL as fallback for iframe cookie issues
-      const finalUrl = sessionToken 
-        ? `${redirectTo}${redirectTo.includes('?') ? '&' : '?'}token=${encodeURIComponent(sessionToken)}`
-        : redirectTo
+      // Parse redirectTo to ensure clean URL (remove any unwanted params like loggedOut)
+      const redirectUrl = new URL(redirectTo, window.location.origin)
+      // Remove any unwanted query parameters from the redirect URL
+      redirectUrl.searchParams.delete('loggedOut')
       
-      console.log('[Auth Loading] Final redirect URL:', finalUrl)
-      // Use window.location for a clean hard refresh
-      // This ensures cookies are read correctly after redirect
-      window.location.href = finalUrl
+      // If we have a session token, add it temporarily (will be cleaned up by UrlCleanup)
+      // Only add token if redirectTo doesn't already have it
+      if (sessionToken && !redirectUrl.searchParams.has('token')) {
+        redirectUrl.searchParams.set('token', sessionToken)
+      }
+      
+      // Build clean final URL (pathname + clean query params)
+      const cleanPath = redirectUrl.pathname
+      const cleanQuery = redirectUrl.searchParams.toString()
+      const finalUrl = cleanQuery 
+        ? `${cleanPath}?${cleanQuery}`
+        : cleanPath
+      
+      console.log('[Auth Loading] Final redirect URL (cleaned):', finalUrl)
+      
+      // Use window.location.replace() for a clean redirect (removes from history)
+      // This ensures cookies are read correctly and old URL params are gone
+      window.location.replace(finalUrl)
     }, 2000)
 
     return () => clearTimeout(timer)
