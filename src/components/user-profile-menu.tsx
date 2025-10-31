@@ -71,9 +71,10 @@ export function UserProfileMenu({
       // Extract experienceId from current URL if present
       const pathMatch = window.location.pathname.match(/\/experiences\/(exp_[^\/]+)/)
       if (pathMatch) {
-        console.log('[Logout] Reloading page to trigger redirect to login with experienceId')
-        // Reload current page - it will detect no session and redirect to login with experienceId
-        window.location.reload()
+        const experienceId = pathMatch[1]
+        console.log('[Logout] Reloading page without token to trigger redirect to login')
+        // Reload without token in URL - remove any query params including token
+        window.location.href = `/experiences/${experienceId}`
       } else {
         console.log('[Logout] Redirecting to login page')
         // No experienceId in URL, just go to login
