@@ -52,19 +52,35 @@ export function UserProfileMenu({
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
+      console.log('[Logout] Starting logout process...')
+      const response = await fetch('/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include' // Ensure cookies are sent
+      })
+      
+      if (!response.ok) {
+        console.error('[Logout] Logout API call failed:', response.status)
+        return
+      }
+      
+      console.log('[Logout] Logout API call successful, waiting for cookie deletion...')
+      
+      // Wait a moment for cookie deletion to propagate
+      await new Promise(resolve => setTimeout(resolve, 200))
       
       // Extract experienceId from current URL if present
       const pathMatch = window.location.pathname.match(/\/experiences\/(exp_[^\/]+)/)
       if (pathMatch) {
+        console.log('[Logout] Reloading page to trigger redirect to login with experienceId')
         // Reload current page - it will detect no session and redirect to login with experienceId
         window.location.reload()
       } else {
+        console.log('[Logout] Redirecting to login page')
         // No experienceId in URL, just go to login
         window.location.href = '/login'
       }
     } catch (error) {
-      console.error('Logout failed:', error)
+      console.error('[Logout] Logout failed:', error)
     }
   }
 
