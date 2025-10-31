@@ -286,6 +286,8 @@ export async function GET(request: Request) {
 
     // Set cookie with proper settings for iframe support
     console.log('[OAuth] Setting session cookie for companyId:', companyId)
+    console.log('[OAuth] Session token length:', sessionToken.length)
+    console.log('[OAuth] Session token preview:', sessionToken.substring(0, 50))
     cookieStore.set('whop_session', sessionToken, {
       httpOnly: true,
       secure: true, // Required for sameSite=none
@@ -293,6 +295,7 @@ export async function GET(request: Request) {
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/',
     })
+    console.log('[OAuth] Session cookie set successfully')
 
     // Redirect to loading page which will wait for DB sync, then redirect to dashboard
     let finalDestination = '/dashboard'

@@ -35,21 +35,41 @@ export async function getSession(token?: string | null): Promise<Session | null>
     const cookieStore = await cookies()
     const sessionCookie = cookieStore.get('whop_session')
     
-    if (!sessionCookie) {
+    if (!sessionCookie || !sessionCookie.value) {
+      console.log('[Session] No session cookie found')
       return null
     }
 
-    const sessionData = JSON.parse(Buffer.from(sessionCookie.value, 'base64').toString())
-    
-    // Check if expired
-    if (sessionData.exp < Date.now()) {
+    // Validate cookie value before parsing
+    if (sessionCookie.value.trim().length === 0) {
+      console.warn('[Session] Session cookie is empty')
       return null
     }
 
-    console.log('[Session] Valid cookie auth for:', sessionData.companyId)
-    return sessionData
+    try {
+      const decoded = Buffer.from(sessionCookie.value, 'base64').toString()
+      if (!decoded || decoded.trim().length === 0) {
+        console.warn('[Session] Decoded session is empty')
+        return null
+      }
+      
+      const sessionData = JSON.parse(decoded)
+      
+      // Check if expired
+      if (sessionData.exp < Date.now()) {
+        return null
+      }
+
+      console.log('[Session] Valid cookie auth for:', sessionData.companyId)
+      return sessionData
+    } catch (parseError) {
+      console.error('[Session] Failed to parse session cookie:', parseError)
+      console.error('[Session] Cookie value length:', sessionCookie.value.length)
+      console.error('[Session] Cookie value preview:', sessionCookie.value.substring(0, 50))
+      return null
+    }
   } catch (error) {
-    console.error('Failed to parse session:', error)
+    console.error('[Session] Failed to get session:', error)
     return null
   }
 }
