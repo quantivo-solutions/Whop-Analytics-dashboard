@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Lock, Sparkles } from 'lucide-react'
@@ -20,7 +20,35 @@ interface ProFeatureLockProps {
 
 export function ProFeatureLock({ title, description }: ProFeatureLockProps) {
   const [isUpgrading, setIsUpgrading] = useState(false)
+  const [isSdkReady, setIsSdkReady] = useState(false)
   const iframeSdk = useIframeSdk()
+
+  // Check if SDK is ready
+  useEffect(() => {
+    const checkSdkReady = () => {
+      if (iframeSdk && typeof iframeSdk.inAppPurchase === 'function') {
+        setIsSdkReady(true)
+        console.log('[ProFeatureLock] SDK is ready')
+      } else {
+        setIsSdkReady(false)
+        // Retry after a short delay if not ready
+        setTimeout(checkSdkReady, 100)
+      }
+    }
+
+    checkSdkReady()
+  }, [iframeSdk])
+
+  const waitForSdk = async (maxWait = 3000): Promise<boolean> => {
+    const startTime = Date.now()
+    while (Date.now() - startTime < maxWait) {
+      if (iframeSdk && typeof iframeSdk.inAppPurchase === 'function') {
+        return true
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return false
+  }
 
   const handleUpgrade = async () => {
     setIsUpgrading(true)
@@ -30,12 +58,25 @@ export function ProFeatureLock({ title, description }: ProFeatureLockProps) {
       
       if (!planId) {
         toast.error('Upgrade is not configured. Please contact support.')
-        console.error('[Upgrade] NEXT_PUBLIC_WHOP_PRO_PLAN_ID not set!')
+        console.error('[ProFeatureLock] NEXT_PUBLIC_WHOP_PRO_PLAN_ID not set!')
         setIsUpgrading(false)
         return
       }
 
       console.log('[ProFeatureLock] Starting upgrade flow...')
+      console.log('[ProFeatureLock] iframeSdk available:', !!iframeSdk)
+      console.log('[ProFeatureLock] inAppPurchase method available:', typeof iframeSdk?.inAppPurchase === 'function')
+      
+      // Wait for SDK to be ready (with timeout)
+      const sdkReady = await waitForSdk()
+      if (!sdkReady) {
+        toast.error('SDK is not ready. Please wait a moment and try again.')
+        console.error('[ProFeatureLock] SDK not ready after waiting')
+        setIsUpgrading(false)
+        return
+      }
+
+      console.log('[ProFeatureLock] SDK ready, calling inAppPurchase...')
       
       const result = await iframeSdk.inAppPurchase({ planId: planId })
       
@@ -68,8 +109,9 @@ export function ProFeatureLock({ title, description }: ProFeatureLockProps) {
         </p>
         <Button 
           onClick={handleUpgrade} 
-          disabled={isUpgrading}
+          disabled={isUpgrading || !isSdkReady}
           className="gap-2"
+          title={!isSdkReady ? 'Initializing...' : undefined}
         >
           <Sparkles className="h-4 w-4" />
           {isUpgrading ? 'Processing...' : 'Upgrade to Pro'}

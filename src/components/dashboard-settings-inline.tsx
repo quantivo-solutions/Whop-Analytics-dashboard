@@ -25,9 +25,37 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [upgrading, setUpgrading] = useState(false)
+  const [isSdkReady, setIsSdkReady] = useState(false)
 
   const isPro = plan === 'pro' || plan === 'business'
   const iframeSdk = useIframeSdk()
+
+  // Check if SDK is ready
+  useEffect(() => {
+    const checkSdkReady = () => {
+      if (iframeSdk && typeof iframeSdk.inAppPurchase === 'function') {
+        setIsSdkReady(true)
+        console.log('[Settings] SDK is ready')
+      } else {
+        setIsSdkReady(false)
+        // Retry after a short delay if not ready
+        setTimeout(checkSdkReady, 100)
+      }
+    }
+
+    checkSdkReady()
+  }, [iframeSdk])
+
+  const waitForSdk = async (maxWait = 3000): Promise<boolean> => {
+    const startTime = Date.now()
+    while (Date.now() - startTime < maxWait) {
+      if (iframeSdk && typeof iframeSdk.inAppPurchase === 'function') {
+        return true
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return false
+  }
 
   // Load settings function
   const loadSettings = async () => {
@@ -134,6 +162,18 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
       console.log('[Upgrade] Starting upgrade flow from settings...')
       console.log('[Upgrade] Plan ID:', planId)
       console.log('[Upgrade] iframeSdk available:', !!iframeSdk)
+      console.log('[Upgrade] inAppPurchase method available:', typeof iframeSdk?.inAppPurchase === 'function')
+      
+      // Wait for SDK to be ready (with timeout)
+      const sdkReady = await waitForSdk()
+      if (!sdkReady) {
+        toast.error('SDK is not ready. Please wait a moment and try again.')
+        console.error('[Upgrade] SDK not ready after waiting')
+        setUpgrading(false)
+        return
+      }
+
+      console.log('[Upgrade] SDK ready, calling inAppPurchase...')
       
       const result = await iframeSdk.inAppPurchase({ planId: planId })
       console.log('[Upgrade] Purchase result:', result)
@@ -339,7 +379,8 @@ export function DashboardSettingsInline({ companyId }: DashboardSettingsInlinePr
                 size="sm" 
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl transition-all"
                 onClick={handleUpgrade}
-                disabled={upgrading}
+                disabled={upgrading || !isSdkReady}
+                title={!isSdkReady ? 'Initializing...' : undefined}
               >
                 <Sparkles className="h-3.5 w-3.5 mr-2" />
                 {upgrading ? 'Processing...' : 'Upgrade to Pro'}
