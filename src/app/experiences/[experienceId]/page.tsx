@@ -86,15 +86,40 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       console.log('[Experience Page] Using fallback companyId:', companyId, '(from Whop user token)')
     }
     
-    // FIRST: Try to find installation by experienceId (most reliable - matches this specific experience)
-    if (experienceId) {
-      console.log('[Experience Page] Looking up installation by experienceId first...')
+    // PRIORITY 1: Find most recently updated installation by userId (catches upgrades)
+    // This ensures we get the installation that was just updated by the webhook
+    console.log('[Experience Page] Looking for most recent installation by userId first (to catch upgrades)...')
+    const userInstallations = await prisma.whopInstallation.findMany({
+      where: { userId: whopUser.userId },
+      orderBy: { updatedAt: 'desc' }, // Most recently updated (likely just upgraded)
+    })
+    
+    if (userInstallations.length > 0) {
+      // Use the most recently updated installation (likely the one that was just upgraded)
+      installation = userInstallations[0]
+      console.log('[Experience Page] ✅ Found installation by userId (most recent, updatedAt:', installation.updatedAt, '):', installation.companyId, 'plan:', installation.plan)
+      
+      // Update experienceId to match current experience if different
+      if (installation.experienceId !== experienceId) {
+        console.log('[Experience Page] Updating installation experienceId to match current:', experienceId)
+        installation = await prisma.whopInstallation.update({
+          where: { companyId: installation.companyId },
+          data: { experienceId },
+        })
+      }
+      companyId = installation.companyId // Use the correct companyId from most recent installation
+    }
+    
+    // PRIORITY 2: If not found by userId, try by experienceId (for backward compatibility)
+    if (!installation && experienceId) {
+      console.log('[Experience Page] Looking up installation by experienceId...')
       installation = await prisma.whopInstallation.findUnique({
         where: { experienceId },
       })
       
       if (installation) {
         console.log('[Experience Page] ✅ Found installation by experienceId:', installation.companyId)
+        companyId = installation.companyId
         // Update userId if needed
         if (installation.userId !== whopUser.userId) {
           await prisma.whopInstallation.update({
@@ -105,7 +130,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
     }
     
-    // SECOND: If not found by experienceId and we have companyId, try by companyId
+    // PRIORITY 3: If still not found and we have companyId, try by companyId
     if (!installation && companyId) {
       console.log('[Experience Page] ✅ Using companyId:', companyId)
       
@@ -124,31 +149,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               data: { experienceId, userId: whopUser.userId, username: whopUser.username || installation.username },
             })
           }
-        } else {
-          // No installation found for this companyId - check if user has any installation
-          console.log('[Experience Page] No installation found for companyId, checking user installations...')
-          const userInstallations = await prisma.whopInstallation.findMany({
-            where: { userId: whopUser.userId },
-            orderBy: { updatedAt: 'desc' },
-          })
-          
-          if (userInstallations.length > 0) {
-            // Use the most recently updated installation (likely the one that was just upgraded)
-            installation = userInstallations[0]
-            console.log('[Experience Page] ✅ Found installation by userId (most recent):', installation.companyId)
-            // Update experienceId to match current experience
-            if (installation.experienceId !== experienceId) {
-              installation = await prisma.whopInstallation.update({
-                where: { companyId: installation.companyId },
-                data: { experienceId },
-              })
-            }
-            companyId = installation.companyId // Use the correct companyId
-          }
         }
       } catch (dbError) {
         console.error('[Experience Page] Error finding installation:', dbError)
-        // Continue anyway - we'll try to find it by experienceId later
       }
     }
     

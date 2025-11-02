@@ -87,6 +87,13 @@ export default async function Dashboard() {
       } else {
         companyId = session.companyId
       }
+      
+      // Dashboard View should be /dashboard/[companyId] per Whop docs
+      // Redirect to the correct path
+      if (companyId) {
+        console.log('[Dashboard] Redirecting to /dashboard/[companyId]:', companyId)
+        redirect(`/dashboard/${companyId}`)
+      }
     } else {
       // No Whop auth - check for existing session
       console.log('[Dashboard] No Whop auth, checking session...')
@@ -95,8 +102,18 @@ export default async function Dashboard() {
         redirect('/login')
       }
       companyId = session.companyId
+      
+      // Redirect to /dashboard/[companyId] if we have companyId from session
+      if (companyId) {
+        console.log('[Dashboard] Redirecting to /dashboard/[companyId] from session:', companyId)
+        redirect(`/dashboard/${companyId}`)
+      }
+      
+      // No companyId - redirect to login
+      redirect('/login')
     }
 
+    // This code should never be reached due to redirects above
     console.log('[Dashboard] Using companyId:', companyId)
 
     // Fetch dashboard data and plan using shared helpers
