@@ -281,7 +281,7 @@ export async function GET(request: Request) {
       companyId,
       userId: userData.id,
       username,
-      exp: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
+      exp: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days (extended from 7)
     })).toString('base64')
 
     // Set cookie with proper settings for iframe support
@@ -292,7 +292,7 @@ export async function GET(request: Request) {
       httpOnly: true,
       secure: true, // Required for sameSite=none
       sameSite: 'none', // Allow cookies in iframe (required for Whop apps)
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 30 * 24 * 60 * 60, // 30 days (extended from 7)
       path: '/',
     })
     console.log('[OAuth] Session cookie set successfully')

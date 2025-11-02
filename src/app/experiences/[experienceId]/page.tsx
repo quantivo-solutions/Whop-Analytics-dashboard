@@ -14,6 +14,7 @@ import { prisma } from '@/lib/prisma'
 import { ExperienceNotFound } from '@/components/experience-not-found'
 import { redirect } from 'next/navigation'
 import { TokenCleanup } from '@/components/token-cleanup'
+import { verifyWhopUserToken, isWhopIframe, createSessionFromWhopUser } from '@/lib/whop-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -105,15 +106,49 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   }
 
   // Installation found and matches experienceId - check for session
-  // IMPORTANT: For fresh installs, we MUST require a valid session
-  // Support both cookie-based and token-based auth (token for immediate post-OAuth redirects)
-  console.log('[Experience Page] Installation found and matches experienceId, checking session...')
-  console.log('[Experience Page] Token provided:', token ? 'yes' : 'no')
+  // NEW: Try Whop iframe auto-login first (like other Whop apps)
+  // This allows users already logged into Whop to access app without OAuth
+  console.log('[Experience Page] Installation found and matches experienceId, checking authentication...')
   
+  // Step 1: Check if we're in a Whop iframe and user is already authenticated
+  const isInWhopIframe = await isWhopIframe()
   let session = await getSession(token).catch(() => null)
   
-  // If no session found, but we have a token in URL, wait a moment for cookie propagation
-  // This handles the case where OAuth just completed and cookie might not be readable yet
+  if (!session && isInWhopIframe) {
+    console.log('[Experience Page] No session found, but in Whop iframe - checking Whop user token...')
+    
+    // Try to verify user via Whop iframe headers (auto-login)
+    const whopUser = await verifyWhopUserToken()
+    
+    if (whopUser && whopUser.userId) {
+      console.log('[Experience Page] Whop user authenticated via iframe headers:', whopUser.userId)
+      console.log('[Experience Page] Auto-creating session from Whop authentication (like other apps)')
+      
+      // Verify user matches installation
+      const userMatchesInstallation = 
+        installation.userId === whopUser.userId || 
+        installation.companyId === whopUser.userId ||
+        installation.companyId === whopUser.companyId
+      
+      if (userMatchesInstallation) {
+        // Create session from Whop user authentication
+        await createSessionFromWhopUser(whopUser, installation)
+        
+        // Get the newly created session
+        session = await getSession().catch(() => null)
+        
+        if (session) {
+          console.log('[Experience Page] Session created from Whop authentication - user auto-logged in')
+        }
+      } else {
+        console.log('[Experience Page] Whop user does not match installation - requiring OAuth')
+      }
+    } else {
+      console.log('[Experience Page] No valid Whop user token in headers')
+    }
+  }
+  
+  // Step 2: Fall back to token-based auth (for post-OAuth redirects)
   if (!session && token) {
     console.log('[Experience Page] Token provided but session not found via cookie yet')
     console.log('[Experience Page] This might be immediate post-OAuth redirect - trying token directly...')
@@ -125,16 +160,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         console.log('[Experience Page] Token is valid - using it for this request')
         session = sessionData
       } else {
-        console.log('[Experience Page] Token expired, redirecting to login')
-        redirect(`/login?experienceId=${experienceId}`)
+        console.log('[Experience Page] Token expired')
       }
     } catch (tokenError) {
       console.error('[Experience Page] Failed to parse token:', tokenError)
-      redirect(`/login?experienceId=${experienceId}`)
     }
   }
   
-  // If still no session, redirect to login - NO AUTO-LOGIN
+  // Step 3: If still no session, redirect to login
   if (!session) {
     console.log('[Experience Page] No valid session found - redirecting to login')
     console.log('[Experience Page] Installation exists but requires authentication')
