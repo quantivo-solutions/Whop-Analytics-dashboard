@@ -35,6 +35,10 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+// Force no caching - ensure fresh data always
+export const fetchCache = 'force-no-store'
+export const preferredRegion = 'auto'
+
 interface PageProps {
   params: Promise<{
     companyId: string
@@ -258,6 +262,13 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     dashboardData = await getCompanySeries(companyId, 30)
     console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', plan)
     console.log('[Dashboard View] Dashboard data companyId:', dashboardData.companyId, 'hasData:', dashboardData.hasData)
+    console.log('[Dashboard View] Dashboard data series length:', dashboardData.series.length)
+    console.log('[Dashboard View] Dashboard data KPIs:', {
+      grossRevenue: dashboardData.kpis.grossRevenue,
+      activeMembers: dashboardData.kpis.activeMembers,
+      latestDate: dashboardData.kpis.latestDate,
+      isDataFresh: dashboardData.kpis.isDataFresh,
+    })
   } catch (error) {
     console.error('[Dashboard View] Error loading dashboard data:', error)
     return (

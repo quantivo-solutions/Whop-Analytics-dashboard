@@ -49,11 +49,16 @@ export async function getCompanySeries(
     })
 
     // Get time series data (last N days)
-    const series = await prisma.metricsDaily.findMany({
+    // IMPORTANT: Always fetch most recent data, ordered by date DESC then take last N
+    const allSeries = await prisma.metricsDaily.findMany({
       where: { companyId },
-      orderBy: { date: 'asc' },
+      orderBy: { date: 'desc' },
       take: days,
     })
+    // Reverse to show chronological order (oldest to newest)
+    const series = allSeries.reverse()
+    
+    console.log(`[Metrics] Fetched ${series.length} data points for companyId: ${companyId}`)
 
     // Check if data exists
     // Show "LIVE" badge if we have any data from the database
