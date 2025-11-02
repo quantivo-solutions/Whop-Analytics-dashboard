@@ -16,6 +16,7 @@ const publicApiRoutes = [
   '/api/report/daily',
   '/api/report/weekly',
   '/api/settings', // Settings API used in Whop iframe
+  '/api/auth/session', // Session creation API (used for auto-login)
   '/api/health',
   '/api/debug',
 ]
