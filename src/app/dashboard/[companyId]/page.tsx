@@ -74,20 +74,63 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     })
 
     if (!installation) {
-      console.log('[Dashboard View] No installation found, creating from Whop auth...')
-      const { env } = await import('@/lib/env')
+      // Before creating, check if user has an existing installation we should use instead
+      console.log('[Dashboard View] No installation found for companyId:', companyId)
+      console.log('[Dashboard View] Checking for existing user installations...')
       
-      // Create installation automatically (like Experience View does)
-      installation = await prisma.whopInstallation.create({
-        data: {
-          companyId,
-          userId: whopUser.userId,
-          accessToken: env.WHOP_APP_SERVER_KEY,
-          plan: 'free',
-          username: whopUser.username || null,
-        },
+      const userInstallations = await prisma.whopInstallation.findMany({
+        where: { userId: whopUser.userId },
+        orderBy: { updatedAt: 'desc' },
       })
-      console.log('[Dashboard View] ✅ Created installation:', companyId)
+      
+      // Prefer company-based installations (biz_*)
+      const companyBasedInstallations = userInstallations.filter(inst => inst.companyId.startsWith('biz_'))
+      
+      if (companyBasedInstallations.length > 0) {
+        // User has a company-based installation - use the most recent one
+        installation = companyBasedInstallations[0]
+        console.log('[Dashboard View] ⚠️ Found existing company-based installation:', installation.companyId, 'plan:', installation.plan)
+        console.log('[Dashboard View] ⚠️ Dashboard View URL uses different companyId:', companyId, 'vs installation:', installation.companyId)
+        
+        // If the URL companyId is different, redirect to the correct one
+        if (installation.companyId !== companyId) {
+          console.log('[Dashboard View] Redirecting to correct companyId:', installation.companyId)
+          redirect(`/dashboard/${installation.companyId}`)
+        }
+      } else if (userInstallations.length > 0) {
+        // User has user-based installation - we still need to create company-based one
+        // But we can copy plan and other settings
+        const existingInstallation = userInstallations[0]
+        console.log('[Dashboard View] Found existing user-based installation, copying plan/settings:', existingInstallation.companyId, 'plan:', existingInstallation.plan)
+        
+        const { env } = await import('@/lib/env')
+        installation = await prisma.whopInstallation.create({
+          data: {
+            companyId,
+            userId: whopUser.userId,
+            accessToken: env.WHOP_APP_SERVER_KEY,
+            plan: existingInstallation.plan || 'free', // Copy plan from existing
+            username: whopUser.username || existingInstallation.username || null,
+            reportEmail: existingInstallation.reportEmail || null,
+            weeklyEmail: existingInstallation.weeklyEmail,
+            dailyEmail: existingInstallation.dailyEmail,
+            discordWebhook: existingInstallation.discordWebhook || null,
+          },
+        })
+        console.log('[Dashboard View] ✅ Created installation with copied settings:', companyId, 'plan:', installation.plan)
+      } else {
+        // No existing installations - create new one
+        const { env } = await import('@/lib/env')
+        installation = await prisma.whopInstallation.create({
+          data: {
+            companyId,
+            userId: whopUser.userId,
+            accessToken: env.WHOP_APP_SERVER_KEY,
+            plan: 'free',
+            username: whopUser.username || null,
+          },
+        })
+        console.log('[Dashboard View] ✅ Created new installation:', companyId)
     } else {
       // Update user data if needed
       if (installation.userId !== whopUser.userId) {
@@ -236,6 +279,32 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
   }
 
+  // STEP 4.5: If no data for companyId, check if user has data under their userId-based companyId
+  // This handles migration from user-based to company-based companyIds
+  let finalCompanyId = companyId
+  const dataCount = await prisma.metricsDaily.count({
+    where: { companyId },
+  })
+  
+  if (dataCount === 0 && whopUser && whopUser.userId) {
+    console.log('[Dashboard View] No data for companyId:', companyId)
+    console.log('[Dashboard View] Checking if user has data under userId-based companyId...')
+    
+    const userIdBasedCompanyId = whopUser.userId
+    const userIdDataCount = await prisma.metricsDaily.count({
+      where: { companyId: userIdBasedCompanyId },
+    })
+    
+    if (userIdDataCount > 0) {
+      console.log('[Dashboard View] ⚠️ Found data under userId-based companyId:', userIdBasedCompanyId, `(${userIdDataCount} records)`)
+      console.log('[Dashboard View] ⚠️ Data needs to be migrated or companyId needs to be updated')
+      console.log('[Dashboard View] ⚠️ For now, will use userId-based companyId for data fetching')
+      
+      // Use userId-based companyId for data fetching (temporary workaround)
+      finalCompanyId = userIdBasedCompanyId
+    }
+  }
+
   // STEP 5: Refresh installation to get latest plan (webhook may have updated it)
   console.log('[Dashboard View] Refreshing installation to get latest plan...')
   if (installation) {
@@ -256,10 +325,10 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     // Use installation.plan directly (most up-to-date from webhooks)
     plan = (installation?.plan as 'free' | 'pro' | 'business') || 'free'
     
-    // CRITICAL: Always use companyId from URL params, not from installation
-    // This ensures Dashboard View shows data for the company in the URL
-    console.log('[Dashboard View] Fetching data for companyId from URL:', companyId)
-    dashboardData = await getCompanySeries(companyId, 30)
+    // CRITICAL: Use finalCompanyId (may be userId-based if migration needed)
+    // This handles cases where data exists under old user-based companyId
+    console.log('[Dashboard View] Fetching data for companyId:', finalCompanyId, '(original URL:', companyId, ')')
+    dashboardData = await getCompanySeries(finalCompanyId, 30)
     console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', plan)
     console.log('[Dashboard View] Dashboard data companyId:', dashboardData.companyId, 'hasData:', dashboardData.hasData)
     console.log('[Dashboard View] Dashboard data series length:', dashboardData.series.length)
