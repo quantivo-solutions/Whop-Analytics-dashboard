@@ -49,7 +49,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   if (whopUser && whopUser.userId) {
     console.log('[Experience Page] ✅ Whop user authenticated via iframe headers:', whopUser.userId)
     
-    // Fetch experience data to get companyId
+    let companyId: string | null = null
+    
+    // Try to get companyId from experience API
     console.log('[Experience Page] Fetching experience data from Whop API to get companyId...')
     const { env } = await import('@/lib/env')
     
@@ -62,49 +64,68 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       
       if (expResponse.ok) {
         const expData = await expResponse.json()
-        const companyId = expData.company?.id || expData.company_id
+        companyId = expData.company?.id || expData.company_id || null
         
         if (companyId) {
           console.log('[Experience Page] Got companyId from experience:', companyId)
-          console.log('[Experience Page] ✅ User has access to experience (verified by successful API call)')
-          
-          // If we successfully fetched the experience data, user has access
-          // Check if installation exists, create if it doesn't
-          try {
-            installation = await prisma.whopInstallation.findUnique({
-              where: { companyId },
-            })
-            
-            if (!installation) {
-              console.log('[Experience Page] No installation found, creating one automatically from Whop auth...')
-              
-              // Create installation with minimal data (we'll fetch plan later)
-              installation = await prisma.whopInstallation.create({
-                data: {
-                  companyId,
-                  userId: whopUser.userId,
-                  experienceId,
-                  accessToken: env.WHOP_APP_SERVER_KEY, // Use app server key for now
-                  plan: 'free', // Default, will be synced later
-                  username: whopUser.username || null,
-                },
-              })
-              console.log('[Experience Page] ✅ Created installation automatically:', companyId)
-            } else {
-              console.log('[Experience Page] ✅ Installation already exists:', companyId)
-            }
-          } catch (dbError) {
-            console.error('[Experience Page] Error creating/finding installation:', dbError)
-            // Continue anyway - we'll try to find it later
-          }
         } else {
           console.log('[Experience Page] ⚠️ Experience data missing companyId')
         }
       } else {
-        console.error('[Experience Page] Failed to fetch experience:', expResponse.status)
+        console.log('[Experience Page] Experience API returned:', expResponse.status, '- will use fallback')
       }
     } catch (expError) {
       console.error('[Experience Page] Error fetching experience data:', expError)
+    }
+    
+    // Fallback: Use user's companyId or userId as companyId
+    // This matches the OAuth callback behavior when experience API fails
+    if (!companyId) {
+      companyId = whopUser.companyId || whopUser.userId
+      console.log('[Experience Page] Using fallback companyId:', companyId, '(from Whop user token)')
+    }
+    
+    if (companyId) {
+      console.log('[Experience Page] ✅ Using companyId:', companyId)
+      
+      // Check if installation exists, create if it doesn't
+      try {
+        installation = await prisma.whopInstallation.findUnique({
+          where: { companyId },
+        })
+        
+        if (!installation) {
+          console.log('[Experience Page] No installation found, creating one automatically from Whop auth...')
+          
+          // Create installation with minimal data (we'll fetch plan later)
+          installation = await prisma.whopInstallation.create({
+            data: {
+              companyId,
+              userId: whopUser.userId,
+              experienceId,
+              accessToken: env.WHOP_APP_SERVER_KEY, // Use app server key for now
+              plan: 'free', // Default, will be synced later
+              username: whopUser.username || null,
+            },
+          })
+          console.log('[Experience Page] ✅ Created installation automatically:', companyId)
+        } else {
+          // Update experienceId if it changed (reinstall scenario)
+          if (installation.experienceId !== experienceId) {
+            console.log('[Experience Page] Updating installation experienceId to match current:', experienceId)
+            installation = await prisma.whopInstallation.update({
+              where: { companyId },
+              data: { experienceId },
+            })
+          }
+          console.log('[Experience Page] ✅ Installation already exists:', companyId)
+        }
+      } catch (dbError) {
+        console.error('[Experience Page] Error creating/finding installation:', dbError)
+        // Continue anyway - we'll try to find it by experienceId later
+      }
+    } else {
+      console.log('[Experience Page] ⚠️ Could not determine companyId - will try experienceId lookup')
     }
   } else {
     console.log('[Experience Page] No Whop user token found in headers')
