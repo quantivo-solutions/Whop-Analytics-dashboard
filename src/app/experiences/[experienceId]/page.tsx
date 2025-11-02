@@ -242,7 +242,17 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     console.log('[Experience Page] ✅ Updated installation experienceId to:', experienceId)
   }
 
-  // STEP 4: Check for session and create one if we have Whop auth
+  // STEP 4: Refresh installation from DB to get latest plan (webhook may have updated it)
+  console.log('[Experience Page] Refreshing installation from database to get latest plan...')
+  const freshInstallation = await prisma.whopInstallation.findUnique({
+    where: { companyId: installation.companyId },
+  })
+  if (freshInstallation) {
+    installation = freshInstallation
+    console.log('[Experience Page] ✅ Installation refreshed, plan:', installation.plan)
+  }
+  
+  // STEP 5: Check for session and create one if we have Whop auth
   console.log('[Experience Page] Installation found and matches experienceId, checking session...')
   
   let session = await getSession(token).catch(() => null)
@@ -320,15 +330,18 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   // Proceed to load dashboard with error handling
   try {
+    // CRITICAL: Use installation.companyId (not session.companyId) to ensure we get the correct plan
+    const finalCompanyId = installation.companyId
+    
     console.log('[Experience Page] Installation details:', {
-      companyId: installation.companyId,
+      companyId: finalCompanyId,
       plan: installation.plan,
       userId: installation.userId,
       username: installation.username
     })
 
-           // Fetch dashboard data and plan with error handling
-           console.log('[Experience Page] Fetching dashboard data for companyId:', finalCompanyId)
+    // Fetch dashboard data and plan with error handling
+    console.log('[Experience Page] Fetching dashboard data for companyId:', finalCompanyId)
            
            let dashboardData, plan
            try {
