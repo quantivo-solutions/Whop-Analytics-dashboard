@@ -30,17 +30,28 @@ export default async function Dashboard() {
     if (whopUser && whopUser.userId) {
       console.log('[Dashboard] ✅ Whop user authenticated:', whopUser.userId)
       
-      // Find the most recently updated installation for this user (most likely to have correct plan)
-      let installation = await prisma.whopInstallation.findFirst({
-        where: { userId: whopUser.userId },
-        orderBy: { updatedAt: 'desc' }, // Most recently updated (likely just upgraded)
-      })
-
-      // If no installation found, try companyId from Whop user
-      if (!installation && whopUser.companyId) {
+      // Find installation - prioritize by companyId from Whop user, then most recent by userId
+      let installation = null
+      
+      // First try by companyId from Whop user (most accurate)
+      if (whopUser.companyId) {
         installation = await prisma.whopInstallation.findUnique({
           where: { companyId: whopUser.companyId },
         })
+        if (installation) {
+          console.log('[Dashboard] ✅ Found installation by Whop user companyId:', whopUser.companyId, 'plan:', installation.plan)
+        }
+      }
+      
+      // If not found, try most recently updated installation by userId
+      if (!installation) {
+        installation = await prisma.whopInstallation.findFirst({
+          where: { userId: whopUser.userId },
+          orderBy: { updatedAt: 'desc' }, // Most recently updated (likely just upgraded)
+        })
+        if (installation) {
+          console.log('[Dashboard] ✅ Found installation by userId (most recent):', installation.companyId, 'plan:', installation.plan)
+        }
       }
 
       // If still no installation, use userId or companyId as companyId
@@ -61,7 +72,7 @@ export default async function Dashboard() {
         console.log('[Dashboard] ✅ Created installation:', companyId)
       } else {
         companyId = installation.companyId
-        console.log('[Dashboard] ✅ Found installation:', companyId, 'plan:', installation.plan)
+        console.log('[Dashboard] ✅ Using installation:', companyId, 'plan:', installation.plan)
       }
 
       // Create session if we don't have one
