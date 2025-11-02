@@ -14,6 +14,7 @@ import { prisma } from '@/lib/prisma'
 import { ExperienceNotFound } from '@/components/experience-not-found'
 import { redirect } from 'next/navigation'
 import { TokenCleanup } from '@/components/token-cleanup'
+import { SessionSetter } from '@/components/session-setter'
 import { verifyWhopUserToken, isWhopIframe } from '@/lib/whop-auth'
 
 export const runtime = 'nodejs'
