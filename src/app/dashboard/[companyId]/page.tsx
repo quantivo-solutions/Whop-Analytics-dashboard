@@ -214,11 +214,11 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
   // STEP 5: Fetch dashboard data
   let dashboardData
-  let plan
+  let plan: 'free' | 'pro' | 'business' = 'free'
   
   try {
     // Use installation.plan directly (most up-to-date from webhooks)
-    plan = installation?.plan || 'free'
+    plan = (installation?.plan as 'free' | 'pro' | 'business') || 'free'
     
     dashboardData = await getCompanySeries(companyId, 30)
     console.log('[Dashboard View] ✅ Dashboard data loaded, plan:', plan)
