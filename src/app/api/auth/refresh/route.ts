@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       companyId: installation.companyId,
       userId: installation.userId || installation.companyId,
       username: installation.username,
-      exp: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
+      exp: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days (extended from 7)
     })).toString('base64')
 
     // Set session cookie
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       httpOnly: true,
       secure: true,
       sameSite: 'none',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 30 * 24 * 60 * 60, // 30 days (extended from 7)
       path: '/',
     })
 
