@@ -255,13 +255,52 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   }
 
   // STEP 4: Refresh installation from DB to get latest plan (webhook may have updated it)
+  // Also check if user has another installation with pro plan that should be used instead
   console.log('[Experience Page] Refreshing installation from database to get latest plan...')
-  const freshInstallation = await prisma.whopInstallation.findUnique({
-    where: { companyId: installation.companyId },
-  })
-  if (freshInstallation) {
-    installation = freshInstallation
-    console.log('[Experience Page] ✅ Installation refreshed, plan:', installation.plan)
+  
+  // First, check if user has any installation with pro plan (webhook might have updated a different one)
+  if (whopUser && whopUser.userId) {
+    const userInstallations = await prisma.whopInstallation.findMany({
+      where: { userId: whopUser.userId },
+    })
+    
+    // Find installation with pro plan (most recently updated)
+    const proInstallation = userInstallations
+      .filter(inst => inst.plan === 'pro' || inst.plan === 'business')
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
+    
+    // If we found a pro installation, use it if current installation is free
+    if (proInstallation && installation.plan === 'free') {
+      console.log('[Experience Page] ⚠️ Found pro installation for user:', proInstallation.companyId, 'switching to it')
+      // Update the pro installation's experienceId to match current experience
+      if (proInstallation.experienceId !== experienceId) {
+        await prisma.whopInstallation.update({
+          where: { companyId: proInstallation.companyId },
+          data: { experienceId },
+        })
+      }
+      installation = proInstallation
+      companyId = proInstallation.companyId
+      console.log('[Experience Page] ✅ Using pro installation:', companyId)
+    } else {
+      // Refresh current installation
+      const freshInstallation = await prisma.whopInstallation.findUnique({
+        where: { companyId: installation.companyId },
+      })
+      if (freshInstallation) {
+        installation = freshInstallation
+        console.log('[Experience Page] ✅ Installation refreshed, plan:', installation.plan)
+      }
+    }
+  } else {
+    // No Whop user, just refresh
+    const freshInstallation = await prisma.whopInstallation.findUnique({
+      where: { companyId: installation.companyId },
+    })
+    if (freshInstallation) {
+      installation = freshInstallation
+      console.log('[Experience Page] ✅ Installation refreshed, plan:', installation.plan)
+    }
   }
   
   // STEP 5: Check for session and create one if we have Whop auth

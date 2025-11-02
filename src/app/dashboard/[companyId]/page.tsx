@@ -139,10 +139,27 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // Since checkAccess isn't available in SDK yet, we verify:
   // 1. User authenticated via Whop (already done above)
   // 2. Installation exists for this company (already done above)
-  // 3. Session matches companyId
+  // 3. User owns this installation (userId matches) OR session matches companyId
   if (session && session.companyId !== companyId) {
-    console.log('[Dashboard View] ⚠️ Session companyId mismatch, redirecting')
-    redirect(`/login?companyId=${companyId}`)
+    // Check if the user owns this installation (userId matches)
+    const userOwnsInstallation = 
+      (whopUser && installation && installation.userId === whopUser.userId) ||
+      (session && session.userId === installation?.userId)
+    
+    if (!userOwnsInstallation) {
+      console.log('[Dashboard View] ⚠️ Session companyId mismatch and user does not own installation, redirecting')
+      redirect(`/login?companyId=${companyId}`)
+    } else {
+      console.log('[Dashboard View] ✅ User owns this installation, allowing access despite session mismatch')
+      // Update session to match current companyId for future requests
+      const sessionToken = Buffer.from(JSON.stringify({
+        companyId,
+        userId: session.userId || whopUser?.userId || installation?.userId,
+        username: session.username || whopUser?.username || installation?.username,
+        exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
+      })).toString('base64')
+      ;(global as any).__whopSessionToken = sessionToken
+    }
   }
 
   if (!installation) {

@@ -347,6 +347,13 @@ async function handleMembershipActivated(data: any) {
 
   if (installation) {
     // Update existing installation with new plan
+    // Also check if there are other installations for this user that should be updated
+    // If the user has multiple installations, update all that might be related
+    const allUserInstallations = await prisma.whopInstallation.findMany({
+      where: { userId: user?.id },
+    })
+    
+    // Update the found installation
     await prisma.whopInstallation.update({
       where: { companyId: installation.companyId },
       data: {
@@ -355,6 +362,29 @@ async function handleMembershipActivated(data: any) {
       },
     })
     console.log(`[WHOP] ✅ Updated installation ${installation.companyId} to ${plan} plan`)
+    
+    // If there are multiple installations for this user, update the most recently active one
+    // This handles cases where the user has both a personal company and a business company
+    if (allUserInstallations.length > 1) {
+      // Find the installation that was most recently updated (before this webhook)
+      const otherInstallations = allUserInstallations.filter(inst => inst.companyId !== installation.companyId)
+      if (otherInstallations.length > 0) {
+        // Update the most recently created one (likely the main one)
+        const mostRecentOther = otherInstallations.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0]
+        
+        console.log(`[WHOP] User has multiple installations. Also updating ${mostRecentOther.companyId} to ${plan} plan`)
+        await prisma.whopInstallation.update({
+          where: { companyId: mostRecentOther.companyId },
+          data: {
+            plan,
+            updatedAt: new Date(),
+          },
+        })
+        console.log(`[WHOP] ✅ Updated additional installation ${mostRecentOther.companyId} to ${plan} plan`)
+      }
+    }
   } else {
     // No installation found - DON'T create from membership webhook
     // 
