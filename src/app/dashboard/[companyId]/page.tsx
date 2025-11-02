@@ -25,7 +25,7 @@ import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { PlanBadge } from '@/components/plan-badge'
-import { UpgradeButton } from '@/components/upgrade-button'
+import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { verifyWhopUserToken } from '@/lib/whop-auth'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
@@ -281,7 +281,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             </div>
             <div className="flex items-center gap-2">
               <PlanBadge plan={plan} />
-              {plan === 'free' && <UpgradeButton upgradeUrl={upgradeUrl} size="sm" />}
+              {plan === 'free' && <UpgradeButtonIframe plan={plan} />}
               <Link href="/settings">
                 <Button variant="outline" size="sm" className="gap-2">
                   <Settings className="h-4 w-4" />
