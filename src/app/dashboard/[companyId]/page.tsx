@@ -131,8 +131,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
           },
         })
         console.log('[Dashboard View] ✅ Created new installation:', companyId)
+      }
     } else {
-      // Update user data if needed
+      // Installation exists - update user data if needed
       if (installation.userId !== whopUser.userId) {
         await prisma.whopInstallation.update({
           where: { companyId },
