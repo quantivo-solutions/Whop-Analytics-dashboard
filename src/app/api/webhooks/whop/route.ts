@@ -356,28 +356,35 @@ async function handleMembershipActivated(data: any) {
     })
     console.log(`[WHOP] ✅ Updated installation ${installation.companyId} to ${plan} plan`)
   } else {
-    // No installation found - since we don't have app.installed webhook,
-    // we need to create it here using the best company_id we can determine
-    console.warn(`[WHOP] ⚠️  No installation found, creating from membership data...`)
+    // No installation found - DON'T create from membership webhook
+    // 
+    // IMPORTANT: When purchasing Access Passes, Whop may create Experiences 
+    // for the seller's company (e.g., "Quantivo Solutions"), which is NOT where
+    // the app is installed. We should NOT create installations for these.
+    //
+    // Installations should ONLY be created via:
+    // 1. app.installed webhook (when user installs the app)
+    // 2. OAuth callback (when user logs in)
+    // 3. Auto-creation in Experience/Dashboard View (when user accesses app)
+    //
+    // This prevents creating installations for seller company Experiences that appear
+    // as empty Whops in the sidebar.
+    console.warn(`[WHOP] ⚠️  No installation found for membership.activated webhook`)
+    console.warn(`[WHOP] ⚠️  NOT creating installation - waiting for app.installed webhook or user login`)
+    console.warn(`[WHOP] ⚠️  User should access the app via Experience View to trigger installation creation`)
     
-    // Priority for determining company_id:
-    // 1. company_id from webhook (if it's NOT the user's personal company)
-    // 2. User's id as fallback
-    let installationCompanyId = company_id || user?.id
-    
-    if (installationCompanyId) {
-      await prisma.whopInstallation.create({
-        data: {
-          companyId: installationCompanyId,
-          experienceId: experience?.id || null,
-          accessToken: '', // Will be populated on OAuth login
-          plan,
-        },
-      })
-      console.log(`[WHOP] ✅ Created installation for ${installationCompanyId} with ${plan} plan from membership webhook`)
-    } else {
-      console.error(`[WHOP] ❌ Cannot create installation - no company_id or user.id in webhook data!`)
+    // Log details for debugging
+    if (experience?.id) {
+      console.log(`[WHOP] Experience ID in webhook: ${experience.id} (may be seller's company, not buyer's)`)
     }
+    if (company_id) {
+      console.log(`[WHOP] Company ID in webhook: ${company_id}`)
+    }
+    if (user?.id) {
+      console.log(`[WHOP] User ID: ${user.id}`)
+    }
+    
+    // Plan will be synced when user accesses the app via Experience View or logs in
   }
 }
 
