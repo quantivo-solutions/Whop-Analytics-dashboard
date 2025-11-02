@@ -1,0 +1,56 @@
+/**
+ * Session Creation API Route
+ * Creates a session cookie from Whop user authentication
+ * Used for auto-login via Whop iframe headers
+ */
+
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+
+export const runtime = 'nodejs'
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const { companyId, userId, username } = body
+
+    if (!companyId || !userId) {
+      return NextResponse.json(
+        { error: 'companyId and userId required' },
+        { status: 400 }
+      )
+    }
+
+    // Create session token
+    const sessionToken = Buffer.from(JSON.stringify({
+      companyId,
+      userId,
+      username: username || null,
+      exp: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+    })).toString('base64')
+
+    // Set cookie with proper settings for iframe support
+    const cookieStore = await cookies()
+    cookieStore.set('whop_session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none', // Required for iframe
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+      path: '/',
+    })
+
+    console.log('[Session API] Session cookie created for companyId:', companyId)
+
+    return NextResponse.json({ 
+      success: true,
+      sessionToken // Return token for immediate use if needed
+    })
+  } catch (error) {
+    console.error('[Session API] Error creating session:', error)
+    return NextResponse.json(
+      { error: 'Failed to create session' },
+      { status: 500 }
+    )
+  }
+}
+

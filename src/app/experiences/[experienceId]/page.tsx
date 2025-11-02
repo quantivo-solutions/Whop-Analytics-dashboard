@@ -14,7 +14,7 @@ import { prisma } from '@/lib/prisma'
 import { ExperienceNotFound } from '@/components/experience-not-found'
 import { redirect } from 'next/navigation'
 import { TokenCleanup } from '@/components/token-cleanup'
-import { verifyWhopUserToken, isWhopIframe, createSessionFromWhopUser } from '@/lib/whop-auth'
+import { verifyWhopUserToken, isWhopIframe } from '@/lib/whop-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -214,9 +214,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   let session = await getSession(token).catch(() => null)
   
-  // If we have Whop user auth but no session, create one
+  // If we have Whop user auth but no session, create session token for immediate use
+  // We can't set cookies in Server Components, so we'll use the token directly
   if (!session && whopUser && whopUser.userId) {
-    console.log('[Experience Page] ✅ Whop user authenticated via iframe headers, creating session...')
+    console.log('[Experience Page] ✅ Whop user authenticated via iframe headers, creating session token...')
     
     // Verify user matches installation
     const userMatchesInstallation = 
@@ -225,17 +226,24 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       installation.companyId === whopUser.companyId
     
     if (userMatchesInstallation) {
-      // Create session from Whop user authentication
-      await createSessionFromWhopUser(whopUser, installation)
+      // Create session token directly (we'll set cookie via client-side or redirect)
+      const sessionToken = Buffer.from(JSON.stringify({
+        companyId: installation.companyId,
+        userId: whopUser.userId,
+        username: whopUser.username || installation.username,
+        exp: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+      })).toString('base64')
       
-      // Get the newly created session
-      session = await getSession().catch(() => null)
-      
-      if (session) {
-        console.log('[Experience Page] ✅ Session created from Whop authentication - user auto-logged in')
-      } else {
-        console.log('[Experience Page] ⚠️ Session creation failed, but user is authenticated via Whop')
+      // Use the token as session data for this request
+      session = {
+        companyId: installation.companyId,
+        userId: whopUser.userId,
+        username: whopUser.username || installation.username || undefined,
+        exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
       }
+      
+      console.log('[Experience Page] ✅ Session token created - user auto-logged in')
+      console.log('[Experience Page] Note: Cookie will be set on next request via redirect or client-side')
     } else {
       console.log('[Experience Page] ⚠️ Whop user does not match installation:', {
         whopUserId: whopUser.userId,
