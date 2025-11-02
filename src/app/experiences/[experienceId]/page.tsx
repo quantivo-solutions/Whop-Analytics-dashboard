@@ -110,42 +110,46 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   // This allows users already logged into Whop to access app without OAuth
   console.log('[Experience Page] Installation found and matches experienceId, checking authentication...')
   
-  // Step 1: Check if we're in a Whop iframe and user is already authenticated
-  const isInWhopIframe = await isWhopIframe()
+  // Step 1: ALWAYS try Whop iframe auto-login first (before checking our session)
+  // This is what other Whop apps do - they check Whop headers first
+  // This works even if user has never logged in via OAuth
+  console.log('[Experience Page] Attempting Whop iframe auto-login...')
+  const whopUser = await verifyWhopUserToken()
+  
   let session = await getSession(token).catch(() => null)
   
-  if (!session && isInWhopIframe) {
-    console.log('[Experience Page] No session found, but in Whop iframe - checking Whop user token...')
+  if (whopUser && whopUser.userId) {
+    console.log('[Experience Page] ✅ Whop user authenticated via iframe headers:', whopUser.userId)
+    console.log('[Experience Page] Auto-creating session from Whop authentication (like other apps)')
     
-    // Try to verify user via Whop iframe headers (auto-login)
-    const whopUser = await verifyWhopUserToken()
+    // Verify user matches installation
+    const userMatchesInstallation = 
+      installation.userId === whopUser.userId || 
+      installation.companyId === whopUser.userId ||
+      installation.companyId === whopUser.companyId
     
-    if (whopUser && whopUser.userId) {
-      console.log('[Experience Page] Whop user authenticated via iframe headers:', whopUser.userId)
-      console.log('[Experience Page] Auto-creating session from Whop authentication (like other apps)')
+    if (userMatchesInstallation) {
+      // Create session from Whop user authentication
+      await createSessionFromWhopUser(whopUser, installation)
       
-      // Verify user matches installation
-      const userMatchesInstallation = 
-        installation.userId === whopUser.userId || 
-        installation.companyId === whopUser.userId ||
-        installation.companyId === whopUser.companyId
+      // Get the newly created session
+      session = await getSession().catch(() => null)
       
-      if (userMatchesInstallation) {
-        // Create session from Whop user authentication
-        await createSessionFromWhopUser(whopUser, installation)
-        
-        // Get the newly created session
-        session = await getSession().catch(() => null)
-        
-        if (session) {
-          console.log('[Experience Page] Session created from Whop authentication - user auto-logged in')
-        }
+      if (session) {
+        console.log('[Experience Page] ✅ Session created from Whop authentication - user auto-logged in')
       } else {
-        console.log('[Experience Page] Whop user does not match installation - requiring OAuth')
+        console.log('[Experience Page] ⚠️ Session creation failed, but user is authenticated via Whop')
       }
     } else {
-      console.log('[Experience Page] No valid Whop user token in headers')
+      console.log('[Experience Page] ⚠️ Whop user does not match installation:', {
+        whopUserId: whopUser.userId,
+        installationUserId: installation.userId,
+        installationCompanyId: installation.companyId
+      })
+      console.log('[Experience Page] Will check for existing session or redirect to login')
     }
+  } else {
+    console.log('[Experience Page] No valid Whop user token in headers - will use OAuth flow if needed')
   }
   
   // Step 2: Fall back to token-based auth (for post-OAuth redirects)

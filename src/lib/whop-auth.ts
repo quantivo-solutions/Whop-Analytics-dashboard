@@ -30,27 +30,34 @@ export async function verifyWhopUserToken(): Promise<WhopUserInfo | null> {
   try {
     const headersList = await headers()
     
-    // Use Whop SDK to verify user token from headers
-    // This checks if user is already authenticated in Whop iframe context
-    // The SDK handles the authentication header parsing automatically
-    const userToken = await whopSdk.verifyUserToken(headersList)
+    // Check if x-whop-user-token header exists
+    const userTokenHeader = headersList.get('x-whop-user-token')
+    console.log('[Whop Auth] Checking for x-whop-user-token header:', userTokenHeader ? 'present' : 'missing')
     
-    // The verifyUserToken method returns user info with userId property
-    // Check what properties are actually returned
-    if (userToken && 'userId' in userToken && userToken.userId) {
-      console.log('[Whop Auth] User verified via Whop iframe headers, userId:', userToken.userId)
-      return {
-        userId: userToken.userId as string,
-        companyId: (userToken as any).companyId || (userToken as any).company_id || undefined,
-        username: (userToken as any).username || undefined,
-      }
+    if (!userTokenHeader) {
+      console.log('[Whop Auth] No x-whop-user-token header found - user not authenticated via Whop iframe')
+      return null
     }
     
-    // Alternative: check for 'id' property (some SDK versions might use this)
-    if (userToken && 'id' in userToken && userToken.id) {
-      console.log('[Whop Auth] User verified via Whop iframe headers, id:', (userToken as any).id)
+    // Use Whop SDK to verify user token from headers
+    // Pass { dontThrow: true } to handle errors gracefully
+    // According to docs: https://docs.whop.com/apps/guides/authentication
+    // verifyUserToken throws on validation failure unless dontThrow is true
+    const userToken = await whopSdk.verifyUserToken(headersList, { dontThrow: true })
+    
+    if (!userToken) {
+      console.log('[Whop Auth] verifyUserToken returned null - token invalid or expired')
+      return null
+    }
+    
+    // The verifyUserToken method returns { userId } according to docs
+    // Check what properties are actually returned
+    const userId = (userToken as any).userId || (userToken as any).id
+    
+    if (userId) {
+      console.log('[Whop Auth] User verified via Whop iframe headers, userId:', userId)
       return {
-        userId: (userToken as any).id as string,
+        userId: userId as string,
         companyId: (userToken as any).companyId || (userToken as any).company_id || undefined,
         username: (userToken as any).username || undefined,
       }
@@ -62,7 +69,7 @@ export async function verifyWhopUserToken(): Promise<WhopUserInfo | null> {
     // Not authenticated via Whop headers - this is normal for non-iframe contexts
     // or when user is not logged into Whop
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.log('[Whop Auth] No valid Whop user token in headers:', errorMessage)
+    console.log('[Whop Auth] Error verifying Whop user token:', errorMessage)
     return null
   }
 }
