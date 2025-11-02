@@ -345,24 +345,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
            
            let dashboardData, plan
            try {
-             // Use installation.plan directly (most up-to-date from webhooks)
-             // Fall back to getPlanForCompany if installation.plan is null
+             // Use installation.plan directly (most up-to-date from webhooks, already refreshed in STEP 4)
              plan = installation.plan || 'free'
              
-             [dashboardData] = await Promise.all([
-               getCompanySeries(finalCompanyId, 30),
-               // Verify plan from database (might be updated by webhook)
-               prisma.whopInstallation.findUnique({
-                 where: { companyId: finalCompanyId },
-                 select: { plan: true },
-               }).then(inst => {
-                 if (inst?.plan) {
-                   plan = inst.plan
-                   console.log('[Experience Page] Plan from database:', plan)
-                 }
-                 return inst
-               }),
-             ])
+             // Fetch dashboard data
+             dashboardData = await getCompanySeries(finalCompanyId, 30)
              
              console.log('[Experience Page] Dashboard data fetched successfully, plan:', plan)
     } catch (fetchError) {
