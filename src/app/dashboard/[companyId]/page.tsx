@@ -191,15 +191,27 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
   console.log('[Dashboard View] ✅ Access granted, loading dashboard data...')
 
-  // STEP 4: Fetch dashboard data
+  // STEP 4: Refresh installation to get latest plan (webhook may have updated it)
+  console.log('[Dashboard View] Refreshing installation to get latest plan...')
+  if (installation) {
+    const freshInstallation = await prisma.whopInstallation.findUnique({
+      where: { companyId: installation.companyId },
+    })
+    if (freshInstallation) {
+      installation = freshInstallation
+      console.log('[Dashboard View] ✅ Installation refreshed, plan:', installation.plan)
+    }
+  }
+
+  // STEP 5: Fetch dashboard data
   let dashboardData
   let plan
   
   try {
-    [dashboardData, plan] = await Promise.all([
-      getCompanySeries(companyId, 30),
-      getPlanForCompany(companyId),
-    ])
+    // Use installation.plan directly (most up-to-date from webhooks)
+    plan = installation?.plan || 'free'
+    
+    dashboardData = await getCompanySeries(companyId, 30)
     console.log('[Dashboard View] ✅ Dashboard data loaded, plan:', plan)
   } catch (error) {
     console.error('[Dashboard View] Error loading dashboard data:', error)

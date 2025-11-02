@@ -223,8 +223,30 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
   }
 
-  // STEP 3: If still no installation and no Whop auth, redirect to login
+  // STEP 3: If still no installation and no Whop auth, check for other installations
   if (!installation) {
+    console.log('[Experience Page] No installation found for experienceId:', experienceId)
+    
+    // Check if user has any other installations (might be a different experienceId)
+    if (whopUser && whopUser.userId) {
+      const userInstallations = await prisma.whopInstallation.findMany({
+        where: { userId: whopUser.userId },
+      })
+      
+      if (userInstallations.length > 0) {
+        // User has installations, but not for this experienceId
+        // Find the most recent one and redirect to it
+        const mostRecentInstallation = userInstallations.sort((a, b) => 
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        )[0]
+        
+        if (mostRecentInstallation.experienceId) {
+          console.log('[Experience Page] Found other installation, redirecting to:', mostRecentInstallation.experienceId)
+          redirect(`/experiences/${mostRecentInstallation.experienceId}`)
+        }
+      }
+    }
+    
     console.log('[Experience Page] No installation found and no Whop auth - redirecting to login')
     console.log('[Experience Page] This is expected for new installations - elapsed:', Date.now() - startTime, 'ms')
     
