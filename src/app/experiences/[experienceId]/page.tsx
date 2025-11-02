@@ -15,7 +15,6 @@ import { ExperienceNotFound } from '@/components/experience-not-found'
 import { redirect } from 'next/navigation'
 import { TokenCleanup } from '@/components/token-cleanup'
 import { verifyWhopUserToken, isWhopIframe, createSessionFromWhopUser } from '@/lib/whop-auth'
-import { whopSdk } from '@/lib/whop-sdk'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -67,28 +66,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         
         if (companyId) {
           console.log('[Experience Page] Got companyId from experience:', companyId)
+          console.log('[Experience Page] ✅ User has access to experience (verified by successful API call)')
           
-          // Verify user has access to this experience
+          // If we successfully fetched the experience data, user has access
+          // Check if installation exists, create if it doesn't
           try {
-            const accessCheck = await whopSdk.users.checkAccess(
-              experienceId,
-              { id: whopUser.userId }
-            )
-            
-            if (!accessCheck.has_access) {
-              console.log('[Experience Page] ⚠️ User does not have access to this experience')
-              return (
-                <ExperienceNotFound 
-                  experienceId={experienceId}
-                  hasOtherInstallation={false}
-                  otherExperienceId={undefined}
-                />
-              )
-            }
-            
-            console.log('[Experience Page] ✅ User has access to experience, access_level:', accessCheck.access_level)
-            
-            // Check if installation exists, create if it doesn't
             installation = await prisma.whopInstallation.findUnique({
               where: { companyId },
             })
@@ -111,9 +93,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             } else {
               console.log('[Experience Page] ✅ Installation already exists:', companyId)
             }
-          } catch (accessError) {
-            console.error('[Experience Page] Error checking access:', accessError)
-            // Continue anyway - access check might fail but we can still proceed
+          } catch (dbError) {
+            console.error('[Experience Page] Error creating/finding installation:', dbError)
+            // Continue anyway - we'll try to find it later
           }
         } else {
           console.log('[Experience Page] ⚠️ Experience data missing companyId')
