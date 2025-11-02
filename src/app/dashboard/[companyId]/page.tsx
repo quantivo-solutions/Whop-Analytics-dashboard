@@ -49,7 +49,8 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   const resolvedSearchParams = await searchParams
   const { token } = resolvedSearchParams
 
-  console.log('[Dashboard View] Loading for companyId:', companyId)
+  console.log('[Dashboard View] Loading for companyId from URL:', companyId)
+  console.log('[Dashboard View] ⚠️ IMPORTANT: Using companyId from URL params, not from installation/session')
 
   // STEP 1: Verify user authentication via Whop iframe headers (Dashboard View pattern)
   // According to Whop docs: Dashboard apps should verify user token first
@@ -251,8 +252,12 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     // Use installation.plan directly (most up-to-date from webhooks)
     plan = (installation?.plan as 'free' | 'pro' | 'business') || 'free'
     
+    // CRITICAL: Always use companyId from URL params, not from installation
+    // This ensures Dashboard View shows data for the company in the URL
+    console.log('[Dashboard View] Fetching data for companyId from URL:', companyId)
     dashboardData = await getCompanySeries(companyId, 30)
-    console.log('[Dashboard View] ✅ Dashboard data loaded, plan:', plan)
+    console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', plan)
+    console.log('[Dashboard View] Dashboard data companyId:', dashboardData.companyId, 'hasData:', dashboardData.hasData)
   } catch (error) {
     console.error('[Dashboard View] Error loading dashboard data:', error)
     return (
