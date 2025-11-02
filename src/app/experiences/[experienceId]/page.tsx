@@ -162,8 +162,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         }
         companyId = installation.companyId // Use the correct companyId
       }
+    }
     
-    // THIRD: Create installation if still not found
+    // Create installation if still not found
     if (!installation && companyId) {
       console.log('[Experience Page] No installation found, creating one automatically from Whop auth...')
       
