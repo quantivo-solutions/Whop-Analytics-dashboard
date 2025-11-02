@@ -42,6 +42,24 @@ export async function getCompanySeries(
   days: number = 30
 ): Promise<DashboardData> {
   try {
+    // DEBUG: Check if any data exists for this companyId
+    const dataCount = await prisma.metricsDaily.count({
+      where: { companyId },
+    })
+    console.log(`[Metrics] Data count for companyId ${companyId}: ${dataCount} records`)
+    
+    // If no data, check what companyIds DO have data (for debugging)
+    if (dataCount === 0) {
+      const allCompaniesWithData = await prisma.metricsDaily.groupBy({
+        by: ['companyId'],
+        _count: true,
+      })
+      console.log(`[Metrics] Companies with data:`, allCompaniesWithData.map(c => ({
+        companyId: c.companyId,
+        count: c._count
+      })))
+    }
+
     // Get latest metrics for KPIs
     const latestMetric = await prisma.metricsDaily.findFirst({
       where: { companyId },
