@@ -30,10 +30,10 @@ export default async function Dashboard() {
     if (whopUser && whopUser.userId) {
       console.log('[Dashboard] ✅ Whop user authenticated:', whopUser.userId)
       
-      // Try to find installation by userId (user's personal company)
+      // Find the most recently updated installation for this user (most likely to have correct plan)
       let installation = await prisma.whopInstallation.findFirst({
         where: { userId: whopUser.userId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' }, // Most recently updated (likely just upgraded)
       })
 
       // If no installation found, try companyId from Whop user
@@ -61,7 +61,7 @@ export default async function Dashboard() {
         console.log('[Dashboard] ✅ Created installation:', companyId)
       } else {
         companyId = installation.companyId
-        console.log('[Dashboard] ✅ Found installation:', companyId)
+        console.log('[Dashboard] ✅ Found installation:', companyId, 'plan:', installation.plan)
       }
 
       // Create session if we don't have one

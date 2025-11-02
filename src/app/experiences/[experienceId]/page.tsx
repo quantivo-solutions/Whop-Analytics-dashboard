@@ -86,46 +86,94 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       console.log('[Experience Page] Using fallback companyId:', companyId, '(from Whop user token)')
     }
     
-    if (companyId) {
+    // FIRST: Try to find installation by experienceId (most reliable - matches this specific experience)
+    if (experienceId) {
+      console.log('[Experience Page] Looking up installation by experienceId first...')
+      installation = await prisma.whopInstallation.findUnique({
+        where: { experienceId },
+      })
+      
+      if (installation) {
+        console.log('[Experience Page] ✅ Found installation by experienceId:', installation.companyId)
+        // Update userId if needed
+        if (installation.userId !== whopUser.userId) {
+          await prisma.whopInstallation.update({
+            where: { experienceId },
+            data: { userId: whopUser.userId, username: whopUser.username || installation.username },
+          })
+        }
+      }
+    }
+    
+    // SECOND: If not found by experienceId and we have companyId, try by companyId
+    if (!installation && companyId) {
       console.log('[Experience Page] ✅ Using companyId:', companyId)
       
-      // Check if installation exists, create if it doesn't
       try {
         installation = await prisma.whopInstallation.findUnique({
           where: { companyId },
         })
         
-        if (!installation) {
-          console.log('[Experience Page] No installation found, creating one automatically from Whop auth...')
-          
-          // Create installation with minimal data (we'll fetch plan later)
-          installation = await prisma.whopInstallation.create({
-            data: {
-              companyId,
-              userId: whopUser.userId,
-              experienceId,
-              accessToken: env.WHOP_APP_SERVER_KEY, // Use app server key for now
-              plan: 'free', // Default, will be synced later
-              username: whopUser.username || null,
-            },
-          })
-          console.log('[Experience Page] ✅ Created installation automatically:', companyId)
-        } else {
-          // Update experienceId if it changed (reinstall scenario)
+        if (installation) {
+          console.log('[Experience Page] ✅ Found installation by companyId:', companyId)
+          // Update experienceId if it changed or was missing
           if (installation.experienceId !== experienceId) {
             console.log('[Experience Page] Updating installation experienceId to match current:', experienceId)
             installation = await prisma.whopInstallation.update({
               where: { companyId },
-              data: { experienceId },
+              data: { experienceId, userId: whopUser.userId, username: whopUser.username || installation.username },
             })
           }
-          console.log('[Experience Page] ✅ Installation already exists:', companyId)
+        } else {
+          // No installation found for this companyId - check if user has any installation
+          console.log('[Experience Page] No installation found for companyId, checking user installations...')
+          const userInstallations = await prisma.whopInstallation.findMany({
+            where: { userId: whopUser.userId },
+            orderBy: { updatedAt: 'desc' },
+          })
+          
+          if (userInstallations.length > 0) {
+            // Use the most recently updated installation (likely the one that was just upgraded)
+            installation = userInstallations[0]
+            console.log('[Experience Page] ✅ Found installation by userId (most recent):', installation.companyId)
+            // Update experienceId to match current experience
+            if (installation.experienceId !== experienceId) {
+              installation = await prisma.whopInstallation.update({
+                where: { companyId: installation.companyId },
+                data: { experienceId },
+              })
+            }
+            companyId = installation.companyId // Use the correct companyId
+          }
         }
       } catch (dbError) {
-        console.error('[Experience Page] Error creating/finding installation:', dbError)
+        console.error('[Experience Page] Error finding installation:', dbError)
         // Continue anyway - we'll try to find it by experienceId later
       }
-    } else {
+    }
+    
+    // THIRD: Create installation if still not found
+    if (!installation && companyId) {
+      console.log('[Experience Page] No installation found, creating one automatically from Whop auth...')
+      
+      try {
+        installation = await prisma.whopInstallation.create({
+          data: {
+            companyId,
+            userId: whopUser.userId,
+            experienceId,
+            accessToken: env.WHOP_APP_SERVER_KEY, // Use app server key for now
+            plan: 'free', // Default, will be synced later
+            username: whopUser.username || null,
+          },
+        })
+        console.log('[Experience Page] ✅ Created installation automatically:', companyId)
+      } catch (dbError) {
+        console.error('[Experience Page] Error creating installation:', dbError)
+      }
+    }
+    
+    if (!companyId) {
       console.log('[Experience Page] ⚠️ Could not determine companyId - will try experienceId lookup')
     }
   } else {
@@ -178,36 +226,20 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   // CRITICAL: Verify the installation matches the current experienceId
   // After reinstall, a new experienceId is generated, so old installations shouldn't match
-  if (installation.experienceId !== experienceId) {
+  // BUT: If installation was found by userId (most recent), it may have different experienceId
+  // In that case, update it to match current experience
+  if (installation.experienceId && installation.experienceId !== experienceId) {
     console.log('[Experience Page] Installation experienceId mismatch!')
     console.log('[Experience Page] Installation has:', installation.experienceId)
     console.log('[Experience Page] Current experienceId:', experienceId)
-    console.log('[Experience Page] This is a NEW installation - redirecting to login')
+    console.log('[Experience Page] Updating installation to match current experience...')
     
-    // This is a new install with a different experienceId - require login
-    return (
-      <ExperienceNotFound 
-        experienceId={experienceId}
-        hasOtherInstallation={false}
-        otherExperienceId={undefined}
-      />
-    )
-  }
-
-  // STEP 3: Verify installation matches current experienceId
-  if (installation.experienceId !== experienceId) {
-    console.log('[Experience Page] Installation experienceId mismatch!')
-    console.log('[Experience Page] Installation has:', installation.experienceId)
-    console.log('[Experience Page] Current experienceId:', experienceId)
-    console.log('[Experience Page] This is a NEW installation - redirecting to login')
-    
-    return (
-      <ExperienceNotFound 
-        experienceId={experienceId}
-        hasOtherInstallation={false}
-        otherExperienceId={undefined}
-      />
-    )
+    // Update installation to match current experienceId (user may have reinstalled)
+    installation = await prisma.whopInstallation.update({
+      where: { companyId: installation.companyId },
+      data: { experienceId },
+    })
+    console.log('[Experience Page] ✅ Updated installation experienceId to:', experienceId)
   }
 
   // STEP 4: Check for session and create one if we have Whop auth
@@ -295,23 +327,38 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       username: installation.username
     })
 
-    // Fetch dashboard data and plan with error handling
-    console.log('[Experience Page] Fetching dashboard data for companyId:', installation.companyId)
-    
-    let dashboardData, plan
-    try {
-      [dashboardData, plan] = await Promise.all([
-        getCompanySeries(installation.companyId, 30),
-        getPlanForCompany(installation.companyId),
-      ])
-      console.log('[Experience Page] Dashboard data fetched successfully, plan:', plan)
+           // Fetch dashboard data and plan with error handling
+           console.log('[Experience Page] Fetching dashboard data for companyId:', finalCompanyId)
+           
+           let dashboardData, plan
+           try {
+             // Use installation.plan directly (most up-to-date from webhooks)
+             // Fall back to getPlanForCompany if installation.plan is null
+             plan = installation.plan || 'free'
+             
+             [dashboardData] = await Promise.all([
+               getCompanySeries(finalCompanyId, 30),
+               // Verify plan from database (might be updated by webhook)
+               prisma.whopInstallation.findUnique({
+                 where: { companyId: finalCompanyId },
+                 select: { plan: true },
+               }).then(inst => {
+                 if (inst?.plan) {
+                   plan = inst.plan
+                   console.log('[Experience Page] Plan from database:', plan)
+                 }
+                 return inst
+               }),
+             ])
+             
+             console.log('[Experience Page] Dashboard data fetched successfully, plan:', plan)
     } catch (fetchError) {
       console.error('[Experience Page] Failed to fetch dashboard data:', fetchError)
       throw fetchError
     }
 
-    // Get upgrade URL with company context for better Whop integration
-    const upgradeUrl = getUpgradeUrl(installation.companyId)
+           // Get upgrade URL with company context for better Whop integration
+           const upgradeUrl = getUpgradeUrl(finalCompanyId)
 
     // Dashboard content with new UI
     // SessionSetter will set cookie via API route if we have Whop auth session
@@ -388,13 +435,13 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               {/* Right: Actions */}
               <div className="flex items-center gap-2">
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
-                <UserProfileMenuClient 
-                  companyId={installation.companyId}
-                  username={installation.username}
-                  email={installation.email}
-                  profilePicUrl={installation.profilePicUrl}
-                  plan={plan}
-                />
+                       <UserProfileMenuClient
+                         companyId={finalCompanyId}
+                         username={installation.username}
+                         email={installation.email}
+                         profilePicUrl={installation.profilePicUrl}
+                         plan={plan}
+                       />
               </div>
             </div>
           </div>
