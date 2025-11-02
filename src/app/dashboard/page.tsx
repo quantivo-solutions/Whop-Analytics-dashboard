@@ -30,7 +30,7 @@ export default async function Dashboard() {
     if (whopUser && whopUser.userId) {
       console.log('[Dashboard] ✅ Whop user authenticated:', whopUser.userId)
       
-      // Find installation - prioritize by companyId from Whop user, then most recent by userId
+      // Find installation - prioritize company-based (biz_*) over user-based (user_*)
       let installation = null
       
       // First try by companyId from Whop user (most accurate)
@@ -43,14 +43,23 @@ export default async function Dashboard() {
         }
       }
       
-      // If not found, try most recently updated installation by userId
+      // If not found, get all user installations and prioritize company-based ones
       if (!installation) {
-        installation = await prisma.whopInstallation.findFirst({
+        const userInstallations = await prisma.whopInstallation.findMany({
           where: { userId: whopUser.userId },
-          orderBy: { updatedAt: 'desc' }, // Most recently updated (likely just upgraded)
+          orderBy: { updatedAt: 'desc' },
         })
-        if (installation) {
-          console.log('[Dashboard] ✅ Found installation by userId (most recent):', installation.companyId, 'plan:', installation.plan)
+        
+        if (userInstallations.length > 0) {
+          // Prefer company-based installations (biz_*) over user-based (user_*)
+          const companyBasedInstallations = userInstallations.filter(inst => inst.companyId.startsWith('biz_'))
+          const preferredInstallation = companyBasedInstallations.length > 0 
+            ? companyBasedInstallations[0]  // Most recently updated company-based
+            : userInstallations[0]         // Fallback to most recent user-based
+          
+          installation = preferredInstallation
+          console.log('[Dashboard] ✅ Found installation by userId:', installation.companyId, 'plan:', installation.plan,
+                     companyBasedInstallations.length > 0 ? '(company-based)' : '(user-based)')
         }
       }
 

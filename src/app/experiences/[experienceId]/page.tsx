@@ -223,7 +223,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
   }
 
-  // STEP 3: If still no installation and no Whop auth, check for other installations
+  // STEP 3: If still no installation, check for other installations and auto-redirect
   if (!installation) {
     console.log('[Experience Page] No installation found for experienceId:', experienceId)
     
@@ -235,13 +235,17 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       
       if (userInstallations.length > 0) {
         // User has installations, but not for this experienceId
-        // Find the most recent one and redirect to it
-        const mostRecentInstallation = userInstallations.sort((a, b) => 
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        )[0]
+        // Prefer company-based installations (biz_*)
+        const companyBasedInstallations = userInstallations.filter(inst => inst.companyId.startsWith('biz_'))
+        const installationsToCheck = companyBasedInstallations.length > 0 ? companyBasedInstallations : userInstallations
         
-        if (mostRecentInstallation.experienceId) {
-          console.log('[Experience Page] Found other installation, redirecting to:', mostRecentInstallation.experienceId)
+        // Find the most recent one with an experienceId
+        const mostRecentInstallation = installationsToCheck
+          .filter(inst => inst.experienceId) // Only ones with experienceId
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
+        
+        if (mostRecentInstallation?.experienceId) {
+          console.log('[Experience Page] Found other installation, auto-redirecting to:', mostRecentInstallation.experienceId)
           redirect(`/experiences/${mostRecentInstallation.experienceId}`)
         }
       }
