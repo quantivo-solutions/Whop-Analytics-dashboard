@@ -227,7 +227,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       installation.companyId === whopUser.companyId
     
     if (userMatchesInstallation) {
-      // Create session token directly (we'll set cookie via client-side or redirect)
+      // Create session token directly (we'll set cookie via API route on client side)
       const sessionToken = Buffer.from(JSON.stringify({
         companyId: installation.companyId,
         userId: whopUser.userId,
@@ -244,7 +244,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
       
       console.log('[Experience Page] ✅ Session token created - user auto-logged in')
-      console.log('[Experience Page] Note: Cookie will be set on next request via redirect or client-side')
+      
+      // Store token to pass to SessionSetter component
+      // This will be passed as a prop to set the cookie via API route
+      ;(global as any).__whopSessionToken = sessionToken
     } else {
       console.log('[Experience Page] ⚠️ Whop user does not match installation:', {
         whopUserId: whopUser.userId,
@@ -311,9 +314,13 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     const upgradeUrl = getUpgradeUrl(installation.companyId)
 
     // Dashboard content with new UI
+    // SessionSetter will set cookie via API route if we have Whop auth session
     // TokenCleanup will remove token from URL after session is confirmed
+    const sessionTokenForClient = (global as any).__whopSessionToken
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
         <TokenCleanup />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
           {/* Elegant Compact Header */}

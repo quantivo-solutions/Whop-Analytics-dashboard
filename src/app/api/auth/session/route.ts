@@ -12,22 +12,40 @@ export const runtime = 'nodejs'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { companyId, userId, username } = body
+    let { companyId, userId, username, sessionToken } = body
+
+    // If sessionToken is provided, decode it to get the data
+    // Otherwise, create new token from provided data
+    if (sessionToken) {
+      try {
+        const decoded = JSON.parse(Buffer.from(sessionToken, 'base64').toString())
+        companyId = decoded.companyId
+        userId = decoded.userId
+        username = decoded.username
+      } catch (decodeError) {
+        return NextResponse.json(
+          { error: 'Invalid session token' },
+          { status: 400 }
+        )
+      }
+    }
 
     if (!companyId || !userId) {
       return NextResponse.json(
-        { error: 'companyId and userId required' },
+        { error: 'companyId and userId required (or valid sessionToken)' },
         { status: 400 }
       )
     }
 
-    // Create session token
-    const sessionToken = Buffer.from(JSON.stringify({
-      companyId,
-      userId,
-      username: username || null,
-      exp: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
-    })).toString('base64')
+    // Use provided token or create new one
+    if (!sessionToken) {
+      sessionToken = Buffer.from(JSON.stringify({
+        companyId,
+        userId,
+        username: username || null,
+        exp: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+      })).toString('base64')
+    }
 
     // Set cookie with proper settings for iframe support
     const cookieStore = await cookies()
