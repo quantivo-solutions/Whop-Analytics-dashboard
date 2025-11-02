@@ -15,6 +15,7 @@ import { ExperienceNotFound } from '@/components/experience-not-found'
 import { redirect } from 'next/navigation'
 import { TokenCleanup } from '@/components/token-cleanup'
 import { verifyWhopUserToken, isWhopIframe, createSessionFromWhopUser } from '@/lib/whop-auth'
+import { whopSdk } from '@/lib/whop-sdk'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -38,46 +39,130 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none')
 
-  // Look up installation by experienceId with retry logic
-  console.log('[Experience Page] Looking up installation...')
-  let installation = null
-  let retries = 0
-  const maxRetries = 3
+  // STEP 1: ALWAYS check Whop iframe authentication FIRST (before checking installation)
+  // This is what other Whop apps do - they auto-login users already authenticated in Whop
+  console.log('[Experience Page] Step 1: Checking Whop iframe authentication...')
+  const whopUser = await verifyWhopUserToken()
   
-  while (!installation && retries < maxRetries) {
-    if (retries > 0) {
-      console.log(`[Experience Page] Retry ${retries}/${maxRetries} - waiting 500ms...`)
-      await new Promise(resolve => setTimeout(resolve, 500))
+  let installation = null
+  
+  // If user is authenticated via Whop headers, we can auto-create installation
+  if (whopUser && whopUser.userId) {
+    console.log('[Experience Page] ✅ Whop user authenticated via iframe headers:', whopUser.userId)
+    
+    // Fetch experience data to get companyId
+    console.log('[Experience Page] Fetching experience data from Whop API to get companyId...')
+    const { env } = await import('@/lib/env')
+    
+    try {
+      const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+        headers: {
+          'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+        },
+      })
+      
+      if (expResponse.ok) {
+        const expData = await expResponse.json()
+        const companyId = expData.company?.id || expData.company_id
+        
+        if (companyId) {
+          console.log('[Experience Page] Got companyId from experience:', companyId)
+          
+          // Verify user has access to this experience
+          try {
+            const accessCheck = await whopSdk.users.checkAccess(
+              experienceId,
+              { id: whopUser.userId }
+            )
+            
+            if (!accessCheck.has_access) {
+              console.log('[Experience Page] ⚠️ User does not have access to this experience')
+              return (
+                <ExperienceNotFound 
+                  experienceId={experienceId}
+                  hasOtherInstallation={false}
+                  otherExperienceId={undefined}
+                />
+              )
+            }
+            
+            console.log('[Experience Page] ✅ User has access to experience, access_level:', accessCheck.access_level)
+            
+            // Check if installation exists, create if it doesn't
+            installation = await prisma.whopInstallation.findUnique({
+              where: { companyId },
+            })
+            
+            if (!installation) {
+              console.log('[Experience Page] No installation found, creating one automatically from Whop auth...')
+              
+              // Create installation with minimal data (we'll fetch plan later)
+              installation = await prisma.whopInstallation.create({
+                data: {
+                  companyId,
+                  userId: whopUser.userId,
+                  experienceId,
+                  accessToken: env.WHOP_APP_SERVER_KEY, // Use app server key for now
+                  plan: 'free', // Default, will be synced later
+                  username: whopUser.username || null,
+                },
+              })
+              console.log('[Experience Page] ✅ Created installation automatically:', companyId)
+            } else {
+              console.log('[Experience Page] ✅ Installation already exists:', companyId)
+            }
+          } catch (accessError) {
+            console.error('[Experience Page] Error checking access:', accessError)
+            // Continue anyway - access check might fail but we can still proceed
+          }
+        } else {
+          console.log('[Experience Page] ⚠️ Experience data missing companyId')
+        }
+      } else {
+        console.error('[Experience Page] Failed to fetch experience:', expResponse.status)
+      }
+    } catch (expError) {
+      console.error('[Experience Page] Error fetching experience data:', expError)
+    }
+  } else {
+    console.log('[Experience Page] No Whop user token found in headers')
+  }
+  
+  // STEP 2: Look up installation by experienceId (if not already found/created above)
+  if (!installation) {
+    console.log('[Experience Page] Step 2: Looking up installation by experienceId...')
+    let retries = 0
+    const maxRetries = 3
+    
+    while (!installation && retries < maxRetries) {
+      if (retries > 0) {
+        console.log(`[Experience Page] Retry ${retries}/${maxRetries} - waiting 500ms...`)
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      
+      installation = await Promise.race([
+        getInstallationByExperience(experienceId),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 3000))
+      ]).catch(err => {
+        console.error(`[Experience Page] Installation lookup attempt ${retries + 1} failed:`, err.message)
+        return null
+      }) as any
+      
+      retries++
     }
     
-    installation = await Promise.race([
-      getInstallationByExperience(experienceId),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Installation lookup timeout')), 3000))
-    ]).catch(err => {
-      console.error(`[Experience Page] Installation lookup attempt ${retries + 1} failed:`, err.message)
-      return null
-    }) as any
-    
-    retries++
-  }
-  
-  if (installation) {
-    console.log(`[Experience Page] Installation found after ${retries} attempt(s)`)
-  } else {
-    console.log(`[Experience Page] Installation not found after ${retries} attempts`)
+    if (installation) {
+      console.log(`[Experience Page] Installation found after ${retries} attempt(s)`)
+    } else {
+      console.log(`[Experience Page] Installation not found after ${retries} attempts`)
+    }
   }
 
-  // If not found, this is a new installation - always redirect to login
-  // Don't check for "other installations" here because:
-  // 1. Fresh installs should always go to login first
-  // 2. The OAuth callback will create the installation
-  // 3. Checking for other installations can cause false positives (old installations for the same user)
+  // STEP 3: If still no installation and no Whop auth, redirect to login
   if (!installation) {
-    console.log('[Experience Page] No installation found for:', experienceId, '- redirecting to login')
+    console.log('[Experience Page] No installation found and no Whop auth - redirecting to login')
     console.log('[Experience Page] This is expected for new installations - elapsed:', Date.now() - startTime, 'ms')
     
-    // Always redirect new installations to login - no need to check for other installations
-    // The ExperienceNotFound component will handle the redirect
     return (
       <ExperienceNotFound 
         experienceId={experienceId}
@@ -105,22 +190,30 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     )
   }
 
-  // Installation found and matches experienceId - check for session
-  // NEW: Try Whop iframe auto-login first (like other Whop apps)
-  // This allows users already logged into Whop to access app without OAuth
-  console.log('[Experience Page] Installation found and matches experienceId, checking authentication...')
-  
-  // Step 1: ALWAYS try Whop iframe auto-login first (before checking our session)
-  // This is what other Whop apps do - they check Whop headers first
-  // This works even if user has never logged in via OAuth
-  console.log('[Experience Page] Attempting Whop iframe auto-login...')
-  const whopUser = await verifyWhopUserToken()
+  // STEP 3: Verify installation matches current experienceId
+  if (installation.experienceId !== experienceId) {
+    console.log('[Experience Page] Installation experienceId mismatch!')
+    console.log('[Experience Page] Installation has:', installation.experienceId)
+    console.log('[Experience Page] Current experienceId:', experienceId)
+    console.log('[Experience Page] This is a NEW installation - redirecting to login')
+    
+    return (
+      <ExperienceNotFound 
+        experienceId={experienceId}
+        hasOtherInstallation={false}
+        otherExperienceId={undefined}
+      />
+    )
+  }
+
+  // STEP 4: Check for session and create one if we have Whop auth
+  console.log('[Experience Page] Installation found and matches experienceId, checking session...')
   
   let session = await getSession(token).catch(() => null)
   
-  if (whopUser && whopUser.userId) {
-    console.log('[Experience Page] ✅ Whop user authenticated via iframe headers:', whopUser.userId)
-    console.log('[Experience Page] Auto-creating session from Whop authentication (like other apps)')
+  // If we have Whop user auth but no session, create one
+  if (!session && whopUser && whopUser.userId) {
+    console.log('[Experience Page] ✅ Whop user authenticated via iframe headers, creating session...')
     
     // Verify user matches installation
     const userMatchesInstallation = 
@@ -148,8 +241,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       })
       console.log('[Experience Page] Will check for existing session or redirect to login')
     }
-  } else {
-    console.log('[Experience Page] No valid Whop user token in headers - will use OAuth flow if needed')
   }
   
   // Step 2: Fall back to token-based auth (for post-OAuth redirects)
