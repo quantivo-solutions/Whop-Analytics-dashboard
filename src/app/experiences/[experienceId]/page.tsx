@@ -45,6 +45,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   const whopUser = await verifyWhopUserToken()
   
   let installation = null
+  let companyId: string | null = null
   
   // If user is authenticated via Whop headers, we can auto-create installation
   if (whopUser && whopUser.userId) {
