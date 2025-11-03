@@ -145,10 +145,10 @@ async function handleAppInstalled(data: any) {
   
   const isNewInstallation = !existing
 
-  // CRITICAL: Always set plan to 'free' for new installations or reinstalls
-  // Even if webhook sends a plan, we start fresh with 'free'
-  // The plan will be updated by membership.activated webhook if user has Pro
-  const installationPlan = isNewInstallation ? 'free' : (existing?.plan || 'free')
+  // CRITICAL: Always set plan to 'free' on app.installed webhook
+  // Even if webhook sends a plan or existing installation has pro, we reset to 'free'
+  // The plan will be updated by membership.activated webhook if user actually has Pro
+  // This ensures cancelled memberships don't persist across reinstalls
 
   // Store installation
   await prisma.whopInstallation.upsert({
@@ -156,7 +156,7 @@ async function handleAppInstalled(data: any) {
     update: {
       experienceId: experience_id || null,
       accessToken: access_token,
-      plan: installationPlan, // Use determined plan (free for new, keep existing for update)
+      plan: 'free', // ALWAYS reset to free on install/reinstall
       updatedAt: new Date(),
     },
     create: {
@@ -167,43 +167,24 @@ async function handleAppInstalled(data: any) {
     },
   })
 
-  console.log(`Installed companyId=${company_id}, plan=${installationPlan} (isNew: ${isNewInstallation}), experienceId=${experience_id || 'none'}`)
+  console.log(`Installed companyId=${company_id}, plan=free (isNew: ${isNewInstallation}), experienceId=${experience_id || 'none'}`)
   
-  // CRITICAL: For new installations, ensure CompanyPrefs exists with completedAt=null (onboarding will show)
-  if (isNewInstallation) {
-    try {
-      const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
-      const prefs = await getCompanyPrefs(company_id) // This will create default prefs if they don't exist
-      
-      // Ensure completedAt is null for fresh installs (triggers onboarding)
-      if (prefs.completedAt !== null) {
-        await setCompanyPrefs(company_id, { completedAt: null })
-        console.log(`[WHOP] ✅ Reset CompanyPrefs.completedAt to null for new installation: ${company_id}`)
-      }
-      
-      console.log(`[WHOP] ✅ Ensured CompanyPrefs exists for new installation: ${company_id}`)
-    } catch (prefsError) {
-      console.error(`[WHOP] Error ensuring CompanyPrefs:`, prefsError)
-      // Continue - getCompanyPrefs will try again when user accesses the app
+  // CRITICAL: For ALL installations (new and reinstalls), ensure CompanyPrefs exists with completedAt=null
+  // This ensures onboarding shows on fresh installs AND reinstalls after cancellation
+  try {
+    const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
+    const prefs = await getCompanyPrefs(company_id) // This will create default prefs if they don't exist
+    
+    // Always reset completedAt to null on install/reinstall (triggers onboarding)
+    if (prefs.completedAt !== null) {
+      await setCompanyPrefs(company_id, { completedAt: null })
+      console.log(`[WHOP] ✅ Reset CompanyPrefs.completedAt to null for ${isNewInstallation ? 'new' : 'reinstalled'} installation: ${company_id}`)
     }
-  } else {
-    // For reinstalls (existing installation), also reset onboarding if cancelled
-    // Check if plan was downgraded to free (user may have cancelled)
-    if (installationPlan === 'free') {
-      try {
-        const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
-        const prefs = await getCompanyPrefs(company_id)
-        
-        // If installation was just updated and plan is free, reset onboarding
-        // This handles the case where user cancelled and reinstalled
-        if (prefs.completedAt !== null) {
-          await setCompanyPrefs(company_id, { completedAt: null })
-          console.log(`[WHOP] ✅ Reset onboarding for reinstall after cancellation: ${company_id}`)
-        }
-      } catch (prefsError) {
-        console.error(`[WHOP] Error resetting onboarding on reinstall:`, prefsError)
-      }
-    }
+    
+    console.log(`[WHOP] ✅ Ensured CompanyPrefs exists for ${isNewInstallation ? 'new' : 'reinstalled'} installation: ${company_id}`)
+  } catch (prefsError) {
+    console.error(`[WHOP] Error ensuring CompanyPrefs:`, prefsError)
+    // Continue - getCompanyPrefs will try again when user accesses the app
   }
 
   // Trigger backfill asynchronously (don't await to avoid blocking webhook response)
