@@ -342,15 +342,29 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           where: { companyId: installation.companyId },
           data: { plan: 'free', updatedAt: new Date() },
         })
-        console.log('[Experience Page] ✅ Forced plan to free due to experienceId change (reinstall)')
+        console.log('[Experience Page] ✅ [HARD-RESET] Forced plan to free due to experienceId change (reinstall)')
         const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
         if (refreshed) installation = refreshed
       }
       const { setCompanyPrefs } = await import('@/lib/company')
       await setCompanyPrefs(installation.companyId, { completedAt: null })
-      console.log('[Experience Page] ✅ Forced onboarding reset due to experienceId change (reinstall)')
+      console.log('[Experience Page] ✅ [HARD-RESET] Forced onboarding reset due to experienceId change (reinstall)')
     } catch (hardResetErr) {
       console.error('[Experience Page] Error forcing free/reset on experienceId change:', hardResetErr)
+    }
+  }
+
+  // EXTRA SAFETY: If installation was updated moments ago, consider it a fresh event and reset onboarding
+  if (installation) {
+    const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
+    if (updatedAgoMs < 5000) {
+      try {
+        const { setCompanyPrefs } = await import('@/lib/company')
+        await setCompanyPrefs(installation.companyId, { completedAt: null })
+        console.log('[Experience Page] ✅ [SAFETY] Reset onboarding due to recent installation update (', updatedAgoMs, 'ms )')
+      } catch (sErr) {
+        console.error('[Experience Page] Error in safety onboarding reset:', sErr)
+      }
     }
   }
 

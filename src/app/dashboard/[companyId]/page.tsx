@@ -371,6 +371,20 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   let onboardingComplete = false
   
   try {
+    // SAFETY: If installation was just updated moments ago, treat as fresh and reset onboarding to force wizard first
+    if (installation) {
+      const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
+      if (updatedAgoMs < 5000) {
+        try {
+          const { setCompanyPrefs } = await import('@/lib/company')
+          await setCompanyPrefs(installation.companyId, { completedAt: null })
+          console.log('[Dashboard View] ✅ [SAFETY] Reset onboarding due to recent installation update (', updatedAgoMs, 'ms )')
+        } catch (sErr) {
+          console.error('[Dashboard View] Error in safety onboarding reset:', sErr)
+        }
+      }
+    }
+
     prefs = await getCompanyPrefs(finalCompanyId) // Use installation.companyId, not URL companyId
     onboardingComplete = await isOnboardingComplete(finalCompanyId)
     
