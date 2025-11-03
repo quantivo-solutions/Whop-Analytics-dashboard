@@ -478,13 +478,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     // SessionSetter will set cookie via API route if we have Whop auth session
     // TokenCleanup will remove token from URL after session is confirmed
     const sessionTokenForClient = (global as any).__whopSessionToken
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-        <TokenCleanup />
-        </div>
-      )
-    }
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
