@@ -194,7 +194,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                 where: { companyId: installation.companyId },
               })
             }
-            console.log('[Dashboard View] ✅ Installation exists:', installation.companyId, 'plan:', installation?.plan || 'unknown')
+            console.log('[Dashboard View] ✅ Installation exists:', installation?.companyId, 'plan:', installation?.plan || 'unknown')
             
             // Refresh installation to get latest plan (webhook may have updated it)
             if (installation) {
