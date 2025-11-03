@@ -19,7 +19,6 @@ import { SessionSetter } from '@/components/session-setter'
 import { verifyWhopUserToken, isWhopIframe } from '@/lib/whop-auth'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
-import { EditPreferencesButton } from '@/components/onboarding/EditPreferencesButton'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -455,13 +454,12 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     // TokenCleanup will remove token from URL after session is confirmed
     const sessionTokenForClient = (global as any).__whopSessionToken
     
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-        <TokenCleanup />
-        
-        {/* Onboarding Wizard - Show if not complete */}
-        {!onboardingComplete && (
+    // BLOCK dashboard access until onboarding is complete
+    if (!onboardingComplete) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+          <TokenCleanup />
           <WizardWrapper
             companyId={finalCompanyId}
             initialPrefs={{
@@ -469,7 +467,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               completedAt: prefs.completedAt?.toISOString() || null,
             }}
           />
-        )}
+        </div>
+      )
+    }
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+        <TokenCleanup />
 
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
           {/* Elegant Compact Header */}
@@ -546,13 +551,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
               {/* Right: Actions */}
               <div className="flex items-center gap-2">
-                <EditPreferencesButton 
-                  companyId={finalCompanyId} 
-                  prefs={{
-                    goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
-                    completedAt: prefs.completedAt?.toISOString() || null,
-                  }} 
-                />
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
                 <UserProfileMenuClient
                   companyId={finalCompanyId}
@@ -560,6 +558,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                   email={installation.email}
                   profilePicUrl={installation.profilePicUrl}
                   plan={plan}
+                  prefs={{
+                    goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+                    completedAt: prefs.completedAt?.toISOString() || null,
+                  }}
                 />
               </div>
             </div>

@@ -8,6 +8,10 @@ interface UserProfileMenuClientProps {
   email?: string | null
   profilePicUrl?: string | null
   plan?: 'free' | 'pro' | 'business'
+  prefs?: {
+    goalAmount: number | null
+    completedAt: string | null
+  } | null
 }
 
 /**
@@ -19,7 +23,8 @@ export function UserProfileMenuClient({
   username,
   email,
   profilePicUrl,
-  plan = 'free' 
+  plan = 'free',
+  prefs
 }: UserProfileMenuClientProps) {
   // Use username, fallback to email, then generic name
   const displayName = username || email || 'My Business'
@@ -30,6 +35,7 @@ export function UserProfileMenuClient({
       username={displayName}
       profilePicture={profilePicUrl || undefined}
       plan={plan}
+      prefs={prefs}
     />
   )
 }

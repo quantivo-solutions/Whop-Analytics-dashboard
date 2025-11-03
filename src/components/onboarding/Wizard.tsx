@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, X } from 'lucide-react'
 import { StepWelcome } from './StepWelcome'
 import { StepGoal } from './StepGoal'
 import { StepCompare } from './StepCompare'
@@ -14,7 +14,7 @@ interface WizardProps {
     goalAmount: number | null
     completedAt: string | null
   }
-  onComplete?: () => void
+  onComplete?: () => void // If provided, this is editing mode - show close button
 }
 
 export function Wizard({ companyId, initialPrefs, onComplete }: WizardProps) {
@@ -117,12 +117,26 @@ export function Wizard({ companyId, initialPrefs, onComplete }: WizardProps) {
     }
   }
 
+  const isEditingMode = !!onComplete
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-slate-950/80 dark:from-black/90 dark:via-slate-900/70 dark:to-black/90" />
       
       <Card className="relative w-full max-w-[820px] rounded-2xl border shadow-2xl bg-background/95 backdrop-blur-sm">
+        {/* Close button - only show when editing (not first-time onboarding) */}
+        {isEditingMode && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-4 z-10"
+            onClick={() => onComplete?.()}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+        
         <CardContent className="p-8">
           {/* Progress dots */}
           <div className="flex items-center justify-center gap-2 mb-8">

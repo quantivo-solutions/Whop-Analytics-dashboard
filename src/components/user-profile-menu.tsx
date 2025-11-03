@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings, LogOut, User, Crown, Sparkles } from 'lucide-react'
+import { Settings, LogOut, User, Crown, Sparkles, Target } from 'lucide-react'
 import { Badge } from './ui/badge'
 import {
   DropdownMenu,
@@ -14,21 +14,28 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { DashboardSettingsInline } from './dashboard-settings-inline'
+import { Wizard } from './onboarding/Wizard'
 
 interface UserProfileMenuProps {
   companyId: string
   username?: string
   profilePicture?: string
   plan?: 'free' | 'pro' | 'business'
+  prefs?: {
+    goalAmount: number | null
+    completedAt: string | null
+  } | null
 }
 
 export function UserProfileMenu({ 
   companyId, 
   username = 'User', 
   profilePicture,
-  plan = 'free'
+  plan = 'free',
+  prefs
 }: UserProfileMenuProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [preferencesOpen, setPreferencesOpen] = useState(false)
   const isPro = plan === 'pro' || plan === 'business'
 
   // Get initials from username
@@ -128,6 +135,10 @@ export function UserProfileMenu({
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setPreferencesOpen(true)} className="cursor-pointer">
+            <Target className="mr-2 h-4 w-4" />
+            <span>Edit Preferences</span>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer">
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
@@ -139,6 +150,18 @@ export function UserProfileMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Preferences Wizard (editing mode) */}
+      {preferencesOpen && (
+        <Wizard
+          companyId={companyId}
+          initialPrefs={prefs ? {
+            goalAmount: prefs.goalAmount,
+            completedAt: prefs.completedAt,
+          } : undefined}
+          onComplete={() => setPreferencesOpen(false)}
+        />
+      )}
 
       {/* Settings Modal */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>

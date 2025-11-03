@@ -34,7 +34,6 @@ import { prisma } from '@/lib/prisma'
 import { SessionSetter } from '@/components/session-setter'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
-import { EditPreferencesButton } from '@/components/onboarding/EditPreferencesButton'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -446,13 +445,11 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      {/* Set session cookie if needed */}
-      {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-
-      {/* Onboarding Wizard - Show if not complete */}
-      {!onboardingComplete && (
+  // BLOCK dashboard access until onboarding is complete
+  if (!onboardingComplete) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
         <WizardWrapper
           companyId={companyId}
           initialPrefs={{
@@ -460,7 +457,14 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             completedAt: prefs.completedAt?.toISOString() || null,
           }}
         />
-      )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      {/* Set session cookie if needed */}
+      {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
         {/* Header */}
@@ -533,13 +537,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
-              <EditPreferencesButton 
-                companyId={companyId} 
-                prefs={{
-                  goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
-                  completedAt: prefs.completedAt?.toISOString() || null,
-                }} 
-              />
               <PlanBadge plan={plan} />
               {plan === 'free' && <UpgradeButtonIframe plan={plan} />}
               {installation && (
@@ -549,6 +546,10 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                   email={installation.email}
                   profilePicUrl={installation.profilePicUrl}
                   plan={plan}
+                  prefs={{
+                    goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+                    completedAt: prefs.completedAt?.toISOString() || null,
+                  }}
                 />
               )}
             </div>
