@@ -423,16 +423,36 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
     // CRITICAL: Check onboarding status FIRST before fetching dashboard data
     // This ensures wizard shows immediately on first install
-    const prefs = await getCompanyPrefs(finalCompanyId)
-    const onboardingComplete = await isOnboardingComplete(finalCompanyId)
+    console.log('[Experience Page] Checking onboarding status for companyId:', finalCompanyId)
     
-    console.log('[Experience Page] Onboarding status:', {
-      completedAt: prefs.completedAt,
-      isComplete: onboardingComplete
-    })
+    let prefs
+    let onboardingComplete = false
+    
+    try {
+      prefs = await getCompanyPrefs(finalCompanyId)
+      onboardingComplete = await isOnboardingComplete(finalCompanyId)
+      
+      console.log('[Experience Page] Onboarding status:', {
+        companyId: finalCompanyId,
+        completedAt: prefs.completedAt,
+        isComplete: onboardingComplete,
+        hasGoalAmount: !!prefs.goalAmount
+      })
+    } catch (prefsError) {
+      console.error('[Experience Page] Error checking onboarding status:', prefsError)
+      // On error, assume not complete to show wizard
+      onboardingComplete = false
+      // Create minimal prefs object
+      prefs = {
+        goalAmount: null,
+        completedAt: null,
+        companyId: finalCompanyId,
+      } as any
+    }
 
     // BLOCK dashboard access until onboarding is complete
     if (!onboardingComplete) {
+      console.log('[Experience Page] Onboarding NOT complete - showing wizard')
       const sessionTokenForClient = (global as any).__whopSessionToken
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -448,6 +468,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         </div>
       )
     }
+    
+    console.log('[Experience Page] Onboarding complete - proceeding to dashboard')
 
     // Fetch dashboard data and plan with error handling (only after onboarding check)
     console.log('[Experience Page] Onboarding complete, fetching dashboard data for companyId:', finalCompanyId)

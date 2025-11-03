@@ -387,17 +387,36 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
   // CRITICAL: Check onboarding status FIRST before fetching dashboard data
   // This ensures wizard shows immediately on first install
-  const prefs = await getCompanyPrefs(companyId)
-  const onboardingComplete = await isOnboardingComplete(companyId)
+  console.log('[Dashboard View] Checking onboarding status for companyId:', companyId)
   
-  console.log('[Dashboard View] Onboarding status:', {
-    companyId,
-    completedAt: prefs.completedAt,
-    isComplete: onboardingComplete
-  })
+  let prefs
+  let onboardingComplete = false
+  
+  try {
+    prefs = await getCompanyPrefs(companyId)
+    onboardingComplete = await isOnboardingComplete(companyId)
+    
+    console.log('[Dashboard View] Onboarding status:', {
+      companyId,
+      completedAt: prefs.completedAt,
+      isComplete: onboardingComplete,
+      hasGoalAmount: !!prefs.goalAmount
+    })
+  } catch (prefsError) {
+    console.error('[Dashboard View] Error checking onboarding status:', prefsError)
+    // On error, assume not complete to show wizard
+    onboardingComplete = false
+    // Create minimal prefs object
+    prefs = {
+      goalAmount: null,
+      completedAt: null,
+      companyId: companyId,
+    } as any
+  }
 
   // BLOCK dashboard access until onboarding is complete
   if (!onboardingComplete) {
+    console.log('[Dashboard View] Onboarding NOT complete - showing wizard')
     const sessionTokenForClient = (global as any).__whopSessionToken
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -412,6 +431,8 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       </div>
     )
   }
+  
+  console.log('[Dashboard View] Onboarding complete - proceeding to dashboard')
 
   // STEP 6: Fetch dashboard data (only after onboarding check)
   let dashboardData
