@@ -24,6 +24,7 @@ import { Lock } from 'lucide-react'
 import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
+import { getCompanyPrefs, isOnboardingComplete } from '@/lib/company'
 import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
@@ -31,6 +32,9 @@ import { verifyWhopUserToken } from '@/lib/whop-auth'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { SessionSetter } from '@/components/session-setter'
+import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
+import { InsightsPanel } from '@/components/insights/InsightsPanel'
+import { EditPreferencesButton } from '@/components/onboarding/EditPreferencesButton'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -432,6 +436,13 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // Get upgrade URL with company context
   const upgradeUrl = getUpgradeUrl(companyId)
 
+  // Fetch company preferences and check onboarding status
+  const prefs = await getCompanyPrefs(companyId)
+  const onboardingComplete = await isOnboardingComplete(companyId)
+  const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
+  const currentRevenue = dashboardData.kpis.grossRevenue
+  const goalRemaining = goalAmount ? Math.max(0, goalAmount - currentRevenue) : null
+
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
 
@@ -439,6 +450,19 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Set session cookie if needed */}
       {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+
+      {/* Onboarding Wizard - Show if not complete */}
+      {!onboardingComplete && (
+        <WizardWrapper
+          companyId={companyId}
+          initialPrefs={{
+            goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+            wantsDailyMail: prefs.wantsDailyMail,
+            wantsDiscord: prefs.wantsDiscord,
+            completedAt: prefs.completedAt?.toISOString() || null,
+          }}
+        />
+      )}
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
         {/* Header */}
@@ -493,7 +517,17 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                     Whoplytics
                   </h1>
                   <p className="text-xs text-muted-foreground hidden sm:block font-medium">
-                    Business insights at a glance
+                    {goalAmount ? (
+                      <>
+                        Goal: ${goalAmount.toLocaleString()} — {goalRemaining && goalRemaining > 0 ? (
+                          <>${goalRemaining.toLocaleString()} away</>
+                        ) : (
+                          <>Goal reached! 🎉</>
+                        )}
+                      </>
+                    ) : (
+                      <>Business insights at a glance</>
+                    )}
                   </p>
                 </div>
               </div>
@@ -501,7 +535,17 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
-              <UpgradeButtonIframe plan={plan} />
+              <EditPreferencesButton 
+                companyId={companyId} 
+                prefs={{
+                  goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+                  wantsDailyMail: prefs.wantsDailyMail,
+                  wantsDiscord: prefs.wantsDiscord,
+                  completedAt: prefs.completedAt?.toISOString() || null,
+                }} 
+              />
+              <PlanBadge plan={plan} />
+              {plan === 'free' && <UpgradeButtonIframe plan={plan} />}
               {installation && (
                 <UserProfileMenuClient
                   companyId={companyId}
@@ -517,6 +561,11 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
         {/* Dashboard view */}
         <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
+
+        {/* Insights Panel */}
+        <div className="mt-8">
+          <InsightsPanel data={dashboardData} plan={plan} goalAmount={goalAmount} />
+        </div>
       </div>
     </div>
   )

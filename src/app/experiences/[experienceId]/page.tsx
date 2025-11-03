@@ -6,6 +6,7 @@
 import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries, getInstallationByExperience } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
+import { getCompanyPrefs, isOnboardingComplete } from '@/lib/company'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { ErrorDisplay } from '@/components/error-boundary'
 import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
@@ -16,6 +17,9 @@ import { redirect } from 'next/navigation'
 import { TokenCleanup } from '@/components/token-cleanup'
 import { SessionSetter } from '@/components/session-setter'
 import { verifyWhopUserToken, isWhopIframe } from '@/lib/whop-auth'
+import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
+import { InsightsPanel } from '@/components/insights/InsightsPanel'
+import { EditPreferencesButton } from '@/components/onboarding/EditPreferencesButton'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -438,6 +442,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
            // Get upgrade URL with company context for better Whop integration
            const upgradeUrl = getUpgradeUrl(finalCompanyId)
 
+    // Fetch company preferences and check onboarding status
+    const prefs = await getCompanyPrefs(finalCompanyId)
+    const onboardingComplete = await isOnboardingComplete(finalCompanyId)
+    const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
+    const currentRevenue = dashboardData.kpis.grossRevenue
+    const goalProgress = goalAmount ? (currentRevenue / goalAmount) * 100 : null
+    const goalRemaining = goalAmount ? Math.max(0, goalAmount - currentRevenue) : null
+
     // Dashboard content with new UI
     // SessionSetter will set cookie via API route if we have Whop auth session
     // TokenCleanup will remove token from URL after session is confirmed
@@ -447,6 +459,20 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
         <TokenCleanup />
+        
+        {/* Onboarding Wizard - Show if not complete */}
+        {!onboardingComplete && (
+          <WizardWrapper
+            companyId={finalCompanyId}
+            initialPrefs={{
+              goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+              wantsDailyMail: prefs.wantsDailyMail,
+              wantsDiscord: prefs.wantsDiscord,
+              completedAt: prefs.completedAt?.toISOString() || null,
+            }}
+          />
+        )}
+
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
           {/* Elegant Compact Header */}
           <div className="mb-6 sm:mb-8">
@@ -504,7 +530,17 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                       Whoplytics
                     </h1>
                     <p className="text-xs text-muted-foreground hidden sm:block font-medium">
-                      Business insights at a glance
+                      {goalAmount ? (
+                        <>
+                          Goal: ${goalAmount.toLocaleString()} — {goalRemaining && goalRemaining > 0 ? (
+                            <>${goalRemaining.toLocaleString()} away</>
+                          ) : (
+                            <>Goal reached! 🎉</>
+                          )}
+                        </>
+                      ) : (
+                        <>Business insights at a glance</>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -512,20 +548,34 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
               {/* Right: Actions */}
               <div className="flex items-center gap-2">
+                <EditPreferencesButton 
+                  companyId={finalCompanyId} 
+                  prefs={{
+                    goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+                    wantsDailyMail: prefs.wantsDailyMail,
+                    wantsDiscord: prefs.wantsDiscord,
+                    completedAt: prefs.completedAt?.toISOString() || null,
+                  }} 
+                />
                 <UpgradeButtonIframe plan={plan} experienceId={experienceId} />
-                       <UserProfileMenuClient
-                         companyId={finalCompanyId}
-                         username={installation.username}
-                         email={installation.email}
-                         profilePicUrl={installation.profilePicUrl}
-                         plan={plan}
-                       />
+                <UserProfileMenuClient
+                  companyId={finalCompanyId}
+                  username={installation.username}
+                  email={installation.email}
+                  profilePicUrl={installation.profilePicUrl}
+                  plan={plan}
+                />
               </div>
             </div>
           </div>
 
           {/* Dashboard view */}
           <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
+
+          {/* Insights Panel */}
+          <div className="mt-8">
+            <InsightsPanel data={dashboardData} plan={plan} goalAmount={goalAmount} />
+          </div>
         </div>
       </div>
     )
