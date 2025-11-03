@@ -432,21 +432,52 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     })
 
     // CRITICAL: Check onboarding status FIRST before fetching dashboard data
-    // This ensures wizard shows immediately on first install
-    console.log('[Experience Page] Checking onboarding status for companyId:', finalCompanyId)
+    // IMPORTANT: For fresh installs with new experienceId, check if experienceId was just updated
+    // If experienceId changed recently (within last 5 minutes), treat as fresh install
+    console.log('[Experience Page] Checking onboarding status for companyId:', finalCompanyId, 'experienceId:', experienceId)
     
     let prefs
     let onboardingComplete = false
+    const installationUpdatedRecently = installation.updatedAt && 
+      (Date.now() - new Date(installation.updatedAt).getTime()) < 5 * 60 * 1000 // 5 minutes
+    const experienceIdJustChanged = installation.experienceId === experienceId && installationUpdatedRecently
+    
+    console.log('[Experience Page] Installation update check:', {
+      experienceIdMatches: installation.experienceId === experienceId,
+      installationUpdatedAt: installation.updatedAt,
+      updatedRecently: installationUpdatedRecently,
+      experienceIdJustChanged
+    })
     
     try {
       prefs = await getCompanyPrefs(finalCompanyId)
-      onboardingComplete = await isOnboardingComplete(finalCompanyId)
+      
+      // If experienceId was just updated (fresh install), reset onboarding
+      if (experienceIdJustChanged) {
+        console.log('[Experience Page] ExperienceId was just updated - treating as fresh install, resetting onboarding')
+        onboardingComplete = false
+        // Reset completedAt if it exists
+        if (prefs.completedAt) {
+          try {
+            const { setCompanyPrefs } = await import('@/lib/company')
+            await setCompanyPrefs(finalCompanyId, { completedAt: null })
+            prefs.completedAt = null
+            console.log('[Experience Page] Reset onboarding for fresh install')
+          } catch (resetError) {
+            console.error('[Experience Page] Error resetting onboarding:', resetError)
+          }
+        }
+      } else {
+        onboardingComplete = await isOnboardingComplete(finalCompanyId)
+      }
       
       console.log('[Experience Page] Onboarding status:', {
         companyId: finalCompanyId,
+        experienceId: experienceId,
         completedAt: prefs.completedAt,
         isComplete: onboardingComplete,
-        hasGoalAmount: !!prefs.goalAmount
+        hasGoalAmount: !!prefs.goalAmount,
+        experienceIdJustChanged
       })
     } catch (prefsError) {
       console.error('[Experience Page] Error checking onboarding status:', prefsError)
