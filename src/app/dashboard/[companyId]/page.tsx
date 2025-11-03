@@ -20,12 +20,13 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft, Settings, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { DashboardView } from '@/components/dashboard-view'
 import { getCompanySeries } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
+import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
 import { verifyWhopUserToken } from '@/lib/whop-auth'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
@@ -426,23 +427,25 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                 </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-                    Whoplytics Dashboard
+                    Whoplytics
                   </h1>
                   <p className="text-xs text-muted-foreground hidden sm:block font-medium">
-                    Business analytics for {companyId.startsWith('biz_') ? 'your company' : 'your account'}
+                    Business insights at a glance
                   </p>
                 </div>
               </div>
             </div>
+
+            {/* Right: Actions */}
             <div className="flex items-center gap-2">
-              <PlanBadge plan={plan} />
-              {plan === 'free' && <UpgradeButtonIframe plan={plan} />}
-              <Link href="/settings">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Button>
-              </Link>
+              <UpgradeButtonIframe plan={plan} />
+              <UserProfileMenuClient
+                companyId={companyId}
+                username={installation?.username}
+                email={installation?.email}
+                profilePicUrl={installation?.profilePicUrl}
+                plan={plan}
+              />
             </div>
           </div>
         </div>
