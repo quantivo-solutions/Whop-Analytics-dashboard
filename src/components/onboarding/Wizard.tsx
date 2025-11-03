@@ -176,7 +176,7 @@ export function Wizard({ companyId, initialPrefs, onComplete }: WizardProps) {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <div className="w-24" /> {/* Spacer for alignment */}
+            <div className="w-24" />
           )}
         </CardFooter>
       </Card>
