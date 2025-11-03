@@ -49,6 +49,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   const whopUser = await verifyWhopUserToken()
   
   let installation = null
+  let experienceIdWasUpdated = false
   let companyId: string | null = null
   
   // If user is authenticated via Whop headers, we can auto-create installation
@@ -293,6 +294,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       data: { experienceId },
     })
     console.log('[Experience Page] ✅ Updated installation experienceId to:', experienceId)
+    experienceIdWasUpdated = true
 
     // CRITICAL: Treat this as a fresh install event. Reset plan to free and onboarding to incomplete.
     try {
@@ -329,6 +331,26 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     if (freshInstallation) {
       installation = freshInstallation
       console.log('[Experience Page] ✅ Installation refreshed, plan:', installation.plan)
+    }
+  }
+
+  // If experienceId was updated in this request, treat as hard reinstall: force free + reset onboarding
+  if (experienceIdWasUpdated && installation) {
+    try {
+      if (installation.plan !== 'free') {
+        await prisma.whopInstallation.update({
+          where: { companyId: installation.companyId },
+          data: { plan: 'free', updatedAt: new Date() },
+        })
+        console.log('[Experience Page] ✅ Forced plan to free due to experienceId change (reinstall)')
+        const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
+        if (refreshed) installation = refreshed
+      }
+      const { setCompanyPrefs } = await import('@/lib/company')
+      await setCompanyPrefs(installation.companyId, { completedAt: null })
+      console.log('[Experience Page] ✅ Forced onboarding reset due to experienceId change (reinstall)')
+    } catch (hardResetErr) {
+      console.error('[Experience Page] Error forcing free/reset on experienceId change:', hardResetErr)
     }
   }
 
