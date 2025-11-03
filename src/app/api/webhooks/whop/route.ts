@@ -145,34 +145,64 @@ async function handleAppInstalled(data: any) {
   
   const isNewInstallation = !existing
 
+  // CRITICAL: Always set plan to 'free' for new installations or reinstalls
+  // Even if webhook sends a plan, we start fresh with 'free'
+  // The plan will be updated by membership.activated webhook if user has Pro
+  const installationPlan = isNewInstallation ? 'free' : (existing?.plan || 'free')
+
   // Store installation
   await prisma.whopInstallation.upsert({
     where: { companyId: company_id },
     update: {
       experienceId: experience_id || null,
       accessToken: access_token,
-      plan: plan || null,
+      plan: installationPlan, // Use determined plan (free for new, keep existing for update)
       updatedAt: new Date(),
     },
     create: {
       companyId: company_id,
       experienceId: experience_id || null,
       accessToken: access_token,
-      plan: plan || null,
+      plan: 'free', // Always start with free for new installs
     },
   })
 
-  console.log(`Installed companyId=${company_id}, plan=${plan || 'none'}, experienceId=${experience_id || 'none'}`)
+  console.log(`Installed companyId=${company_id}, plan=${installationPlan} (isNew: ${isNewInstallation}), experienceId=${experience_id || 'none'}`)
   
-  // CRITICAL: For new installations, ensure CompanyPrefs exists (onboarding will show)
+  // CRITICAL: For new installations, ensure CompanyPrefs exists with completedAt=null (onboarding will show)
   if (isNewInstallation) {
     try {
-      const { getCompanyPrefs } = await import('@/lib/company')
-      await getCompanyPrefs(company_id) // This will create default prefs if they don't exist
+      const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
+      const prefs = await getCompanyPrefs(company_id) // This will create default prefs if they don't exist
+      
+      // Ensure completedAt is null for fresh installs (triggers onboarding)
+      if (prefs.completedAt !== null) {
+        await setCompanyPrefs(company_id, { completedAt: null })
+        console.log(`[WHOP] ✅ Reset CompanyPrefs.completedAt to null for new installation: ${company_id}`)
+      }
+      
       console.log(`[WHOP] ✅ Ensured CompanyPrefs exists for new installation: ${company_id}`)
     } catch (prefsError) {
       console.error(`[WHOP] Error ensuring CompanyPrefs:`, prefsError)
       // Continue - getCompanyPrefs will try again when user accesses the app
+    }
+  } else {
+    // For reinstalls (existing installation), also reset onboarding if cancelled
+    // Check if plan was downgraded to free (user may have cancelled)
+    if (installationPlan === 'free') {
+      try {
+        const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
+        const prefs = await getCompanyPrefs(company_id)
+        
+        // If installation was just updated and plan is free, reset onboarding
+        // This handles the case where user cancelled and reinstalled
+        if (prefs.completedAt !== null) {
+          await setCompanyPrefs(company_id, { completedAt: null })
+          console.log(`[WHOP] ✅ Reset onboarding for reinstall after cancellation: ${company_id}`)
+        }
+      } catch (prefsError) {
+        console.error(`[WHOP] Error resetting onboarding on reinstall:`, prefsError)
+      }
     }
   }
 
@@ -494,6 +524,7 @@ async function handleMembershipCancelled(data: any) {
   }
 
   if (installation) {
+    // Update the found installation to free
     await prisma.whopInstallation.update({
       where: { companyId: installation.companyId },
       data: {
@@ -502,6 +533,38 @@ async function handleMembershipCancelled(data: any) {
       },
     })
     console.log(`[WHOP] ✅ Downgraded installation ${installation.companyId} to free plan`)
+    
+    // CRITICAL: Also update ALL other installations for this user to free
+    // This ensures consistency across all installations
+    if (user?.id) {
+      const userInstallations = await prisma.whopInstallation.findMany({
+        where: { userId: user.id },
+      })
+      
+      if (userInstallations.length > 1) {
+        // Update all other installations to free
+        await prisma.whopInstallation.updateMany({
+          where: {
+            userId: user.id,
+            companyId: { not: installation.companyId }, // Exclude the one we already updated
+          },
+          data: {
+            plan: 'free',
+            updatedAt: new Date(),
+          },
+        })
+        console.log(`[WHOP] ✅ Downgraded ${userInstallations.length - 1} other installation(s) for user ${user.id} to free plan`)
+      }
+    }
+    
+    // Reset onboarding for this installation (user cancelled, may want to re-onboard)
+    try {
+      const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
+      await setCompanyPrefs(installation.companyId, { completedAt: null })
+      console.log(`[WHOP] ✅ Reset onboarding for cancelled installation: ${installation.companyId}`)
+    } catch (prefsError) {
+      console.error(`[WHOP] Error resetting onboarding on cancellation:`, prefsError)
+    }
   } else {
     console.error(`[WHOP] ❌ No installation found to downgrade for user ${user?.id}`)
   }
