@@ -138,6 +138,13 @@ async function handleAppInstalled(data: any) {
     throw new Error('Missing required installation data: company_id or access_token')
   }
 
+  // Check if installation already exists
+  const existing = await prisma.whopInstallation.findUnique({
+    where: { companyId: company_id },
+  })
+  
+  const isNewInstallation = !existing
+
   // Store installation
   await prisma.whopInstallation.upsert({
     where: { companyId: company_id },
@@ -156,6 +163,18 @@ async function handleAppInstalled(data: any) {
   })
 
   console.log(`Installed companyId=${company_id}, plan=${plan || 'none'}, experienceId=${experience_id || 'none'}`)
+  
+  // CRITICAL: For new installations, ensure CompanyPrefs exists (onboarding will show)
+  if (isNewInstallation) {
+    try {
+      const { getCompanyPrefs } = await import('@/lib/company')
+      await getCompanyPrefs(company_id) // This will create default prefs if they don't exist
+      console.log(`[WHOP] ✅ Ensured CompanyPrefs exists for new installation: ${company_id}`)
+    } catch (prefsError) {
+      console.error(`[WHOP] Error ensuring CompanyPrefs:`, prefsError)
+      // Continue - getCompanyPrefs will try again when user accesses the app
+    }
+  }
 
   // Trigger backfill asynchronously (don't await to avoid blocking webhook response)
   triggerBackfill(company_id).catch((error) => {
