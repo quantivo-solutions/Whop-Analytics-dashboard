@@ -9,8 +9,6 @@ interface EditPreferencesButtonProps {
   companyId: string
   prefs: {
     goalAmount: number | null
-    wantsDailyMail: boolean
-    wantsDiscord: boolean
     completedAt: string | null
   } | null
 }
