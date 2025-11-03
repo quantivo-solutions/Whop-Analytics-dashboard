@@ -19,6 +19,7 @@ import { SessionSetter } from '@/components/session-setter'
 import { verifyWhopUserToken, isWhopIframe } from '@/lib/whop-auth'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
+import { env } from '@/lib/env'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -329,6 +330,42 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       installation = freshInstallation
       console.log('[Experience Page] ✅ Installation refreshed, plan:', installation.plan)
     }
+  }
+
+  // Guard against stale Pro: verify active membership; if none, downgrade to free and reset onboarding
+  try {
+    if (whopUser && whopUser.userId && installation && installation.plan && installation.plan !== 'free') {
+      const userResponse = await fetch(`https://api.whop.com/api/v5/users/${whopUser.userId}/memberships`, {
+        headers: { 'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}` },
+        // avoid caching
+        next: { revalidate: 0 },
+      })
+      if (userResponse.ok) {
+        const memberships = await userResponse.json()
+        const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
+        const hasPro = Array.isArray(memberships) && memberships.some((m: any) => {
+          const status = m.status || m.state || m.membership_status
+          const productId = m.product?.id || m.access_pass?.id || m.product_id
+          return (status === 'valid' || status === 'active') && (!planId || productId === planId)
+        })
+        if (!hasPro) {
+          await prisma.whopInstallation.update({
+            where: { companyId: installation.companyId },
+            data: { plan: 'free', updatedAt: new Date() },
+          })
+          console.log('[Experience Page] ✅ Downgraded stale Pro to free (no active membership)')
+          const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
+          if (refreshed) installation = refreshed
+          const { setCompanyPrefs } = await import('@/lib/company')
+          await setCompanyPrefs(installation.companyId, { completedAt: null })
+          console.log('[Experience Page] ✅ Reset onboarding due to stale Pro downgrade')
+        }
+      } else {
+        console.warn('[Experience Page] ⚠️ Unable to verify memberships, status:', userResponse.status)
+      }
+    }
+  } catch (verifyErr) {
+    console.error('[Experience Page] Error verifying memberships:', verifyErr)
   }
   
   // STEP 5: Check for session and create one if we have Whop auth

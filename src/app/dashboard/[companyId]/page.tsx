@@ -34,6 +34,7 @@ import { prisma } from '@/lib/prisma'
 import { SessionSetter } from '@/components/session-setter'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
+import { env } from '@/lib/env'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -433,6 +434,40 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       latestDate: dashboardData.kpis.latestDate,
       isDataFresh: dashboardData.kpis.isDataFresh,
     })
+
+    // STEP 6.5: Guard against stale Pro — verify active membership; if none, downgrade to free and reset onboarding
+    try {
+      if (whopUser && whopUser.userId && installation && plan !== 'free') {
+        const userResponse = await fetch(`https://api.whop.com/api/v5/users/${whopUser.userId}/memberships`, {
+          headers: { 'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}` },
+          next: { revalidate: 0 },
+        })
+        if (userResponse.ok) {
+          const memberships = await userResponse.json()
+          const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
+          const hasPro = Array.isArray(memberships) && memberships.some((m: any) => {
+            const status = m.status || m.state || m.membership_status
+            const productId = m.product?.id || m.access_pass?.id || m.product_id
+            return (status === 'valid' || status === 'active') && (!planId || productId === planId)
+          })
+          if (!hasPro) {
+            await prisma.whopInstallation.update({
+              where: { companyId: installation.companyId },
+              data: { plan: 'free', updatedAt: new Date() },
+            })
+            plan = 'free'
+            console.log('[Dashboard View] ✅ Downgraded stale Pro to free (no active membership)')
+            const { setCompanyPrefs } = await import('@/lib/company')
+            await setCompanyPrefs(installation.companyId, { completedAt: null })
+            console.log('[Dashboard View] ✅ Reset onboarding due to stale Pro downgrade')
+          }
+        } else {
+          console.warn('[Dashboard View] ⚠️ Unable to verify memberships, status:', userResponse.status)
+        }
+      }
+    } catch (verifyErr) {
+      console.error('[Dashboard View] Error verifying memberships:', verifyErr)
+    }
   } catch (error) {
     console.error('[Dashboard View] Error loading dashboard data:', error)
     return (

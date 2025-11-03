@@ -198,17 +198,39 @@ async function handleAppInstalled(data: any) {
  * Remove the installation from database
  */
 async function handleAppUninstalled(data: any) {
-  const { company_id } = data
+  const { company_id, user, user_id } = data
 
   if (!company_id) {
     throw new Error('Missing company_id')
   }
 
+  // Delete the installation for this company
   await prisma.whopInstallation.delete({
     where: { companyId: company_id },
   })
-
   console.log(`Uninstalled companyId=${company_id}`)
+
+  // Also set any other installations for this user to free (in case multiple existed)
+  const resolvedUserId = user?.id || user_id
+  if (resolvedUserId) {
+    const others = await prisma.whopInstallation.findMany({ where: { userId: resolvedUserId } })
+    if (others.length > 0) {
+      await prisma.whopInstallation.updateMany({
+        where: { userId: resolvedUserId },
+        data: { plan: 'free', updatedAt: new Date() },
+      })
+      console.log(`[WHOP] ✅ Downgraded ${others.length} other installation(s) for user ${resolvedUserId} to free after uninstall`)
+    }
+  }
+
+  // Reset onboarding for the uninstalled company so a reinstall shows the wizard
+  try {
+    const { setCompanyPrefs } = await import('@/lib/company')
+    await setCompanyPrefs(company_id, { completedAt: null })
+    console.log(`[WHOP] ✅ Reset onboarding for uninstalled company: ${company_id}`)
+  } catch (prefsErr) {
+    console.error('[WHOP] Error resetting onboarding on uninstall:', prefsErr)
+  }
 }
 
 /**
