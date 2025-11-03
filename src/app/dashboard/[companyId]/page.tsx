@@ -111,75 +111,65 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         // Continue without user details - not critical
       }
 
-      // Check if installation exists for this company
-      installation = await prisma.whopInstallation.findUnique({
-        where: { companyId },
-      })
+          // PRIORITY: Find installation by userId first (like Experience View does)
+          // This ensures we use the same installation that Experience View uses
+          console.log('[Dashboard View] Looking up installations for userId:', whopUser.userId)
+          const userInstallations = await prisma.whopInstallation.findMany({
+            where: { userId: whopUser.userId },
+            orderBy: { updatedAt: 'desc' },
+          })
 
-    if (!installation) {
-      // Before creating, check if user has an existing installation we should use instead
-      console.log('[Dashboard View] No installation found for companyId:', companyId)
-      console.log('[Dashboard View] Checking for existing user installations...')
-      
-      const userInstallations = await prisma.whopInstallation.findMany({
-        where: { userId: whopUser.userId },
-        orderBy: { updatedAt: 'desc' },
-      })
-      
-      // Prefer company-based installations (biz_*)
-      const companyBasedInstallations = userInstallations.filter(inst => inst.companyId.startsWith('biz_'))
-      
-      if (companyBasedInstallations.length > 0) {
-        // User has a company-based installation - use the most recent one
-        installation = companyBasedInstallations[0]
-        console.log('[Dashboard View] ⚠️ Found existing company-based installation:', installation.companyId, 'plan:', installation.plan)
-        console.log('[Dashboard View] ⚠️ Dashboard View URL uses different companyId:', companyId, 'vs installation:', installation.companyId)
-        
-        // If the URL companyId is different, redirect to the correct one
-        if (installation.companyId !== companyId) {
-          console.log('[Dashboard View] Redirecting to correct companyId:', installation.companyId)
-          redirect(`/dashboard/${installation.companyId}`)
-        }
-      } else if (userInstallations.length > 0) {
-        // User has user-based installation - we still need to create company-based one
-        // But we can copy plan and other settings
-        const existingInstallation = userInstallations[0]
-        console.log('[Dashboard View] Found existing user-based installation, copying plan/settings:', existingInstallation.companyId, 'plan:', existingInstallation.plan)
-        
-        const { env } = await import('@/lib/env')
-        installation = await prisma.whopInstallation.create({
-          data: {
-            companyId,
-            userId: whopUser.userId,
-            accessToken: env.WHOP_APP_SERVER_KEY,
-            plan: existingInstallation.plan || 'free', // Copy plan from existing
-            username: whopUserDetails.username || whopUser.username || existingInstallation.username || null,
-            email: whopUserDetails.email || existingInstallation.email || null,
-            profilePicUrl: whopUserDetails.profile_pic_url || existingInstallation.profilePicUrl || null,
-            reportEmail: existingInstallation.reportEmail || null,
-            weeklyEmail: existingInstallation.weeklyEmail,
-            dailyEmail: existingInstallation.dailyEmail,
-            discordWebhook: existingInstallation.discordWebhook || null,
-          },
-        })
-        console.log('[Dashboard View] ✅ Created installation with copied settings:', companyId, 'plan:', installation.plan)
-      } else {
-        // No existing installations - create new one
-        const { env } = await import('@/lib/env')
-        installation = await prisma.whopInstallation.create({
-          data: {
-            companyId,
-            userId: whopUser.userId,
-            accessToken: env.WHOP_APP_SERVER_KEY,
-            plan: 'free',
-            username: whopUserDetails.username || whopUser.username || null,
-            email: whopUserDetails.email || null,
-            profilePicUrl: whopUserDetails.profile_pic_url || null,
-          },
-        })
-        console.log('[Dashboard View] ✅ Created new installation:', companyId)
-      }
-    } else {
+          if (userInstallations.length > 0) {
+            // Use the most recently updated installation (same logic as Experience View)
+            // This ensures both views use the same installation and therefore same CompanyPrefs
+            installation = userInstallations[0]
+            console.log('[Dashboard View] ✅ Found installation by userId:', installation.companyId, 'plan:', installation.plan)
+            
+            // If URL companyId is different, we'll use installation.companyId for data/prefs
+            // but keep URL for navigation (don't redirect, just log the mismatch)
+            if (installation.companyId !== companyId) {
+              console.log('[Dashboard View] ⚠️ URL companyId differs from installation.companyId:', {
+                urlCompanyId: companyId,
+                installationCompanyId: installation.companyId
+              })
+              console.log('[Dashboard View] Will use installation.companyId for CompanyPrefs/data to sync with Experience View')
+            }
+          } else {
+            // No installation found - check if one exists for URL companyId
+            installation = await prisma.whopInstallation.findUnique({
+              where: { companyId },
+            })
+
+            if (!installation) {
+              // Create new installation
+              const { env } = await import('@/lib/env')
+              installation = await prisma.whopInstallation.create({
+                data: {
+                  companyId,
+                  userId: whopUser.userId,
+                  accessToken: env.WHOP_APP_SERVER_KEY,
+                  plan: 'free',
+                  username: whopUserDetails.username || whopUser.username || null,
+                  email: whopUserDetails.email || null,
+                  profilePicUrl: whopUserDetails.profile_pic_url || null,
+                },
+              })
+              console.log('[Dashboard View] ✅ Created new installation:', companyId)
+              
+              // Ensure CompanyPrefs exists
+              try {
+                const { getCompanyPrefs } = await import('@/lib/company')
+                await getCompanyPrefs(companyId)
+                console.log('[Dashboard View] ✅ Ensured CompanyPrefs exists for new installation')
+              } catch (prefsError) {
+                console.error('[Dashboard View] Error ensuring CompanyPrefs:', prefsError)
+              }
+            } else {
+              console.log('[Dashboard View] ✅ Found installation by URL companyId:', companyId)
+            }
+          }
+          
+          if (installation) {
       // Installation exists - always update user data to ensure it's current
       // This ensures username, email, and profilePicUrl are always up-to-date
       if (installation) {
