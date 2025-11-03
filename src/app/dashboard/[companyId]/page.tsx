@@ -203,14 +203,17 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
           })
         }
         console.log('[Dashboard View] ✅ Installation exists:', companyId, 'plan:', installation?.plan || 'unknown')
-      
-      // Refresh installation to get latest plan (webhook may have updated it)
-      const freshInstallation = await prisma.whopInstallation.findUnique({
-        where: { companyId: installation.companyId },
-      })
-      if (freshInstallation) {
-        installation = freshInstallation
-        console.log('[Dashboard View] ✅ Installation refreshed (before session check), plan:', installation.plan)
+        
+        // Refresh installation to get latest plan (webhook may have updated it)
+        if (installation) {
+          const freshInstallation = await prisma.whopInstallation.findUnique({
+            where: { companyId: installation.companyId },
+          })
+          if (freshInstallation) {
+            installation = freshInstallation
+            console.log('[Dashboard View] ✅ Installation refreshed (before session check), plan:', installation.plan)
+          }
+        }
       }
     }
 
