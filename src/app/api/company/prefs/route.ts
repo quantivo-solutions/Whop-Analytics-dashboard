@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const targetCompanyId = companyId || (await getSession()).companyId
+    const session = await getSession().catch(() => null)
+    const targetCompanyId = companyId || session?.companyId
 
     if (!targetCompanyId) {
       return NextResponse.json(
