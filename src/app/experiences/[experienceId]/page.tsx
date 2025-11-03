@@ -478,7 +478,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         completedAt: prefs.completedAt,
         isComplete: onboardingComplete,
         hasGoalAmount: !!prefs.goalAmount,
-        experienceIdJustChanged
+        wasJustCreated
       })
     } catch (prefsError) {
       console.error('[Experience Page] Error checking onboarding status:', prefsError)
