@@ -20,6 +20,8 @@ export async function POST(request: Request) {
   try {
     // Read raw body first for signature verification
     const rawBody = await request.text()
+    // Deployment ping: update timestamp to force build when needed
+    console.log('[WHOP Webhook] Build ping at', new Date().toISOString())
     
     // Get webhook signature from headers
     const signature = request.headers.get('whop-signature')
