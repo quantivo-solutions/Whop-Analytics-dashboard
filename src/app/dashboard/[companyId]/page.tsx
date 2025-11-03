@@ -172,66 +172,66 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
           // Installation exists - always update user data to ensure it's current
           // This ensures username, email, and profilePicUrl are always up-to-date
           if (installation) {
-        const needsUpdate = 
-          installation.userId !== whopUser.userId ||
-          installation.username !== (whopUserDetails.username || whopUser.username || installation.username) ||
-          installation.email !== (whopUserDetails.email || installation.email) ||
-          installation.profilePicUrl !== (whopUserDetails.profile_pic_url || installation.profilePicUrl)
-        
-        if (needsUpdate) {
-          await prisma.whopInstallation.update({
-            where: { companyId },
-            data: {
-              userId: whopUser.userId,
-              username: whopUserDetails.username || whopUser.username || installation.username || null,
-              email: whopUserDetails.email || installation.email || null,
-              profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
-            },
-          })
-          console.log('[Dashboard View] ✅ Updated installation user data')
-          // Refresh installation after update
-          installation = await prisma.whopInstallation.findUnique({
-            where: { companyId },
-          })
-        }
-        console.log('[Dashboard View] ✅ Installation exists:', companyId, 'plan:', installation?.plan || 'unknown')
-        
-        // Refresh installation to get latest plan (webhook may have updated it)
-        if (installation) {
-          const freshInstallation = await prisma.whopInstallation.findUnique({
-            where: { companyId: installation.companyId },
-          })
-          if (freshInstallation) {
-            installation = freshInstallation
-            console.log('[Dashboard View] ✅ Installation refreshed (before session check), plan:', installation.plan)
+            const needsUpdate = 
+              installation.userId !== whopUser.userId ||
+              installation.username !== (whopUserDetails.username || whopUser.username || installation.username) ||
+              installation.email !== (whopUserDetails.email || installation.email) ||
+              installation.profilePicUrl !== (whopUserDetails.profile_pic_url || installation.profilePicUrl)
+            
+            if (needsUpdate) {
+              await prisma.whopInstallation.update({
+                where: { companyId: installation.companyId },
+                data: {
+                  userId: whopUser.userId,
+                  username: whopUserDetails.username || whopUser.username || installation.username || null,
+                  email: whopUserDetails.email || installation.email || null,
+                  profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
+                },
+              })
+              console.log('[Dashboard View] ✅ Updated installation user data')
+              // Refresh installation after update
+              installation = await prisma.whopInstallation.findUnique({
+                where: { companyId: installation.companyId },
+              })
+            }
+            console.log('[Dashboard View] ✅ Installation exists:', installation.companyId, 'plan:', installation?.plan || 'unknown')
+            
+            // Refresh installation to get latest plan (webhook may have updated it)
+            if (installation) {
+              const freshInstallation = await prisma.whopInstallation.findUnique({
+                where: { companyId: installation.companyId },
+              })
+              if (freshInstallation) {
+                installation = freshInstallation
+                console.log('[Dashboard View] ✅ Installation refreshed (before session check), plan:', installation.plan)
+              }
+            }
           }
-        }
-      }
-    }
 
-    // Create session if we don't have one
-    if (!session && installation) {
-      console.log('[Dashboard View] Creating session from Whop auth...')
-      const sessionUsername = whopUserDetails.username || whopUser.username || installation?.username || undefined
-      const sessionToken = Buffer.from(JSON.stringify({
-        companyId,
-        userId: whopUser.userId,
-        username: sessionUsername,
-        exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
-      })).toString('base64')
-      
-      session = {
-        companyId,
-        userId: whopUser.userId,
-        username: sessionUsername,
-        exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
-      }
-      
-      // Store token for SessionSetter to set cookie
-      ;(global as any).__whopSessionToken = sessionToken
-      console.log('[Dashboard View] ✅ Session token created')
-    }
-  } else {
+          // Create session if we don't have one
+          if (!session && installation) {
+            console.log('[Dashboard View] Creating session from Whop auth...')
+            const sessionUsername = whopUserDetails.username || whopUser.username || installation?.username || undefined
+            const sessionToken = Buffer.from(JSON.stringify({
+              companyId: installation.companyId,
+              userId: whopUser.userId,
+              username: sessionUsername,
+              exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
+            })).toString('base64')
+            
+            session = {
+              companyId: installation.companyId,
+              userId: whopUser.userId,
+              username: sessionUsername,
+              exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
+            }
+            
+            // Store token for SessionSetter to set cookie
+            ;(global as any).__whopSessionToken = sessionToken
+            console.log('[Dashboard View] ✅ Session token created')
+          }
+    } else {
+
     // No Whop auth - check for existing session
     console.log('[Dashboard View] No Whop auth, checking session...')
     if (!session) {
