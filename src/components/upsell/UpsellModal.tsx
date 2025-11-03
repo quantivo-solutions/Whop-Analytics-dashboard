@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,7 +11,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Check } from 'lucide-react'
-// Note: env.NEXT_PUBLIC_WHOP_APP_ID is available on client via process.env
+import { useIframeSdk } from '@whop/react'
+import { toast } from 'sonner'
 
 interface UpsellModalProps {
   open: boolean
@@ -27,8 +29,96 @@ const DEFAULT_FEATURES = [
 ]
 
 export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: UpsellModalProps) {
-  const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID || ''
-  const upgradeUrl = appId ? `https://whop.com/apps/${appId}` : '/upgrade'
+  const iframeSdk = useIframeSdk()
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSdkReady, setIsSdkReady] = useState(false)
+
+  // Check if SDK is ready
+  useEffect(() => {
+    const checkSdkReady = () => {
+      if (iframeSdk && typeof iframeSdk.inAppPurchase === 'function') {
+        setIsSdkReady(true)
+        console.log('[UpsellModal] SDK is ready')
+      } else {
+        setIsSdkReady(false)
+        // Retry after a short delay if not ready
+        setTimeout(checkSdkReady, 100)
+      }
+    }
+
+    if (open) {
+      checkSdkReady()
+    }
+  }, [iframeSdk, open])
+
+  const waitForSdk = async (maxWait = 3000): Promise<boolean> => {
+    const startTime = Date.now()
+    while (Date.now() - startTime < maxWait) {
+      if (iframeSdk && typeof iframeSdk.inAppPurchase === 'function') {
+        return true
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return false
+  }
+
+  const handleUpgrade = async () => {
+    setIsLoading(true)
+    
+    try {
+      // Get the plan ID from environment variable
+      const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
+      
+      if (!planId) {
+        toast.error('Upgrade is not configured. Please contact support.')
+        console.error('[UpsellModal] NEXT_PUBLIC_WHOP_PRO_PLAN_ID not set!')
+        setIsLoading(false)
+        return
+      }
+
+      console.log('[UpsellModal] Starting upgrade flow...')
+      console.log('[UpsellModal] Plan ID:', planId)
+      console.log('[UpsellModal] iframeSdk available:', !!iframeSdk)
+      console.log('[UpsellModal] inAppPurchase method available:', typeof iframeSdk?.inAppPurchase === 'function')
+      
+      // Wait for SDK to be ready (with timeout)
+      const sdkReady = await waitForSdk()
+      if (!sdkReady) {
+        toast.error('SDK is not ready. Please wait a moment and try again.')
+        console.error('[UpsellModal] SDK not ready after waiting')
+        setIsLoading(false)
+        return
+      }
+
+      console.log('[UpsellModal] SDK ready, calling inAppPurchase...')
+      
+      // Use Whop's iframeSdk.inAppPurchase() as per official docs
+      const result = await iframeSdk.inAppPurchase({ 
+        planId: planId 
+      })
+      
+      console.log('[UpsellModal] Purchase result:', result)
+      
+      if (result.status === 'ok') {
+        toast.success('Successfully upgraded to Pro! 🎉')
+        console.log('[UpsellModal] Receipt ID:', result.data?.receiptId)
+        
+        // Close modal and reload page to show updated plan
+        onClose()
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
+      } else {
+        console.error('[UpsellModal] Purchase failed:', result.error)
+        toast.error(result.error || 'Purchase failed. Please try again.')
+      }
+    } catch (error) {
+      console.error('[UpsellModal] Error during purchase:', error)
+      toast.error('Failed to start upgrade process. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -58,15 +148,14 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
             Maybe Later
           </Button>
           <Button
-            onClick={() => {
-              window.open(upgradeUrl, '_blank')
-            }}
+            onClick={handleUpgrade}
+            disabled={isLoading || !isSdkReady}
+            className="gap-2"
           >
-            Start 7-Day Free Trial
+            {isLoading ? 'Processing...' : 'Start 7-Day Free Trial'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
-

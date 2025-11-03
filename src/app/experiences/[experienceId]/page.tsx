@@ -421,8 +421,36 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       username: installation.username
     })
 
-    // Fetch dashboard data and plan with error handling
-    console.log('[Experience Page] Fetching dashboard data for companyId:', finalCompanyId)
+    // CRITICAL: Check onboarding status FIRST before fetching dashboard data
+    // This ensures wizard shows immediately on first install
+    const prefs = await getCompanyPrefs(finalCompanyId)
+    const onboardingComplete = await isOnboardingComplete(finalCompanyId)
+    
+    console.log('[Experience Page] Onboarding status:', {
+      completedAt: prefs.completedAt,
+      isComplete: onboardingComplete
+    })
+
+    // BLOCK dashboard access until onboarding is complete
+    if (!onboardingComplete) {
+      const sessionTokenForClient = (global as any).__whopSessionToken
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+          <TokenCleanup />
+          <WizardWrapper
+            companyId={finalCompanyId}
+            initialPrefs={{
+              goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+              completedAt: prefs.completedAt?.toISOString() || null,
+            }}
+          />
+        </div>
+      )
+    }
+
+    // Fetch dashboard data and plan with error handling (only after onboarding check)
+    console.log('[Experience Page] Onboarding complete, fetching dashboard data for companyId:', finalCompanyId)
            
            let dashboardData, plan
            try {
@@ -441,9 +469,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
            // Get upgrade URL with company context for better Whop integration
            const upgradeUrl = getUpgradeUrl(finalCompanyId)
 
-    // Fetch company preferences and check onboarding status
-    const prefs = await getCompanyPrefs(finalCompanyId)
-    const onboardingComplete = await isOnboardingComplete(finalCompanyId)
     const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
     const currentRevenue = dashboardData.kpis.grossRevenue
     const goalProgress = goalAmount ? (currentRevenue / goalAmount) * 100 : null
@@ -453,9 +478,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     // SessionSetter will set cookie via API route if we have Whop auth session
     // TokenCleanup will remove token from URL after session is confirmed
     const sessionTokenForClient = (global as any).__whopSessionToken
-    
-    // BLOCK dashboard access until onboarding is complete
-    if (!onboardingComplete) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
           {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}

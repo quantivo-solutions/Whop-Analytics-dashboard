@@ -385,7 +385,35 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
   }
 
-  // STEP 5: Fetch dashboard data
+  // CRITICAL: Check onboarding status FIRST before fetching dashboard data
+  // This ensures wizard shows immediately on first install
+  const prefs = await getCompanyPrefs(companyId)
+  const onboardingComplete = await isOnboardingComplete(companyId)
+  
+  console.log('[Dashboard View] Onboarding status:', {
+    companyId,
+    completedAt: prefs.completedAt,
+    isComplete: onboardingComplete
+  })
+
+  // BLOCK dashboard access until onboarding is complete
+  if (!onboardingComplete) {
+    const sessionTokenForClient = (global as any).__whopSessionToken
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+        <WizardWrapper
+          companyId={companyId}
+          initialPrefs={{
+            goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+            completedAt: prefs.completedAt?.toISOString() || null,
+          }}
+        />
+      </div>
+    )
+  }
+
+  // STEP 6: Fetch dashboard data (only after onboarding check)
   let dashboardData
   let plan: 'free' | 'pro' | 'business' = 'free'
   
@@ -431,22 +459,39 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       </div>
     )
   }
+  
+  console.log('[Dashboard View] Onboarding status:', {
+    companyId,
+    completedAt: prefs.completedAt,
+    isComplete: onboardingComplete
+  })
+
+  // BLOCK dashboard access until onboarding is complete
+  if (!onboardingComplete) {
+    const sessionTokenForClient = (global as any).__whopSessionToken
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+        <WizardWrapper
+          companyId={companyId}
+          initialPrefs={{
+            goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+            completedAt: prefs.completedAt?.toISOString() || null,
+          }}
+        />
+      </div>
+    )
+  }
 
   // Get upgrade URL with company context
   const upgradeUrl = getUpgradeUrl(companyId)
 
-  // Fetch company preferences and check onboarding status
-  const prefs = await getCompanyPrefs(companyId)
-  const onboardingComplete = await isOnboardingComplete(companyId)
   const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
   const currentRevenue = dashboardData.kpis.grossRevenue
   const goalRemaining = goalAmount ? Math.max(0, goalAmount - currentRevenue) : null
 
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
-
-  // BLOCK dashboard access until onboarding is complete
-  if (!onboardingComplete) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
