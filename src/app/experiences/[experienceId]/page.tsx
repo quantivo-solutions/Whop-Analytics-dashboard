@@ -184,6 +184,16 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           },
         })
         console.log('[Experience Page] ✅ Created installation automatically:', companyId)
+        
+        // CRITICAL: Ensure CompanyPrefs exists for new installation (onboarding will show)
+        try {
+          const { getCompanyPrefs } = await import('@/lib/company')
+          await getCompanyPrefs(companyId) // This will create default prefs if they don't exist
+          console.log('[Experience Page] ✅ Ensured CompanyPrefs exists for new installation')
+        } catch (prefsError) {
+          console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
+          // Continue - getCompanyPrefs will try again later
+        }
       } catch (dbError) {
         console.error('[Experience Page] Error creating installation:', dbError)
       }
