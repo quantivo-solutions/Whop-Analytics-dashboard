@@ -65,14 +65,53 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   let installation = null
   let session = await getSession(token).catch(() => null)
 
-  // STEP 2: If user is authenticated via Whop, verify admin access and create/update installation
-  if (whopUser && whopUser.userId) {
-    console.log('[Dashboard View] ✅ Whop user authenticated:', whopUser.userId)
+    // STEP 2: If user is authenticated via Whop, verify admin access and create/update installation
+    if (whopUser && whopUser.userId) {
+      console.log('[Dashboard View] ✅ Whop user authenticated:', whopUser.userId)
 
-    // Check if installation exists for this company
-    installation = await prisma.whopInstallation.findUnique({
-      where: { companyId },
-    })
+      // Fetch user details from Whop API to get email, profilePicUrl, etc.
+      // Use /api/v5/users/{userId} with app server key (can fetch any user's public info)
+      let whopUserDetails: { username?: string; email?: string; profile_pic_url?: string } = {}
+      try {
+        const { env } = await import('@/lib/env')
+        const userResponse = await fetch(`https://api.whop.com/api/v5/users/${whopUser.userId}`, {
+          headers: {
+            'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+          },
+        })
+        
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          whopUserDetails = {
+            username: userData.username || userData.email || userData.name || undefined,
+            email: userData.email || undefined,
+            profile_pic_url: userData.profile_pic_url || undefined,
+          }
+          console.log('[Dashboard View] ✅ Fetched user details from Whop API:', {
+            username: whopUserDetails.username,
+            email: whopUserDetails.email ? 'present' : 'missing',
+            profilePicUrl: whopUserDetails.profile_pic_url ? 'present' : 'missing',
+          })
+        } else {
+          console.warn('[Dashboard View] ⚠️ Failed to fetch user details from Whop API:', userResponse.status)
+          // Fallback: Use username from token if available
+          if (whopUser.username) {
+            whopUserDetails.username = whopUser.username
+          }
+        }
+      } catch (userError) {
+        console.warn('[Dashboard View] ⚠️ Error fetching user details:', userError)
+        // Fallback: Use username from token if available
+        if (whopUser.username) {
+          whopUserDetails.username = whopUser.username
+        }
+        // Continue without user details - not critical
+      }
+
+      // Check if installation exists for this company
+      installation = await prisma.whopInstallation.findUnique({
+        where: { companyId },
+      })
 
     if (!installation) {
       // Before creating, check if user has an existing installation we should use instead
@@ -111,7 +150,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             userId: whopUser.userId,
             accessToken: env.WHOP_APP_SERVER_KEY,
             plan: existingInstallation.plan || 'free', // Copy plan from existing
-            username: whopUser.username || existingInstallation.username || null,
+            username: whopUserDetails.username || whopUser.username || existingInstallation.username || null,
+            email: whopUserDetails.email || existingInstallation.email || null,
+            profilePicUrl: whopUserDetails.profile_pic_url || existingInstallation.profilePicUrl || null,
             reportEmail: existingInstallation.reportEmail || null,
             weeklyEmail: existingInstallation.weeklyEmail,
             dailyEmail: existingInstallation.dailyEmail,
@@ -128,20 +169,36 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             userId: whopUser.userId,
             accessToken: env.WHOP_APP_SERVER_KEY,
             plan: 'free',
-            username: whopUser.username || null,
+            username: whopUserDetails.username || whopUser.username || null,
+            email: whopUserDetails.email || null,
+            profilePicUrl: whopUserDetails.profile_pic_url || null,
           },
         })
         console.log('[Dashboard View] ✅ Created new installation:', companyId)
       }
     } else {
-      // Installation exists - update user data if needed
-      if (installation.userId !== whopUser.userId) {
+      // Installation exists - always update user data to ensure it's current
+      // This ensures username, email, and profilePicUrl are always up-to-date
+      const needsUpdate = 
+        installation.userId !== whopUser.userId ||
+        installation.username !== (whopUserDetails.username || whopUser.username || installation.username) ||
+        installation.email !== (whopUserDetails.email || installation.email) ||
+        installation.profilePicUrl !== (whopUserDetails.profile_pic_url || installation.profilePicUrl)
+      
+      if (needsUpdate) {
         await prisma.whopInstallation.update({
           where: { companyId },
           data: {
             userId: whopUser.userId,
-            username: whopUser.username || installation.username,
+            username: whopUserDetails.username || whopUser.username || installation.username || null,
+            email: whopUserDetails.email || installation.email || null,
+            profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
           },
+        })
+        console.log('[Dashboard View] ✅ Updated installation user data')
+        // Refresh installation after update
+        installation = await prisma.whopInstallation.findUnique({
+          where: { companyId },
         })
       }
       console.log('[Dashboard View] ✅ Installation exists:', companyId, 'plan:', installation.plan)
