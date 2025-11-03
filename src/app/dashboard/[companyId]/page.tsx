@@ -457,8 +457,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
           companyId={companyId}
           initialPrefs={{
             goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
-            wantsDailyMail: prefs.wantsDailyMail,
-            wantsDiscord: prefs.wantsDiscord,
             completedAt: prefs.completedAt?.toISOString() || null,
           }}
         />
@@ -539,8 +537,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                 companyId={companyId} 
                 prefs={{
                   goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
-                  wantsDailyMail: prefs.wantsDailyMail,
-                  wantsDiscord: prefs.wantsDiscord,
                   completedAt: prefs.completedAt?.toISOString() || null,
                 }} 
               />

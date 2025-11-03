@@ -466,8 +466,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             companyId={finalCompanyId}
             initialPrefs={{
               goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
-              wantsDailyMail: prefs.wantsDailyMail,
-              wantsDiscord: prefs.wantsDiscord,
               completedAt: prefs.completedAt?.toISOString() || null,
             }}
           />

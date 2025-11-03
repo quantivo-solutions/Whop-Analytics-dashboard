@@ -6,8 +6,6 @@ interface WizardWrapperProps {
   companyId: string
   initialPrefs?: {
     goalAmount: number | null
-    wantsDailyMail: boolean
-    wantsDiscord: boolean
     completedAt: string | null
   }
   onComplete?: () => void

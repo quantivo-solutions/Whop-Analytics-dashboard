@@ -24,8 +24,6 @@ export function EditPreferencesButton({ companyId, prefs }: EditPreferencesButto
         companyId={companyId}
         initialPrefs={prefs ? {
           goalAmount: prefs.goalAmount,
-          wantsDailyMail: prefs.wantsDailyMail,
-          wantsDiscord: prefs.wantsDiscord,
           completedAt: prefs.completedAt,
         } : undefined}
         onComplete={() => setShowWizard(false)}

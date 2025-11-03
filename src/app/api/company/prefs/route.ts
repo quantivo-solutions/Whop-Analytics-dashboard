@@ -73,31 +73,48 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Auth: require valid session with matching companyId
+    // Auth: require valid session - check if user owns this companyId
     const session = await getSession().catch(() => null)
-    if (!session || session.companyId !== companyId) {
+    if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    // Validate patch
+    // Check if user owns this installation (by companyId or userId)
+    const { prisma } = await import('@/lib/prisma')
+    const installation = await prisma.whopInstallation.findUnique({
+      where: { companyId },
+    })
+
+    if (!installation) {
+      return NextResponse.json(
+        { error: 'Installation not found' },
+        { status: 404 }
+      )
+    }
+
+    // Allow if session.companyId matches OR session.userId matches installation.userId
+    const userOwnsInstallation =
+      session.companyId === companyId ||
+      (session.userId && installation.userId === session.userId)
+
+    if (!userOwnsInstallation) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Validate patch (only goalAmount and completedAt for onboarding)
     const validPatch: {
       goalAmount?: number | null
-      wantsDailyMail?: boolean
-      wantsDiscord?: boolean
       completedAt?: Date | null
     } = {}
 
     if (patch.goalAmount !== undefined) {
       validPatch.goalAmount = patch.goalAmount !== null ? Number(patch.goalAmount) : null
-    }
-    if (patch.wantsDailyMail !== undefined) {
-      validPatch.wantsDailyMail = Boolean(patch.wantsDailyMail)
-    }
-    if (patch.wantsDiscord !== undefined) {
-      validPatch.wantsDiscord = Boolean(patch.wantsDiscord)
     }
     if (patch.completedAt !== undefined) {
       validPatch.completedAt = patch.completedAt ? new Date(patch.completedAt) : null
