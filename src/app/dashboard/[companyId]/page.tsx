@@ -218,19 +218,20 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
 
     // Create session if we don't have one
-    if (!session) {
+    if (!session && installation) {
       console.log('[Dashboard View] Creating session from Whop auth...')
+      const sessionUsername = whopUserDetails.username || whopUser.username || installation?.username || undefined
       const sessionToken = Buffer.from(JSON.stringify({
         companyId,
         userId: whopUser.userId,
-        username: whopUser.username || installation.username,
+        username: sessionUsername,
         exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
       })).toString('base64')
       
       session = {
         companyId,
         userId: whopUser.userId,
-        username: whopUser.username || installation.username || undefined,
+        username: sessionUsername,
         exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
       }
       
@@ -272,10 +273,11 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     } else {
       console.log('[Dashboard View] ✅ User owns this installation, allowing access despite session mismatch')
       // Update session to match current companyId for future requests
+      const sessionUsername = session.username || whopUser?.username || installation?.username || undefined
       const sessionToken = Buffer.from(JSON.stringify({
         companyId,
-        userId: session.userId || whopUser?.userId || installation?.userId,
-        username: session.username || whopUser?.username || installation?.username,
+        userId: session.userId || whopUser?.userId || installation?.userId || '',
+        username: sessionUsername,
         exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
       })).toString('base64')
       ;(global as any).__whopSessionToken = sessionToken
@@ -500,13 +502,15 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
               <UpgradeButtonIframe plan={plan} />
-              <UserProfileMenuClient
-                companyId={companyId}
-                username={installation?.username}
-                email={installation?.email}
-                profilePicUrl={installation?.profilePicUrl}
-                plan={plan}
-              />
+              {installation && (
+                <UserProfileMenuClient
+                  companyId={companyId}
+                  username={installation.username}
+                  email={installation.email}
+                  profilePicUrl={installation.profilePicUrl}
+                  plan={plan}
+                />
+              )}
             </div>
           </div>
         </div>
