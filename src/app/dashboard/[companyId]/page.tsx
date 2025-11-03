@@ -321,36 +321,8 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     // This ensures CompanyPrefs are synced between views
   }
 
-  // STEP 4: Check if user has a pro installation (webhook may have updated a different one)
-  // If current installation is free but user has pro, check all user installations
-  if (whopUser && whopUser.userId && installation && installation.plan === 'free') {
-    console.log('[Dashboard View] Current installation is free, checking for pro installations...')
-    const userInstallations = await prisma.whopInstallation.findMany({
-      where: { userId: whopUser.userId },
-    })
-    
-    // Find pro installation (most recently updated)
-    const proInstallation = userInstallations
-      .filter(inst => (inst.plan === 'pro' || inst.plan === 'business') && inst.companyId.startsWith('biz_'))
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
-    
-    if (proInstallation && proInstallation.companyId !== finalCompanyId) {
-      // User has pro installation for a different company - update current installation to pro
-      console.log('[Dashboard View] ⚠️ Found pro installation for user:', proInstallation.companyId, 'syncing to current installation')
-      await prisma.whopInstallation.update({
-        where: { companyId: finalCompanyId },
-        data: {
-          plan: proInstallation.plan,
-          updatedAt: new Date(),
-        },
-      })
-      // Refresh installation
-      installation = await prisma.whopInstallation.findUnique({
-        where: { companyId: finalCompanyId },
-      })
-      console.log('[Dashboard View] ✅ Synced installation to pro plan')
-    }
-  }
+  // STEP 4: Do not auto-switch plans across installations.
+  // Plan is managed by webhooks per installation.
 
   // STEP 4.5: If no data for finalCompanyId, check if user has data under their userId-based companyId
   // This handles migration from user-based to company-based companyIds
