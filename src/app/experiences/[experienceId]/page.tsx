@@ -285,13 +285,35 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     console.log('[Experience Page] Installation has:', installation.experienceId)
     console.log('[Experience Page] Current experienceId:', experienceId)
     console.log('[Experience Page] Updating installation to match current experience...')
-    
+
     // Update installation to match current experienceId (user may have reinstalled)
     installation = await prisma.whopInstallation.update({
       where: { companyId: installation.companyId },
       data: { experienceId },
     })
     console.log('[Experience Page] ✅ Updated installation experienceId to:', experienceId)
+
+    // CRITICAL: Treat this as a fresh install event. Reset plan to free and onboarding to incomplete.
+    try {
+      if (installation.plan !== 'free') {
+        await prisma.whopInstallation.update({
+          where: { companyId: installation.companyId },
+          data: { plan: 'free', updatedAt: new Date() },
+        })
+        console.log('[Experience Page] ✅ Reset plan to free due to reinstall')
+        // Refresh after plan change
+        const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
+        if (refreshed) installation = refreshed
+      }
+      const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
+      const prefs = await getCompanyPrefs(installation.companyId)
+      if (prefs.completedAt !== null) {
+        await setCompanyPrefs(installation.companyId, { completedAt: null })
+        console.log('[Experience Page] ✅ Reset onboarding (completedAt=null) due to reinstall')
+      }
+    } catch (resetError) {
+      console.error('[Experience Page] Error resetting plan/onboarding on reinstall:', resetError)
+    }
   }
 
   // STEP 4: Refresh installation from DB to get latest plan (webhook may have updated it)
