@@ -73,11 +73,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Auth: require valid session - check if user owns this companyId
+    // Auth: Check both session AND current Whop iframe headers
+    // Priority: Whop iframe headers (current user) > Session (might be stale)
     const session = await getSession().catch(() => null)
-    if (!session || !session.userId) {
+    
+    // Check for Whop iframe auth (most reliable for current user)
+    let whopUserId: string | null = null
+    try {
+      const { verifyWhopUserToken } = await import('@/lib/whop-auth')
+      const whopUser = await verifyWhopUserToken().catch(() => null)
+      if (whopUser?.userId) {
+        whopUserId = whopUser.userId
+        console.log('[Company Prefs API] ✅ Whop iframe auth found, userId:', whopUserId)
+      }
+    } catch (whopError) {
+      console.log('[Company Prefs API] No Whop iframe auth (not in iframe or no header)')
+    }
+    
+    // Use Whop userId if available, otherwise fall back to session userId
+    const currentUserId = whopUserId || session?.userId
+    if (!currentUserId) {
       return NextResponse.json(
-        { error: 'Unauthorized - no session or userId' },
+        { error: 'Unauthorized - no valid authentication' },
         { status: 401 }
       )
     }
@@ -89,48 +106,55 @@ export async function POST(request: NextRequest) {
     })
 
     if (!installation) {
-      // Installation not found - this might be during onboarding for a new companyId
-      // Check if user has ANY installation with matching userId (for fresh installs)
-      if (session.userId) {
-        const userInstallations = await prisma.whopInstallation.findMany({
-          where: { userId: session.userId },
+      // Installation not found - check if user has ANY installation with matching userId
+      const userInstallations = await prisma.whopInstallation.findMany({
+        where: { userId: currentUserId },
+      })
+      
+      if (userInstallations.length > 0) {
+        // User has installations - allow access during onboarding
+        // This handles cases where onboarding is for a different companyId than session
+        console.log('[Company Prefs API] Allowing access - user has installations, may be onboarding for new companyId', {
+          currentUserId,
+          targetCompanyId: companyId,
+          userInstallationsCount: userInstallations.length
         })
-        
-        if (userInstallations.length > 0) {
-          // User has installations - allow access during onboarding
-          // This handles cases where onboarding is for a different companyId than session
-          console.log('[Company Prefs API] Allowing access - user has installations, may be onboarding for new companyId')
-        } else {
-          return NextResponse.json(
-            { error: 'Installation not found' },
-            { status: 404 }
-          )
-        }
       } else {
         return NextResponse.json(
-          { error: 'Installation not found' },
+          { error: 'Installation not found and user has no installations' },
           { status: 404 }
         )
       }
     } else {
       // Installation exists - check ownership
-      // Allow if session.companyId matches OR session.userId matches installation.userId
+      // Allow if:
+      // 1. Session companyId matches (if session exists)
+      // 2. Current userId (from Whop or session) matches installation.userId
       const userOwnsInstallation =
-        session.companyId === companyId ||
-        (session.userId && installation.userId === session.userId)
+        (session && session.companyId === companyId) ||
+        (currentUserId && installation.userId === currentUserId)
 
       if (!userOwnsInstallation) {
         console.log('[Company Prefs API] Ownership check failed:', {
-          sessionCompanyId: session.companyId,
+          currentUserId,
+          sessionCompanyId: session?.companyId,
           targetCompanyId: companyId,
-          sessionUserId: session.userId,
-          installationUserId: installation.userId
+          installationUserId: installation.userId,
+          hasWhopAuth: !!whopUserId,
+          hasSession: !!session
         })
         return NextResponse.json(
           { error: 'Unauthorized - user does not own this installation' },
           { status: 401 }
         )
       }
+      
+      console.log('[Company Prefs API] ✅ Ownership verified:', {
+        currentUserId,
+        installationUserId: installation.userId,
+        companyId,
+        authSource: whopUserId ? 'whop-iframe' : 'session'
+      })
     }
 
     // Validate patch (only goalAmount and completedAt for onboarding)
