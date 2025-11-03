@@ -179,29 +179,30 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     } else {
       // Installation exists - always update user data to ensure it's current
       // This ensures username, email, and profilePicUrl are always up-to-date
-      const needsUpdate = 
-        installation.userId !== whopUser.userId ||
-        installation.username !== (whopUserDetails.username || whopUser.username || installation.username) ||
-        installation.email !== (whopUserDetails.email || installation.email) ||
-        installation.profilePicUrl !== (whopUserDetails.profile_pic_url || installation.profilePicUrl)
-      
-      if (needsUpdate) {
-        await prisma.whopInstallation.update({
-          where: { companyId },
-          data: {
-            userId: whopUser.userId,
-            username: whopUserDetails.username || whopUser.username || installation.username || null,
-            email: whopUserDetails.email || installation.email || null,
-            profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
-          },
-        })
-        console.log('[Dashboard View] ✅ Updated installation user data')
-        // Refresh installation after update
-        installation = await prisma.whopInstallation.findUnique({
-          where: { companyId },
-        })
-      }
-      console.log('[Dashboard View] ✅ Installation exists:', companyId, 'plan:', installation.plan)
+      if (installation) {
+        const needsUpdate = 
+          installation.userId !== whopUser.userId ||
+          installation.username !== (whopUserDetails.username || whopUser.username || installation.username) ||
+          installation.email !== (whopUserDetails.email || installation.email) ||
+          installation.profilePicUrl !== (whopUserDetails.profile_pic_url || installation.profilePicUrl)
+        
+        if (needsUpdate) {
+          await prisma.whopInstallation.update({
+            where: { companyId },
+            data: {
+              userId: whopUser.userId,
+              username: whopUserDetails.username || whopUser.username || installation.username || null,
+              email: whopUserDetails.email || installation.email || null,
+              profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
+            },
+          })
+          console.log('[Dashboard View] ✅ Updated installation user data')
+          // Refresh installation after update
+          installation = await prisma.whopInstallation.findUnique({
+            where: { companyId },
+          })
+        }
+        console.log('[Dashboard View] ✅ Installation exists:', companyId, 'plan:', installation?.plan || 'unknown')
       
       // Refresh installation to get latest plan (webhook may have updated it)
       const freshInstallation = await prisma.whopInstallation.findUnique({
