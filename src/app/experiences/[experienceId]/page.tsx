@@ -432,42 +432,43 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     })
 
     // CRITICAL: Check onboarding status FIRST before fetching dashboard data
-    // IMPORTANT: For fresh installs with new experienceId, check if experienceId was just updated
-    // If experienceId changed recently (within last 5 minutes), treat as fresh install
+    // IMPORTANT: Only reset onboarding if:
+    // 1. Installation was just created (not just updated)
+    // 2. OR experienceId changed AND onboarding was never completed
     console.log('[Experience Page] Checking onboarding status for companyId:', finalCompanyId, 'experienceId:', experienceId)
     
     let prefs
     let onboardingComplete = false
-    const installationUpdatedRecently = installation.updatedAt && 
-      (Date.now() - new Date(installation.updatedAt).getTime()) < 5 * 60 * 1000 // 5 minutes
-    const experienceIdJustChanged = installation.experienceId === experienceId && installationUpdatedRecently
-    
-    console.log('[Experience Page] Installation update check:', {
-      experienceIdMatches: installation.experienceId === experienceId,
-      installationUpdatedAt: installation.updatedAt,
-      updatedRecently: installationUpdatedRecently,
-      experienceIdJustChanged
-    })
     
     try {
       prefs = await getCompanyPrefs(finalCompanyId)
       
-      // If experienceId was just updated (fresh install), reset onboarding
-      if (experienceIdJustChanged) {
-        console.log('[Experience Page] ExperienceId was just updated - treating as fresh install, resetting onboarding')
+      // Check if installation was just CREATED (not just updated)
+      // This indicates a truly fresh install, not just an experienceId update
+      const installationJustCreated = installation.createdAt && 
+        (Date.now() - new Date(installation.createdAt).getTime()) < 10 * 60 * 1000 // 10 minutes
+      const installationUpdatedRecently = installation.updatedAt && 
+        (Date.now() - new Date(installation.updatedAt).getTime()) < 5 * 60 * 1000 // 5 minutes
+      const wasJustCreated = installationJustCreated && 
+        (new Date(installation.createdAt).getTime() === new Date(installation.updatedAt).getTime() || 
+         (new Date(installation.updatedAt).getTime() - new Date(installation.createdAt).getTime()) < 60000) // Created and updated within 1 min
+      
+      console.log('[Experience Page] Installation check:', {
+        createdAt: installation.createdAt,
+        updatedAt: installation.updatedAt,
+        justCreated: wasJustCreated,
+        wasCompleted: !!prefs.completedAt,
+        experienceIdMatches: installation.experienceId === experienceId
+      })
+      
+      // Only reset onboarding if:
+      // 1. Installation was just created (truly fresh install)
+      // 2. AND onboarding was never completed for this companyId
+      if (wasJustCreated && !prefs.completedAt) {
+        console.log('[Experience Page] Fresh installation detected - onboarding not completed yet')
         onboardingComplete = false
-        // Reset completedAt if it exists
-        if (prefs.completedAt) {
-          try {
-            const { setCompanyPrefs } = await import('@/lib/company')
-            await setCompanyPrefs(finalCompanyId, { completedAt: null })
-            prefs.completedAt = null
-            console.log('[Experience Page] Reset onboarding for fresh install')
-          } catch (resetError) {
-            console.error('[Experience Page] Error resetting onboarding:', resetError)
-          }
-        }
       } else {
+        // Check normal onboarding completion status
         onboardingComplete = await isOnboardingComplete(finalCompanyId)
       }
       
