@@ -316,6 +316,22 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
   console.log('[Dashboard View] ✅ Access granted, loading dashboard data...')
 
+  // CRITICAL: Use installation.companyId (not URL companyId) for consistency with Experience View
+  // This ensures both views use the same companyId for CompanyPrefs
+  const finalCompanyId = installation ? installation.companyId : companyId
+  
+  console.log('[Dashboard View] Using companyId from installation:', finalCompanyId, '(URL companyId:', companyId, ')')
+  
+  // If URL companyId doesn't match installation companyId, we should redirect or use installation's
+  if (installation && installation.companyId !== companyId) {
+    console.log('[Dashboard View] ⚠️ URL companyId mismatch:', {
+      urlCompanyId: companyId,
+      installationCompanyId: installation.companyId
+    })
+    // For now, we'll use installation.companyId for data/prefs but keep URL for navigation
+    // This ensures CompanyPrefs are synced between views
+  }
+
   // STEP 4: Check if user has a pro installation (webhook may have updated a different one)
   // If current installation is free but user has pro, check all user installations
   if (whopUser && whopUser.userId && installation && installation.plan === 'free') {
@@ -329,11 +345,11 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       .filter(inst => (inst.plan === 'pro' || inst.plan === 'business') && inst.companyId.startsWith('biz_'))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
     
-    if (proInstallation && proInstallation.companyId !== companyId) {
+    if (proInstallation && proInstallation.companyId !== finalCompanyId) {
       // User has pro installation for a different company - update current installation to pro
       console.log('[Dashboard View] ⚠️ Found pro installation for user:', proInstallation.companyId, 'syncing to current installation')
       await prisma.whopInstallation.update({
-        where: { companyId },
+        where: { companyId: finalCompanyId },
         data: {
           plan: proInstallation.plan,
           updatedAt: new Date(),
@@ -341,21 +357,21 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       })
       // Refresh installation
       installation = await prisma.whopInstallation.findUnique({
-        where: { companyId },
+        where: { companyId: finalCompanyId },
       })
       console.log('[Dashboard View] ✅ Synced installation to pro plan')
     }
   }
 
-  // STEP 4.5: If no data for companyId, check if user has data under their userId-based companyId
+  // STEP 4.5: If no data for finalCompanyId, check if user has data under their userId-based companyId
   // This handles migration from user-based to company-based companyIds
-  let finalCompanyId = companyId
+  let dataCompanyId = finalCompanyId
   const dataCount = await prisma.metricsDaily.count({
-    where: { companyId },
+    where: { companyId: finalCompanyId },
   })
   
   if (dataCount === 0 && whopUser && whopUser.userId) {
-    console.log('[Dashboard View] No data for companyId:', companyId)
+    console.log('[Dashboard View] No data for companyId:', finalCompanyId)
     console.log('[Dashboard View] Checking if user has data under userId-based companyId...')
     
     const userIdBasedCompanyId = whopUser.userId
@@ -367,9 +383,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       console.log('[Dashboard View] ⚠️ Found data under userId-based companyId:', userIdBasedCompanyId, `(${userIdDataCount} records)`)
       console.log('[Dashboard View] ⚠️ Data needs to be migrated or companyId needs to be updated')
       console.log('[Dashboard View] ⚠️ For now, will use userId-based companyId for data fetching')
-      
+
       // Use userId-based companyId for data fetching (temporary workaround)
-      finalCompanyId = userIdBasedCompanyId
+      dataCompanyId = userIdBasedCompanyId
     }
   }
 
@@ -377,7 +393,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   console.log('[Dashboard View] Refreshing installation to get latest plan...')
   if (installation) {
     const freshInstallation = await prisma.whopInstallation.findUnique({
-      where: { companyId: installation.companyId },
+      where: { companyId: finalCompanyId },
     })
     if (freshInstallation) {
       installation = freshInstallation
@@ -386,18 +402,19 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   }
 
   // CRITICAL: Check onboarding status FIRST before fetching dashboard data
-  // This ensures wizard shows immediately on first install
-  console.log('[Dashboard View] Checking onboarding status for companyId:', companyId)
+  // Use finalCompanyId (installation.companyId) for consistency with Experience View
+  console.log('[Dashboard View] Checking onboarding status for companyId:', finalCompanyId)
   
   let prefs
   let onboardingComplete = false
   
   try {
-    prefs = await getCompanyPrefs(companyId)
-    onboardingComplete = await isOnboardingComplete(companyId)
+    prefs = await getCompanyPrefs(finalCompanyId) // Use installation.companyId, not URL companyId
+    onboardingComplete = await isOnboardingComplete(finalCompanyId)
     
     console.log('[Dashboard View] Onboarding status:', {
-      companyId,
+      companyId: finalCompanyId,
+      urlCompanyId: companyId,
       completedAt: prefs.completedAt,
       isComplete: onboardingComplete,
       hasGoalAmount: !!prefs.goalAmount
@@ -410,7 +427,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     prefs = {
       goalAmount: null,
       completedAt: null,
-      companyId: companyId,
+      companyId: finalCompanyId,
     } as any
   }
 
@@ -422,7 +439,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
         <WizardWrapper
-          companyId={companyId}
+          companyId={finalCompanyId} // Use installation.companyId
           initialPrefs={{
             goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
             completedAt: prefs.completedAt?.toISOString() || null,
@@ -442,10 +459,10 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     // Use installation.plan directly (most up-to-date from webhooks)
     plan = (installation?.plan as 'free' | 'pro' | 'business') || 'free'
     
-    // CRITICAL: Use finalCompanyId (may be userId-based if migration needed)
+    // CRITICAL: Use dataCompanyId (may be userId-based if migration needed)
     // This handles cases where data exists under old user-based companyId
-    console.log('[Dashboard View] Fetching data for companyId:', finalCompanyId, '(original URL:', companyId, ')')
-    dashboardData = await getCompanySeries(finalCompanyId, 30)
+    console.log('[Dashboard View] Fetching data for companyId:', dataCompanyId, '(prefs companyId:', finalCompanyId, ', URL:', companyId, ')')
+    dashboardData = await getCompanySeries(dataCompanyId, 30)
     console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', plan)
     console.log('[Dashboard View] Dashboard data companyId:', dashboardData.companyId, 'hasData:', dashboardData.hasData)
     console.log('[Dashboard View] Dashboard data series length:', dashboardData.series.length)
@@ -504,8 +521,8 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     )
   }
 
-  // Get upgrade URL with company context
-  const upgradeUrl = getUpgradeUrl(companyId)
+  // Get upgrade URL with company context (use finalCompanyId for consistency)
+  const upgradeUrl = getUpgradeUrl(finalCompanyId)
 
   const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
   const currentRevenue = dashboardData.kpis.grossRevenue
@@ -594,7 +611,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               {plan === 'free' && <UpgradeButtonIframe plan={plan} />}
               {installation && (
                 <UserProfileMenuClient
-                  companyId={companyId}
+                  companyId={finalCompanyId} // Use installation.companyId for consistency
                   username={installation.username}
                   email={installation.email}
                   profilePicUrl={installation.profilePicUrl}
