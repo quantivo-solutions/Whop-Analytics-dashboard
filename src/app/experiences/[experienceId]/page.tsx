@@ -359,9 +359,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     if (whopUser && whopUser.userId && installation && installation.plan && installation.plan !== 'free') {
       const userResponse = await fetch(`https://api.whop.com/api/v5/users/${whopUser.userId}/memberships`, {
         headers: { 'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}` },
-        // avoid caching
         next: { revalidate: 0 },
       })
+      let shouldDowngrade = false
       if (userResponse.ok) {
         const memberships = await userResponse.json()
         const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
@@ -370,20 +370,22 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           const productId = m.product?.id || m.access_pass?.id || m.product_id
           return (status === 'valid' || status === 'active') && (!planId || productId === planId)
         })
-        if (!hasPro) {
-          await prisma.whopInstallation.update({
-            where: { companyId: installation.companyId },
-            data: { plan: 'free', updatedAt: new Date() },
-          })
-          console.log('[Experience Page] ✅ Downgraded stale Pro to free (no active membership)')
-          const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
-          if (refreshed) installation = refreshed
-          const { setCompanyPrefs } = await import('@/lib/company')
-          await setCompanyPrefs(installation.companyId, { completedAt: null })
-          console.log('[Experience Page] ✅ Reset onboarding due to stale Pro downgrade')
-        }
+        shouldDowngrade = !hasPro
       } else {
-        console.warn('[Experience Page] ⚠️ Unable to verify memberships, status:', userResponse.status)
+        console.warn('[Experience Page] ⚠️ Unable to verify memberships, status:', userResponse.status, '- treating as no active membership')
+        shouldDowngrade = true
+      }
+      if (shouldDowngrade) {
+        await prisma.whopInstallation.update({
+          where: { companyId: installation.companyId },
+          data: { plan: 'free', updatedAt: new Date() },
+        })
+        console.log('[Experience Page] ✅ Downgraded to free (membership not valid or unverifiable)')
+        const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
+        if (refreshed) installation = refreshed
+        const { setCompanyPrefs } = await import('@/lib/company')
+        await setCompanyPrefs(installation.companyId, { completedAt: null })
+        console.log('[Experience Page] ✅ Reset onboarding due to downgrade')
       }
     }
   } catch (verifyErr) {
