@@ -75,9 +75,9 @@ export async function POST(request: NextRequest) {
 
     // Auth: require valid session - check if user owns this companyId
     const session = await getSession().catch(() => null)
-    if (!session) {
+    if (!session || !session.userId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - no session or userId' },
         { status: 401 }
       )
     }
@@ -89,22 +89,48 @@ export async function POST(request: NextRequest) {
     })
 
     if (!installation) {
-      return NextResponse.json(
-        { error: 'Installation not found' },
-        { status: 404 }
-      )
-    }
+      // Installation not found - this might be during onboarding for a new companyId
+      // Check if user has ANY installation with matching userId (for fresh installs)
+      if (session.userId) {
+        const userInstallations = await prisma.whopInstallation.findMany({
+          where: { userId: session.userId },
+        })
+        
+        if (userInstallations.length > 0) {
+          // User has installations - allow access during onboarding
+          // This handles cases where onboarding is for a different companyId than session
+          console.log('[Company Prefs API] Allowing access - user has installations, may be onboarding for new companyId')
+        } else {
+          return NextResponse.json(
+            { error: 'Installation not found' },
+            { status: 404 }
+          )
+        }
+      } else {
+        return NextResponse.json(
+          { error: 'Installation not found' },
+          { status: 404 }
+        )
+      }
+    } else {
+      // Installation exists - check ownership
+      // Allow if session.companyId matches OR session.userId matches installation.userId
+      const userOwnsInstallation =
+        session.companyId === companyId ||
+        (session.userId && installation.userId === session.userId)
 
-    // Allow if session.companyId matches OR session.userId matches installation.userId
-    const userOwnsInstallation =
-      session.companyId === companyId ||
-      (session.userId && installation.userId === session.userId)
-
-    if (!userOwnsInstallation) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      if (!userOwnsInstallation) {
+        console.log('[Company Prefs API] Ownership check failed:', {
+          sessionCompanyId: session.companyId,
+          targetCompanyId: companyId,
+          sessionUserId: session.userId,
+          installationUserId: installation.userId
+        })
+        return NextResponse.json(
+          { error: 'Unauthorized - user does not own this installation' },
+          { status: 401 }
+        )
+      }
     }
 
     // Validate patch (only goalAmount and completedAt for onboarding)
