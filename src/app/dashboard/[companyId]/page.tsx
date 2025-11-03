@@ -169,10 +169,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             }
           }
           
+          // Installation exists - always update user data to ensure it's current
+          // This ensures username, email, and profilePicUrl are always up-to-date
           if (installation) {
-      // Installation exists - always update user data to ensure it's current
-      // This ensures username, email, and profilePicUrl are always up-to-date
-      if (installation) {
         const needsUpdate = 
           installation.userId !== whopUser.userId ||
           installation.username !== (whopUserDetails.username || whopUser.username || installation.username) ||
