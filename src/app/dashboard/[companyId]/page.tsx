@@ -492,19 +492,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-        <WizardWrapper
-          companyId={companyId}
-          initialPrefs={{
-            goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
-            completedAt: prefs.completedAt?.toISOString() || null,
-          }}
-        />
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
