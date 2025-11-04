@@ -417,6 +417,18 @@ async function handleMembershipActivated(data: any) {
     })
     console.log(`[WHOP] ✅ Updated installation ${installation.companyId} to ${plan} plan`)
     
+    // If upgrading to Pro/Business, reset proWelcomeShownAt so the welcome modal shows
+    if (plan === 'pro' || plan === 'business') {
+      try {
+        const { setCompanyPrefs } = await import('@/lib/company')
+        await setCompanyPrefs(installation.companyId, { proWelcomeShownAt: null })
+        console.log(`[WHOP] ✅ Reset proWelcomeShownAt for ${installation.companyId} to trigger Pro welcome modal`)
+      } catch (prefsError) {
+        console.error(`[WHOP] Error resetting proWelcomeShownAt:`, prefsError)
+        // Don't fail the webhook if this fails
+      }
+    }
+    
     // If there are multiple installations for this user, update the most recently active one
     // This handles cases where the user has both a personal company and a business company
     if (allUserInstallations.length > 1) {
