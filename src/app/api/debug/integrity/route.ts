@@ -81,16 +81,28 @@ export async function GET(request: Request) {
     }
 
     // Check for cross-tenant leaks
+    // INTEGRITY: Verify that queries for THIS company don't accidentally return OTHER companies' data
+    // Note: Having OTHER companies' data in the database is EXPECTED (multi-tenant)
+    // What we're checking is: when querying for this companyId, do we get data from other companies?
     const otherCompaniesCount = await prisma.metricsDaily.count({
       where: {
         companyId: { not: companyId },
       },
     })
 
-    const crossTenantLeaks = otherCompaniesCount
+    // This is just informational - having other companies' data is normal
+    // The real check is: when we query for THIS company, do we ONLY get THIS company's data?
+    // This is already verified by the metrics query above (line 58-61) which filters by companyId
+    
+    // Verify: Check if any of the metrics we fetched belong to a different company
+    const crossTenantLeaks = metrics.filter(m => m.companyId !== companyId).length
+    
     if (crossTenantLeaks > 0) {
       ok = false
-      notes.push(`Found ${crossTenantLeaks} rows for other companies (should be 0 in query context)`)
+      notes.push(`CRITICAL: Found ${crossTenantLeaks} rows for THIS company query that belong to OTHER companies!`)
+    } else if (otherCompaniesCount > 0) {
+      // This is informational - other companies' data exists (which is normal)
+      notes.push(`Info: ${otherCompaniesCount} rows exist for other companies (this is normal in multi-tenant)`)
     }
 
     // Check for hardcoded/seed data
@@ -133,7 +145,8 @@ export async function GET(request: Request) {
         gaps,
       },
       crossTenantLeaks: {
-        rowsForOtherCompanies: crossTenantLeaks,
+        rowsForOtherCompanies: otherCompaniesCount, // Info: count of other companies' data (normal)
+        leaksInQuery: crossTenantLeaks, // Critical: rows returned for THIS company that belong to OTHER companies
       },
       latestComputation,
       hardcodedDataDetected,

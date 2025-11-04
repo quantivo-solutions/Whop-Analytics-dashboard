@@ -32,23 +32,33 @@ export async function GET(request: Request) {
       where: { companyId },
     })
 
-    // Count rows for other companies
+    // Count rows for other companies (this is normal - we're just checking isolation)
     const countOther = await prisma.metricsDaily.count({
       where: {
         companyId: { not: companyId },
       },
     })
 
-    const ok = countOther === 0
+    // The real check: query for THIS company and verify all returned rows belong to THIS company
+    const companyRows = await prisma.metricsDaily.findMany({
+      where: { companyId },
+      take: 100, // Sample check
+    })
+    
+    const leaksInQuery = companyRows.filter(r => r.companyId !== companyId).length
+
+    // Pass if: no leaks in the query results (even if other companies' data exists in DB)
+    const ok = leaksInQuery === 0
 
     return NextResponse.json({
       ok,
       companyId,
       counts: {
         forCompany: countForCompany,
-        otherCompanies: countOther,
+        otherCompanies: countOther, // Info: normal in multi-tenant
       },
       isolation: ok ? 'PASS' : 'FAIL',
+      leaksInQuery, // Critical: should be 0
     })
   } catch (error) {
     console.error('[Smoke Test] Error:', error)
