@@ -55,7 +55,7 @@ export function GoalProgress({ goalAmount, revenueThisMonth, lastSyncAt, company
               <Button
                 size="sm"
                 onClick={() => setShowGoalWizard(true)}
-                className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)]"
+                className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
               >
                 <Target className="mr-2 h-4 w-4" />
                 Set Goal
@@ -84,8 +84,8 @@ export function GoalProgress({ goalAmount, revenueThisMonth, lastSyncAt, company
   const isGoalReached = revenueThisMonth >= goalAmount
 
   return (
-    <Card className="border bg-background/50 backdrop-blur-sm">
-      <CardContent className="p-4">
+    <Card className="border-2 bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-900/50 dark:to-slate-800/30 backdrop-blur-sm shadow-sm">
+      <CardContent className="p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1">
             {isGoalReached ? (

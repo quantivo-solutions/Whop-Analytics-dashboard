@@ -53,7 +53,11 @@ export function StepGoal({ goalAmount, onGoalChange }: StepGoalProps) {
                 type="button"
                 variant={goalAmount === amount ? 'default' : 'outline'}
                 onClick={() => handlePresetClick(amount)}
-                className="w-full"
+                className={`w-full transition-all ${
+                  goalAmount === amount
+                    ? 'bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 text-white font-medium shadow-lg shadow-cyan-500/20'
+                    : 'border-2 hover:bg-muted/50'
+                }`}
               >
                 ${amount.toLocaleString()}
               </Button>

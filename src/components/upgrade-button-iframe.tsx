@@ -106,15 +106,14 @@ export function UpgradeButtonIframe({ plan, experienceId }: UpgradeButtonIframeP
 
   return (
     <Button 
-      variant="default" 
       size="sm"
       onClick={handleUpgrade}
       disabled={isLoading || !isSdkReady}
-      className="gap-2"
+      className="gap-2 bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
       title={!isSdkReady ? 'Initializing...' : undefined}
     >
       <Sparkles className="h-4 w-4" />
-      {isLoading ? 'Processing...' : 'Upgrade to Whoplytics Pro'}
+      {isLoading ? 'Processing...' : 'Upgrade to Pro'}
     </Button>
   )
 }

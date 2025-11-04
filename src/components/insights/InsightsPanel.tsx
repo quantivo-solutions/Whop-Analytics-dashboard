@@ -197,16 +197,18 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
         </Card>
 
         {/* Churn Risk */}
-        <Card className={`relative ${churnRisk.locked ? 'opacity-75' : ''}`}>
+        <Card className={`relative border-2 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg transition-all duration-300 ${churnRisk.locked ? 'opacity-75' : ''}`}>
           {churnRisk.locked && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-              <div className="text-center space-y-2 p-4">
-                <Lock className="h-8 w-8 mx-auto text-muted-foreground" />
-                <p className="text-sm font-medium">Pro feature</p>
+            <div className="absolute inset-0 bg-background/95 dark:bg-slate-950/95 backdrop-blur-md rounded-lg flex items-center justify-center z-10">
+              <div className="text-center space-y-3 p-4">
+                <div className="p-3 rounded-full bg-muted/80 dark:bg-slate-800/80 mx-auto w-fit">
+                  <Lock className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+                </div>
+                <p className="text-sm font-semibold">Pro feature</p>
                 <Button
                   size="sm"
-                  variant="default"
                   onClick={() => setUpsellOpen(true)}
+                  className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
                 >
                   Upgrade to unlock
                 </Button>
@@ -215,7 +217,7 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
           )}
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Churn Risk</CardTitle>
+              <CardTitle className="text-base font-semibold">Churn Risk</CardTitle>
               <TrendingDown className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardHeader>
@@ -238,10 +240,10 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
         </Card>
 
         {/* Revenue Velocity */}
-        <Card className="relative">
+        <Card className="relative border-2 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg transition-all duration-300">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Revenue Velocity</CardTitle>
+              <CardTitle className="text-base font-semibold">Revenue Velocity</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardHeader>
@@ -259,16 +261,18 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
         </Card>
 
         {/* Top Customers */}
-        <Card className={`relative ${topCustomers.locked ? 'opacity-75' : ''}`}>
+        <Card className={`relative border-2 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg transition-all duration-300 ${topCustomers.locked ? 'opacity-75' : ''}`}>
           {topCustomers.locked && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-              <div className="text-center space-y-2 p-4">
-                <Lock className="h-8 w-8 mx-auto text-muted-foreground" />
-                <p className="text-sm font-medium">Pro feature</p>
+            <div className="absolute inset-0 bg-background/95 dark:bg-slate-950/95 backdrop-blur-md rounded-lg flex items-center justify-center z-10">
+              <div className="text-center space-y-3 p-4">
+                <div className="p-3 rounded-full bg-muted/80 dark:bg-slate-800/80 mx-auto w-fit">
+                  <Lock className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+                </div>
+                <p className="text-sm font-semibold">Pro feature</p>
                 <Button
                   size="sm"
-                  variant="default"
                   onClick={() => setUpsellOpen(true)}
+                  className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
                 >
                   Upgrade to unlock
                 </Button>
@@ -277,7 +281,7 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
           )}
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Top Customers</CardTitle>
+              <CardTitle className="text-base font-semibold">Top Customers</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardHeader>

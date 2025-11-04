@@ -59,20 +59,20 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
               <ul className="space-y-2">
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">30-day dashboard</span>
+                  <span className="text-sm">7-day dashboard history</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">3 core KPIs (Revenue, New Members, Cancellations)</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                   <span className="text-sm">Weekly email summary</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">Core KPIs</span>
-                </li>
               </ul>
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full border-2 hover:bg-muted/50"
                 onClick={handleFreeClick}
                 disabled={loading !== null}
               >
@@ -82,14 +82,14 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
           </Card>
 
           {/* Pro Plan */}
-          <Card className="border-2 border-primary/50 bg-gradient-to-b from-primary/5 to-transparent relative overflow-hidden">
+          <Card className="border-2 border-cyan-400/50 dark:border-cyan-500/50 bg-gradient-to-br from-cyan-50/50 via-sky-50/30 to-transparent dark:from-cyan-950/30 dark:via-sky-950/20 dark:to-transparent relative overflow-hidden shadow-lg shadow-cyan-500/10">
             {/* Subtle glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-transparent to-transparent pointer-events-none" />
             
             <CardHeader className="pb-4 relative z-10">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xl font-semibold">Pro</h3>
-                <Badge className="bg-primary text-primary-foreground flex items-center gap-1">
+                <h3 className="text-xl font-bold">Pro</h3>
+                <Badge className="bg-gradient-to-r from-cyan-500 to-sky-500 text-white border-0 flex items-center gap-1 shadow-md">
                   <Sparkles className="h-3 w-3" />
                   Most Popular
                 </Badge>
@@ -100,7 +100,11 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 relative z-10">
-              <ul className="space-y-2">
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Everything in Free</span>
+                </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                   <span className="text-sm">Daily email reports</span>
@@ -111,7 +115,7 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">Trial conversion analysis</span>
+                  <span className="text-sm">Trial conversion deep-dive</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
@@ -119,11 +123,11 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">CSV export & extended history</span>
+                  <span className="text-sm">CSV export & 90-day history</span>
                 </li>
               </ul>
               <Button
-                className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 ring-1 ring-primary/50 hover:shadow-[0_0_30px_rgba(34,211,238,0.35)] transition-all"
+                className="w-full bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
                 onClick={handleProClick}
                 disabled={loading !== null}
               >

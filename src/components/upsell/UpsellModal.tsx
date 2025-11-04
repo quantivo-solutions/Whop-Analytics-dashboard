@@ -149,13 +149,17 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            className="w-full sm:w-auto border-2 hover:bg-muted/50 transition-colors"
+          >
             Continue Free
           </Button>
           <Button
             onClick={handleUpgrade}
             disabled={isLoading || !isSdkReady}
-            className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cyan-400 to-sky-500 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white border-0"
+            className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
           >
             {isLoading ? 'Processing...' : 'Start 7-Day Free Trial'}
           </Button>

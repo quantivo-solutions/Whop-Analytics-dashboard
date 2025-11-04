@@ -154,13 +154,13 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
             return (
               <Card 
                 key={index} 
-                className="relative overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-200 animate-in fade-in slide-in-from-bottom-2"
+                className="relative overflow-hidden border-2 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
                 style={{ 
                   animationDelay: `${index * 50}ms`,
                   animationFillMode: 'backwards'
                 }}
               >
-                <CardContent className="p-4 sm:p-5">
+                <CardContent className="p-5 sm:p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className={`${iconColors[index]} rounded-lg p-2 shadow-sm`}>
                       <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
@@ -219,14 +219,9 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
             </div>
             {isFreePlan && (
               <Button
-                variant="outline"
                 size="sm"
-                onClick={() => {
-                  const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID
-                  const url = appId ? `https://whop.com/apps/${appId}` : '#'
-                  window.open(url, '_blank')
-                }}
-                className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white border-0"
+                onClick={() => setUpsellOpen(true)}
+                className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
               >
                 Upgrade to Pro
               </Button>
@@ -235,6 +230,7 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               <Button
                 variant="outline"
                 size="sm"
+                className="border-2 hover:bg-muted/50 transition-colors"
                 onClick={async () => {
                   try {
                     const url = `/api/export/csv?companyId=${companyId}&days=${series.length}`

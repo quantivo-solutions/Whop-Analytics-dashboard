@@ -179,13 +179,18 @@ export function Wizard({ companyId, initialPrefs, onComplete }: WizardProps) {
             variant="outline"
             onClick={handleBack}
             disabled={step === 0 || loading}
+            className="border-2 hover:bg-muted/50 transition-colors"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
 
           {step < 2 ? (
-            <Button onClick={handleNext} disabled={loading}>
+            <Button 
+              onClick={handleNext} 
+              disabled={loading}
+              className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
+            >
               {step === 0 ? 'Get started' : 'Next'}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
