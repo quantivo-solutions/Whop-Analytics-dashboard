@@ -13,6 +13,8 @@ import { getPlanFeatures, hasPro } from '@/lib/plan'
 import { ProFeatureLock } from './pro-feature-lock'
 import { ModernChart } from './modern-chart'
 import { Button } from './ui/button'
+import { UpsellModal } from './upsell/UpsellModal'
+import { useState } from 'react'
 
 interface DashboardViewProps {
   data: DashboardData
@@ -25,6 +27,7 @@ interface DashboardViewProps {
 
 export function DashboardView({ data, showBadge = true, badgeType, plan = 'free', upgradeUrl, companyId }: DashboardViewProps) {
   const { kpis, series, hasData } = data
+  const [upsellOpen, setUpsellOpen] = useState(false)
 
   // Determine badge type if not explicitly provided
   const effectiveBadgeType = badgeType ?? (kpis.isDataFresh ? 'live' : 'stale')
@@ -186,9 +189,26 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  const url = `/api/export/csv?companyId=${companyId}&days=${series.length}`
-                  window.open(url, '_blank')
+                onClick={async () => {
+                  try {
+                    const url = `/api/export/csv?companyId=${companyId}&days=${series.length}`
+                    const response = await fetch(url)
+                    if (!response.ok) {
+                      throw new Error('Failed to export CSV')
+                    }
+                    const blob = await response.blob()
+                    const downloadUrl = window.URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = downloadUrl
+                    a.download = `whoplytics-export-${companyId}-${new Date().toISOString().split('T')[0]}.csv`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    window.URL.revokeObjectURL(downloadUrl)
+                  } catch (error) {
+                    console.error('Error exporting CSV:', error)
+                    alert('Failed to export CSV. Please try again.')
+                  }
                 }}
                 className="gap-2"
               >
@@ -196,11 +216,11 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
                 Export CSV
               </Button>
             )}
-            {!isPro && upgradeUrl && (
+            {!isPro && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.open(upgradeUrl, '_blank')}
+                onClick={() => setUpsellOpen(true)}
                 className="gap-2"
               >
                 <Download className="h-4 w-4" />
@@ -222,6 +242,9 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
           />
         </div>
       )}
+
+      {/* Upsell Modal for CSV Export */}
+      <UpsellModal open={upsellOpen} onClose={() => setUpsellOpen(false)} />
     </div>
   )
 }
