@@ -660,61 +660,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               {/* Left: Branding */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-3">
-                  {/* Whoplytics Logo - Glowing wave arrow */}
-                  <div className="relative h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-950 shadow-xl" />
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-transparent via-blue-600/20 to-transparent" />
-                    <svg 
-                      className="absolute inset-2 rounded-xl" 
-                      viewBox="0 0 100 100" 
-                      fill="none" 
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      {/* Glowing wave line turning into arrow */}
-                      <defs>
-                        <linearGradient id="waveGradient" x1="0%" y1="50%" x2="100%" y2="50%">
-                          <stop offset="0%" stopColor="#60A5FA" stopOpacity="1" />
-                          <stop offset="70%" stopColor="#22D3EE" stopOpacity="1" />
-                          <stop offset="100%" stopColor="#06B6D4" stopOpacity="1" />
-                        </linearGradient>
-                        <filter id="glow">
-                          <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-                          <feMerge>
-                            <feMergeNode in="coloredBlur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                          </feMerge>
-                        </filter>
-                      </defs>
-                      {/* Wave path */}
-                      <path
-                        d="M 15 50 Q 30 35, 45 50 T 65 50 L 75 45 L 80 40 L 85 30 L 85 25"
-                        stroke="url(#waveGradient)"
-                        strokeWidth="5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                        filter="url(#glow)"
-                      />
-                      {/* Arrow head */}
-                      <path
-                        d="M 85 25 L 78 22 M 85 25 L 78 28"
-                        stroke="url(#waveGradient)"
-                        strokeWidth="5"
-                        strokeLinecap="round"
-                        filter="url(#glow)"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-                      Whoplytics
-                    </h1>
-                    <p className="text-xs text-muted-foreground hidden sm:block font-medium">
-                      Business insights at a glance
-                    </p>
-                  </div>
-                </div>
+                <WhoplyticsLogo 
+                  personalizedText={installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics'}
+                  tagline="Business insights at a glance"
+                />
               </div>
 
               {/* Right: Actions */}
