@@ -664,6 +664,15 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                   personalizedText={installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics'}
                   tagline="Business insights at a glance"
                 />
+                {/* TASK 9 - UI badge: Show companyId and demo mode status */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Company: {finalCompanyId} • Scope locked</span>
+                  {env.WHOPLYTICS_DEMO_MODE === '1' && (
+                    <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700">
+                      DEMO DATA (not real)
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               {/* Right: Actions */}
