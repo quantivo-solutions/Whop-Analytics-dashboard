@@ -27,118 +27,158 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // For now, assume a default company ID or fetch the first one
-    const whopInstallation = await prisma.whopInstallation.findFirst()
-    if (!whopInstallation) {
-      console.warn('No Whop installation found. Skipping daily ingest.')
-      return NextResponse.json({ ok: false, message: 'No Whop installation found' }, { status: 404 })
-    }
+    // TASK 3 - Ingestion: Iterate through all installations and use each installation's accessToken and companyId
+    // INTEGRITY: Never use hardcoded or first installation - process all installations
+    const allInstallations = await prisma.whopInstallation.findMany({
+      where: {
+        accessToken: { not: '' } // Only installations with valid tokens
+      }
+    })
 
-    const companyId = whopInstallation.companyId
-    const accessToken = whopInstallation.accessToken
+    if (allInstallations.length === 0) {
+      console.warn('No Whop installations found. Skipping daily ingest.')
+      return NextResponse.json({ ok: false, message: 'No Whop installations found' }, { status: 404 })
+    }
 
     // Determine yesterday's date in UTC (YYYY-MM-DD)
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayUTC = yesterday.toISOString().split('T')[0]
 
-    console.log(`🚀 Starting daily Whop data ingestion for company ${companyId} for date: ${yesterdayUTC}`)
+    const results = []
 
-    // Fetch daily summary from Whop
-    const summary = await fetchDailySummary(yesterdayUTC, accessToken)
+    // Process each installation separately
+    for (const installation of allInstallations) {
+      const companyId = installation.companyId
+      const accessToken = installation.accessToken
 
-    // Upsert into MetricsDaily
-    const metric = await prisma.metricsDaily.upsert({
-      where: {
-        companyId_date: {
-          companyId: companyId,
-          date: new Date(yesterdayUTC),
-        },
-      },
-      update: {
-        grossRevenue: summary.grossRevenue,
-        activeMembers: summary.activeMembers,
-        newMembers: summary.newMembers,
-        cancellations: summary.cancellations,
-        trialsStarted: summary.trialsStarted,
-        trialsPaid: summary.trialsPaid,
-      },
-      create: {
-        companyId: companyId,
-        date: new Date(yesterdayUTC),
-        grossRevenue: summary.grossRevenue,
-        activeMembers: summary.activeMembers,
-        newMembers: summary.newMembers,
-        cancellations: summary.cancellations,
-        trialsStarted: summary.trialsStarted,
-        trialsPaid: summary.trialsPaid,
-      },
-    })
-
-    console.log(`✅ Successfully ingested data for ${yesterdayUTC} for company ${companyId}.`)
-
-    // --- Post-ingestion actions (Daily Report) ---
-
-    // After ingesting data, automatically send daily report if enabled for this company
-    let emailSent = false
-    let discordSent = false
-
-    try {
-      // Check if this installation has Pro plan and daily email enabled
-      const plan = await getPlanForCompany(companyId)
-      const hasProPlan = hasPro(plan)
-
-      if (hasProPlan && whopInstallation.dailyEmail && whopInstallation.reportEmail) {
-        console.log(`📧 Sending daily report email to ${whopInstallation.reportEmail} for company ${companyId}...`)
-        const emailResult = await sendDailyReportEmail(whopInstallation.reportEmail, metric)
-        
-        if (emailResult.error) {
-          console.error('Failed to send daily report email:', emailResult.error)
-        } else {
-          console.log('✅ Daily report email sent successfully')
-          emailSent = true
-        }
-
-        // Send to Discord if webhook is configured
-        if (whopInstallation.discordWebhook) {
-          console.log(`📢 Posting daily summary to Discord for company ${companyId}...`)
-          const discordMessage = formatDailySummary({
-            ...metric,
-            grossRevenue: Number(metric.grossRevenue)
-          })
-          const discordResult = await postToDiscord(whopInstallation.discordWebhook, discordMessage)
-          
-          if (discordResult.success) {
-            console.log('✅ Posted to Discord successfully')
-            discordSent = true
-          } else {
-            console.error('Failed to post to Discord:', discordResult.error)
-          }
-        }
-      } else {
-        console.log(`ℹ️  Skipping daily report for ${companyId}: plan=${plan}, dailyEmail=${whopInstallation.dailyEmail}, reportEmail=${!!whopInstallation.reportEmail}`)
+      // INTEGRITY: Runtime assert - companyId and token must be present
+      if (!companyId) {
+        console.error(`[Whoplytics] INTEGRITY ERROR: Installation missing companyId, skipping`)
+        continue
       }
-    } catch (reportError) {
-      console.error('Error sending daily report:', reportError)
-      // Don't fail the ingestion if report fails
+      if (!accessToken) {
+        console.error(`[Whoplytics] INTEGRITY ERROR: Installation ${companyId} missing accessToken, skipping`)
+        continue
+      }
+
+      console.log(`[Whoplytics] fetch`, { path: 'daily-summary', companyId, startISO: yesterdayUTC, endISO: yesterdayUTC })
+      console.log(`🚀 Starting daily Whop data ingestion for company ${companyId} for date: ${yesterdayUTC}`)
+
+      try {
+        // Fetch daily summary from Whop using THIS installation's token
+        const summary = await fetchDailySummary(yesterdayUTC, accessToken, companyId)
+
+        // INTEGRITY: Always include companyId in upsert
+        const metric = await prisma.metricsDaily.upsert({
+          where: {
+            companyId_date: {
+              companyId: companyId,
+              date: new Date(yesterdayUTC),
+            },
+          },
+          update: {
+            grossRevenue: summary.grossRevenue,
+            activeMembers: summary.activeMembers,
+            newMembers: summary.newMembers,
+            cancellations: summary.cancellations,
+            trialsStarted: summary.trialsStarted,
+            trialsPaid: summary.trialsPaid,
+          },
+          create: {
+            companyId: companyId, // INTEGRITY: Always include companyId
+            date: new Date(yesterdayUTC),
+            grossRevenue: summary.grossRevenue,
+            activeMembers: summary.activeMembers,
+            newMembers: summary.newMembers,
+            cancellations: summary.cancellations,
+            trialsStarted: summary.trialsStarted,
+            trialsPaid: summary.trialsPaid,
+          },
+        })
+
+        console.log(`✅ Successfully ingested data for ${yesterdayUTC} for company ${companyId}.`)
+
+        // --- Post-ingestion actions (Daily Report) ---
+
+        // After ingesting data, automatically send daily report if enabled for this company
+        let emailSent = false
+        let discordSent = false
+
+        try {
+          // Check if this installation has Pro plan and daily email enabled
+          const plan = await getPlanForCompany(companyId)
+          const hasProPlan = hasPro(plan)
+
+          if (hasProPlan && installation.dailyEmail && installation.reportEmail) {
+            console.log(`📧 Sending daily report email to ${installation.reportEmail} for company ${companyId}...`)
+            const emailResult = await sendDailyReportEmail(installation.reportEmail, metric)
+            
+            if (emailResult.error) {
+              console.error('Failed to send daily report email:', emailResult.error)
+            } else {
+              console.log('✅ Daily report email sent successfully')
+              emailSent = true
+            }
+
+            // Send to Discord if webhook is configured
+            if (installation.discordWebhook) {
+              console.log(`📢 Posting daily summary to Discord for company ${companyId}...`)
+              const discordMessage = formatDailySummary({
+                ...metric,
+                grossRevenue: Number(metric.grossRevenue)
+              })
+              const discordResult = await postToDiscord(installation.discordWebhook, discordMessage)
+              
+              if (discordResult.success) {
+                console.log('✅ Posted to Discord successfully')
+                discordSent = true
+              } else {
+                console.error('Failed to post to Discord:', discordResult.error)
+              }
+            }
+          } else {
+            console.log(`ℹ️  Skipping daily report for ${companyId}: plan=${plan}, dailyEmail=${installation.dailyEmail}, reportEmail=${!!installation.reportEmail}`)
+          }
+        } catch (reportError) {
+          console.error('Error sending daily report:', reportError)
+          // Don't fail the ingestion if report fails
+        }
+
+        results.push({
+          companyId,
+          date: yesterdayUTC,
+          success: true,
+          summary: {
+            grossRevenue: summary.grossRevenue,
+            activeMembers: summary.activeMembers,
+            newMembers: summary.newMembers,
+            cancellations: summary.cancellations,
+            trialsStarted: summary.trialsStarted,
+            trialsPaid: summary.trialsPaid,
+          },
+          report: {
+            emailSent,
+            discordSent,
+          },
+        })
+      } catch (error) {
+        console.error(`[Whoplytics] Error ingesting data for company ${companyId}:`, error)
+        results.push({
+          companyId,
+          date: yesterdayUTC,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
     }
 
     return NextResponse.json({
       ok: true,
       wrote: true,
       date: yesterdayUTC,
-      summary: {
-        grossRevenue: summary.grossRevenue,
-        activeMembers: summary.activeMembers,
-        newMembers: summary.newMembers,
-        cancellations: summary.cancellations,
-        trialsStarted: summary.trialsStarted,
-        trialsPaid: summary.trialsPaid,
-      },
-      report: {
-        emailSent,
-        discordSent,
-      },
+      processed: results.length,
+      results,
     })
   } catch (error) {
     console.error('Error ingesting Whop data:', error)

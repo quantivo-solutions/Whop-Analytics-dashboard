@@ -4,9 +4,9 @@
  */
 
 import { DashboardView } from '@/components/dashboard-view'
-import { getCompanySeries, getInstallationByExperience, getMonthlyRevenue } from '@/lib/metrics'
+import { getCompanySeries, getMonthlyRevenue } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
-import { getCompanyPrefs, isOnboardingComplete } from '@/lib/company'
+import { getCompanyPrefs, isOnboardingComplete, getInstallationByExperience } from '@/lib/company'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { ErrorDisplay } from '@/components/error-boundary'
 import { UserProfileMenuClient } from '@/components/user-profile-menu-client'

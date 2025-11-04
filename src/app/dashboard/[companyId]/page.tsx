@@ -26,7 +26,7 @@ import { getCompanySeries, getMonthlyRevenue } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { GoalProgress } from '@/components/goal-progress'
 import { WhoplyticsLogo } from '@/components/whoplytics-logo'
-import { getCompanyPrefs, isOnboardingComplete } from '@/lib/company'
+import { getCompanyPrefs, isOnboardingComplete, getInstallationByCompany, CompanyID } from '@/lib/company'
 import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
@@ -62,7 +62,20 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   const { token } = resolvedSearchParams
 
   console.log('[Dashboard View] Loading for companyId from URL:', companyId)
-  console.log('[Dashboard View] ⚠️ IMPORTANT: Using companyId from URL params, not from installation/session')
+  
+  // TASK 2 - Page guard: Resolve installation via getInstallationByCompany
+  // INTEGRITY: Validate companyId before proceeding
+  if (!companyId || typeof companyId !== 'string') {
+    console.error('[Dashboard View] INTEGRITY ERROR: Invalid companyId in URL')
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <h2 className="text-xl font-bold mb-2">Invalid Company ID</h2>
+          <p className="text-muted-foreground">No installation found for this companyId.</p>
+        </Card>
+      </div>
+    )
+  }
 
   // STEP 1: Verify user authentication via Whop iframe headers (Dashboard View pattern)
   // According to Whop docs: Dashboard apps should verify user token first
@@ -71,6 +84,34 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
   let installation = null
   let session = await getSession(token).catch(() => null)
+  
+  // TASK 2 - Page guard: Resolve installation via getInstallationByCompany
+  // INTEGRITY: Use helper function to ensure proper company isolation
+  try {
+    installation = await getInstallationByCompany(companyId as CompanyID)
+    if (!installation) {
+      console.warn('[Dashboard View] No installation found for companyId:', companyId)
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Card className="p-8 text-center">
+            <h2 className="text-xl font-bold mb-2">App Not Installed</h2>
+            <p className="text-muted-foreground">No installation found for this company.</p>
+          </Card>
+        </div>
+      )
+    }
+    console.log('[Dashboard View] ✅ Installation found via getInstallationByCompany:', installation.companyId)
+  } catch (error) {
+    console.error('[Dashboard View] Error resolving installation:', error)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <h2 className="text-xl font-bold mb-2">Error</h2>
+          <p className="text-muted-foreground">Failed to resolve installation.</p>
+        </Card>
+      </div>
+    )
+  }
 
     // STEP 2: If user is authenticated via Whop, verify admin access and create/update installation
     if (whopUser && whopUser.userId) {

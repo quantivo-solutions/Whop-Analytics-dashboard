@@ -157,7 +157,20 @@ export async function getWhopClient() {
  * const summary = await fetchDailySummary('2025-10-24', 'whop_access_token')
  * console.log(`Revenue: $${summary.grossRevenue}, Active: ${summary.activeMembers}`)
  */
-export async function fetchDailySummary(dateStr: string, accessToken: string): Promise<DailySummary> {
+/**
+ * TASK 7 - Add assertions & logs in data layer
+ * INTEGRITY: companyId must always be provided
+ */
+export async function fetchDailySummary(dateStr: string, accessToken: string, companyId?: string): Promise<DailySummary> {
+  // INTEGRITY: Runtime assert - companyId and token must be provided
+  if (!companyId) {
+    throw new Error('[Whoplytics] Missing companyId parameter in fetchDailySummary')
+  }
+  if (!accessToken) {
+    throw new Error('[Whoplytics] Missing accessToken parameter in fetchDailySummary')
+  }
+  
+  console.log('[Whoplytics] fetch', { path: 'daily-summary', companyId, startISO: dateStr, endISO: dateStr })
   console.log(`📊 Fetching complete daily summary for ${dateStr}...`)
   
   // Fetch revenue with error handling

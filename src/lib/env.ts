@@ -15,6 +15,7 @@ export const CRON_SECRET = process.env.CRON_SECRET || ''
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 export const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || ''
 export const REPORT_EMAIL = process.env.REPORT_EMAIL || ''
+export const WHOPLYTICS_DEMO_MODE = process.env.WHOPLYTICS_DEMO_MODE || '0'
 
 // Public environment variables (safe to expose to client)
 export const NEXT_PUBLIC_WHOP_APP_ID = process.env.NEXT_PUBLIC_WHOP_APP_ID || ''
@@ -33,6 +34,7 @@ export const env = {
   REPORT_EMAIL,
   NEXT_PUBLIC_WHOP_APP_ID,
   NEXT_PUBLIC_WHOP_AGENT_USER_ID,
+  WHOPLYTICS_DEMO_MODE,
 }
 
 /**

@@ -2,10 +2,42 @@
  * Company Preferences & Onboarding Helpers
  * 
  * Server-only utilities for managing company onboarding and preferences
+ * 
+ * TASK 1: Strong typing + helpers for multi-tenant isolation
  */
 
 import { prisma } from './prisma'
 import { Prisma } from '@prisma/client'
+
+/**
+ * Strong type for Company ID to ensure consistency
+ */
+export type CompanyID = string
+
+/**
+ * Get installation by experience ID
+ * Used for Experience View pages
+ */
+export async function getInstallationByExperience(experienceId: string) {
+  return prisma.whopInstallation.findUnique({ 
+    where: { experienceId } 
+  })
+}
+
+/**
+ * Get installation by company ID
+ * Used for Dashboard View pages
+ * 
+ * INTEGRITY: Always use this helper to ensure we're querying the correct company
+ */
+export async function getInstallationByCompany(companyId: CompanyID) {
+  if (!companyId) {
+    throw new Error('[Company Integrity] Missing companyId parameter')
+  }
+  return prisma.whopInstallation.findUnique({ 
+    where: { companyId } 
+  })
+}
 
 export interface CompanyPrefsData {
   goalAmount?: number | null

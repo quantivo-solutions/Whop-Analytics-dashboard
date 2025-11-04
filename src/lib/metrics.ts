@@ -142,20 +142,9 @@ export async function getCompanySeries(
 }
 
 /**
- * Get installation by experience ID
- * @param experienceId - Whop experience ID
- * @returns WhopInstallation or null
+ * INTEGRITY: getInstallationByExperience moved to @/lib/company
+ * Use getInstallationByExperience from @/lib/company for consistency
  */
-export async function getInstallationByExperience(experienceId: string) {
-  try {
-    return await prisma.whopInstallation.findUnique({
-      where: { experienceId },
-    })
-  } catch (error) {
-    console.error(`Error fetching installation for experience ${experienceId}:`, error)
-    return null
-  }
-}
 
 /**
  * Get installation by company ID
