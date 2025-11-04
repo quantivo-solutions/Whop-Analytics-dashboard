@@ -35,18 +35,18 @@ export function StepGoal({ goalAmount, onGoalChange }: StepGoalProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl md:text-3xl font-semibold">Set your monthly revenue goal</h2>
-        <p className="text-muted-foreground">We'll track your progress automatically.</p>
+    <div className="space-y-4">
+      <div className="text-center space-y-1.5">
+        <h2 className="text-xl md:text-2xl font-semibold">Set your monthly revenue goal</h2>
+        <p className="text-sm text-muted-foreground">We'll track your progress automatically.</p>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-3">
-          <Label>Choose an amount or enter custom</Label>
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <Label className="text-sm">Choose an amount or enter custom</Label>
           
           {/* Preset buttons */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {PRESET_AMOUNTS.map((amount) => (
               <Button
                 key={amount}
@@ -66,8 +66,8 @@ export function StepGoal({ goalAmount, onGoalChange }: StepGoalProps) {
         </div>
 
         {/* Custom amount input */}
-        <div className="space-y-2">
-          <Label htmlFor="goalAmount">Or enter custom amount (USD)</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="goalAmount" className="text-sm">Or enter custom amount (USD)</Label>
           <Input
             id="goalAmount"
             type="number"
@@ -76,7 +76,7 @@ export function StepGoal({ goalAmount, onGoalChange }: StepGoalProps) {
             value={customAmount}
             onChange={(e) => handleCustomChange(e.target.value)}
             placeholder="Enter amount"
-            className="text-lg"
+            className="text-base"
           />
           <p className="text-xs text-muted-foreground">
             You can change this later in your preferences.

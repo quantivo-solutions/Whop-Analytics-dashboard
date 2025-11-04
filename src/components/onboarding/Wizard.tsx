@@ -166,26 +166,26 @@ export function Wizard({ companyId, initialPrefs, onComplete, initialStep }: Wiz
       {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-slate-950/80 dark:from-black/90 dark:via-slate-900/70 dark:to-black/90" />
       
-      <Card className="relative w-full max-w-[820px] rounded-2xl border shadow-2xl bg-background/95 backdrop-blur-sm">
+      <Card className="relative w-full max-w-[640px] max-h-[90vh] rounded-2xl border shadow-2xl bg-background/95 backdrop-blur-sm flex flex-col overflow-hidden">
         {/* Close button - only show when editing (not first-time onboarding) */}
         {isEditingMode && (
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-4 top-4 z-10"
+            className="absolute right-3 top-3 z-10 h-8 w-8"
             onClick={() => onComplete?.()}
           >
             <X className="h-4 w-4" />
           </Button>
         )}
         
-        <CardContent className="p-8">
+        <CardContent className="p-5 md:p-6 flex flex-col flex-1 overflow-y-auto">
           {/* Progress dots */}
-          <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="flex items-center justify-center gap-2 mb-4 flex-shrink-0">
             {[0, 1, 2].map((s) => (
               <div
                 key={s}
-                className={`h-2 w-8 rounded-full transition-colors ${
+                className={`h-1.5 w-6 rounded-full transition-colors ${
                   s === step
                     ? 'bg-primary'
                     : s < step
@@ -198,13 +198,13 @@ export function Wizard({ companyId, initialPrefs, onComplete, initialStep }: Wiz
 
           {/* Error message */}
           {error && (
-            <div className="mb-6 rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+            <div className="mb-4 rounded-md bg-destructive/10 border border-destructive/20 p-2.5 text-sm text-destructive flex-shrink-0">
               {error}
             </div>
           )}
 
           {/* Step content */}
-          <div className="min-h-[400px]">
+          <div className="flex-1 min-h-0">
             {step === 0 && <StepWelcome />}
             {step === 1 && <StepGoal goalAmount={goalAmount} onGoalChange={setGoalAmount} />}
             {step === 2 && !isEditingMode && (
@@ -216,7 +216,7 @@ export function Wizard({ companyId, initialPrefs, onComplete, initialStep }: Wiz
           </div>
         </CardContent>
 
-        <CardFooter className="flex justify-between px-8 pb-8">
+        <CardFooter className="flex justify-between px-5 md:px-6 pb-5 md:pb-6 flex-shrink-0 border-t">
           {!isEditingMode && (
             <Button
               variant="outline"

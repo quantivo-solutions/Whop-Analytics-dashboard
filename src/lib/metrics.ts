@@ -217,23 +217,8 @@ export async function getMonthlyRevenue(companyId: string): Promise<number> {
 
     console.log(`[getMonthlyRevenue] Found ${metrics.length} records for current month`)
     if (metrics.length === 0) {
-      console.log(`[getMonthlyRevenue] ⚠️ No records found for current month. Checking if data exists in other months...`)
-      // Check if there's any data at all for this company
-      const anyData = await prisma.metricsDaily.findFirst({
-        where: { companyId },
-        orderBy: { date: 'desc' },
-      })
-      if (anyData) {
-        console.log(`[getMonthlyRevenue] Latest record date: ${anyData.date.toISOString()}, month: ${anyData.date.getMonth() + 1}, current month: ${now.getMonth() + 1}`)
-        // If data exists but in a different month, sum all available data as fallback
-        const allMetrics = await prisma.metricsDaily.findMany({
-          where: { companyId },
-          orderBy: { date: 'asc' },
-        })
-        const totalRevenue = allMetrics.reduce((sum, m) => sum + Number(m.grossRevenue), 0)
-        console.log(`[getMonthlyRevenue] Using fallback: summing all ${allMetrics.length} records = ${totalRevenue}`)
-        return totalRevenue
-      }
+      console.log(`[getMonthlyRevenue] ⚠️ No records found for current month. Returning 0.`)
+      // Only return 0 - don't sum all historical data as that's not monthly revenue
       return 0
     }
 
