@@ -126,13 +126,22 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
             
             <h3 className="text-2xl font-bold mb-2">No activity yet</h3>
             <p className="text-muted-foreground max-w-md mb-6">
-              Your analytics will appear here as soon as customers start joining your Whop.
-              Data syncs automatically in real-time via webhooks.
+              Your analytics will appear here as soon as customers start joining your Whop or making payments.
+              Data syncs automatically via webhooks and daily cron jobs.
             </p>
             
-            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
-              <Zap className="h-4 w-4 text-yellow-500" />
-              <span>Waiting for your first member or payment...</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
+                <Zap className="h-4 w-4 text-yellow-500" />
+                <span>Waiting for your first member or payment...</span>
+              </div>
+              <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2">
+                <p className="font-semibold text-blue-900 dark:text-blue-200 mb-1">💡 Note:</p>
+                <p className="text-blue-800 dark:text-blue-300">
+                  App installations are separate from analytics data. This dashboard tracks revenue, members, and payments in your Whop. 
+                  If you just installed the app, data will appear once you have members or transactions.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

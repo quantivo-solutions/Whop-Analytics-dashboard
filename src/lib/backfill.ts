@@ -56,7 +56,13 @@ export async function performBackfill(
       })
 
       daysWritten++
-      console.log(`  ✅ ${dateStr}: $${summary.grossRevenue.toFixed(2)}, ${summary.activeMembers} active, ${summary.newMembers} new`)
+      // Log even if all zeros (helps debug empty Whops)
+      const hasData = summary.grossRevenue > 0 || summary.activeMembers > 0 || summary.newMembers > 0 || summary.cancellations > 0
+      if (hasData) {
+        console.log(`  ✅ ${dateStr}: $${summary.grossRevenue.toFixed(2)}, ${summary.activeMembers} active, ${summary.newMembers} new`)
+      } else {
+        console.log(`  ✅ ${dateStr}: No activity (all zeros) - Whop has no members/payments yet`)
+      }
 
       // Small delay to avoid rate limiting (100ms between requests)
       await new Promise(resolve => setTimeout(resolve, 100))
