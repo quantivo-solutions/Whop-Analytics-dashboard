@@ -157,38 +157,38 @@ export async function POST(request: NextRequest) {
       })
     }
 
-          // Validate patch (goalAmount, completedAt, and proWelcomeShownAt)
-          const validPatch: {
-            goalAmount?: number | null
-            completedAt?: Date | null
-            proWelcomeShownAt?: Date | null
-          } = {}
+    // Validate patch (goalAmount, completedAt, and proWelcomeShownAt)
+    const validPatch: {
+      goalAmount?: number | null
+      completedAt?: Date | null
+      proWelcomeShownAt?: Date | null
+    } = {}
 
-          if (patch.goalAmount !== undefined) {
-            validPatch.goalAmount = patch.goalAmount !== null ? Number(patch.goalAmount) : null
-          }
-          if (patch.completedAt !== undefined) {
-            validPatch.completedAt = patch.completedAt ? new Date(patch.completedAt) : null
-          }
-          if (patch.proWelcomeShownAt !== undefined) {
-            validPatch.proWelcomeShownAt = patch.proWelcomeShownAt ? new Date(patch.proWelcomeShownAt) : null
-          }
+    if (patch.goalAmount !== undefined) {
+      validPatch.goalAmount = patch.goalAmount !== null ? Number(patch.goalAmount) : null
+    }
+    if (patch.completedAt !== undefined) {
+      validPatch.completedAt = patch.completedAt ? new Date(patch.completedAt) : null
+    }
+    if (patch.proWelcomeShownAt !== undefined) {
+      validPatch.proWelcomeShownAt = patch.proWelcomeShownAt ? new Date(patch.proWelcomeShownAt) : null
+    }
 
     await setCompanyPrefs(companyId, validPatch)
 
     const updatedPrefs = await getCompanyPrefs(companyId)
 
-          return NextResponse.json({
-            success: true,
-            prefs: {
-              companyId: updatedPrefs.companyId,
-              goalAmount: updatedPrefs.goalAmount ? Number(updatedPrefs.goalAmount) : null,
-              wantsDailyMail: updatedPrefs.wantsDailyMail,
-              wantsDiscord: updatedPrefs.wantsDiscord,
-              completedAt: updatedPrefs.completedAt?.toISOString() || null,
-              proWelcomeShownAt: updatedPrefs.proWelcomeShownAt?.toISOString() || null,
-            },
-          })
+    return NextResponse.json({
+      success: true,
+      prefs: {
+        companyId: updatedPrefs.companyId,
+        goalAmount: updatedPrefs.goalAmount ? Number(updatedPrefs.goalAmount) : null,
+        wantsDailyMail: updatedPrefs.wantsDailyMail,
+        wantsDiscord: updatedPrefs.wantsDiscord,
+        completedAt: updatedPrefs.completedAt?.toISOString() || null,
+        proWelcomeShownAt: updatedPrefs.proWelcomeShownAt?.toISOString() || null,
+      },
+    })
   } catch (error) {
     console.error('[Company Prefs API] POST error:', error)
     return NextResponse.json(
