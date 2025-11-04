@@ -91,17 +91,13 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   try {
     installation = await getInstallationByCompany(companyId as CompanyID)
     if (!installation) {
+      // Do NOT return early here. When accessed from Whop, the URL companyId
+      // can differ from the creator's current installation. We'll try to
+      // resolve by authenticated Whop user below and proceed.
       console.warn('[Dashboard View] No installation found for companyId:', companyId)
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <Card className="p-8 text-center">
-            <h2 className="text-xl font-bold mb-2">App Not Installed</h2>
-            <p className="text-muted-foreground">No installation found for this company.</p>
-          </Card>
-        </div>
-      )
+    } else {
+      console.log('[Dashboard View] ✅ Installation found via getInstallationByCompany:', installation.companyId)
     }
-    console.log('[Dashboard View] ✅ Installation found via getInstallationByCompany:', installation.companyId)
   } catch (error) {
     console.error('[Dashboard View] Error resolving installation:', error)
     return (
