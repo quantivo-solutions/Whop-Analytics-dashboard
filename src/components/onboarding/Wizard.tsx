@@ -80,6 +80,47 @@ export function Wizard({ companyId, initialPrefs, onComplete, initialStep }: Wiz
     }
   }
 
+  // If editing mode and Pro, save goal directly without showing Compare step
+  const handleGoalSave = async () => {
+    if (isEditingMode && onComplete) {
+      // In editing mode for Pro users, just save the goal and close
+      setLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch('/api/company/prefs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            companyId,
+            patch: {
+              goalAmount: goalAmount !== null ? Number(goalAmount) : null,
+            },
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Failed to save goal' }))
+          throw new Error(errorData.error || 'Failed to save goal')
+        }
+
+        // Success - close the modal and refresh
+        onComplete()
+        window.location.reload()
+      } catch (err) {
+        console.error('[Onboarding] Error saving goal:', err)
+        setError(err instanceof Error ? err.message : 'Failed to save goal')
+      } finally {
+        setLoading(false)
+      }
+    } else {
+      // Normal flow - go to compare step
+      await handleNext()
+    }
+  }
+
   const handleFinish = async (chosenPlan: 'free' | 'pro') => {
     setLoading(true)
     setError(null)
