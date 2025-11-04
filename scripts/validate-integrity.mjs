@@ -389,21 +389,31 @@ async function testWebhookRoundtrip() {
     },
   }
   
+  // IMPORTANT: The payload must be stringified exactly once, and the signature computed from that exact string
+  // The server reads the raw body using request.text(), so we must send the exact same string
   const payloadString = JSON.stringify(payload)
   
   // Compute signature - must match exactly how server verifies it
   // Server uses: crypto.createHmac('sha256', secret).update(payload).digest('hex')
+  // The payload here MUST be the exact string that will be sent as the body
   const signature = computeWebhookSignature(payloadString, WHOP_WEBHOOK_SECRET)
+  
+  // Verify signature computation locally for debugging
+  const testSignature = computeWebhookSignature(payloadString, WHOP_WEBHOOK_SECRET)
+  if (signature !== testSignature) {
+    console.log('  ⚠️  Signature computation inconsistency detected!')
+  }
   
   console.log('Sending webhook payload...')
   console.log(`  Type: ${payload.type}`)
   console.log(`  Company ID: ${payload.data.company_id}`)
   console.log(`  Payload length: ${payloadString.length} bytes`)
-  console.log(`  Signature (first 16 chars): ${signature.substring(0, 16)}...`)
+  console.log(`  Payload (first 100 chars): ${payloadString.substring(0, 100)}...`)
+  console.log(`  Signature (first 32 chars): ${signature.substring(0, 32)}...`)
   
   const response = await httpFetch(`${baseUrl}/api/webhooks/whop`, {
     method: 'POST',
-    body: payloadString,
+    body: payloadString, // Send the exact string used for signature computation
     headers: {
       'whop-signature': signature,
       'Content-Type': 'application/json',

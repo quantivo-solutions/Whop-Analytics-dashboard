@@ -132,6 +132,15 @@ function verifyWebhookSignature(payload: string, signature: string): boolean {
       .update(payload)
       .digest('hex')
     
+    // Debug logging for signature verification issues
+    if (signature !== expectedSignature) {
+      console.log('[Webhook Signature Debug]')
+      console.log('  Received signature:', signature.substring(0, 32) + '...')
+      console.log('  Expected signature:', expectedSignature.substring(0, 32) + '...')
+      console.log('  Payload length:', payload.length)
+      console.log('  Payload preview:', payload.substring(0, 100))
+    }
+    
     return crypto.timingSafeEqual(
       Buffer.from(signature),
       Buffer.from(expectedSignature)
