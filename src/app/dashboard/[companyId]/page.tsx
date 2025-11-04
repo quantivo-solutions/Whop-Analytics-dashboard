@@ -642,17 +642,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                     Whoplytics
                   </h1>
                   <p className="text-xs text-muted-foreground hidden sm:block font-medium">
-                    {goalAmount ? (
-                      <>
-                        Goal: ${goalAmount.toLocaleString()} — {goalRemaining && goalRemaining > 0 ? (
-                          <>${goalRemaining.toLocaleString()} away</>
-                        ) : (
-                          <>Goal reached! 🎉</>
-                        )}
-                      </>
-                    ) : (
-                      <>Business insights at a glance</>
-                    )}
+                    Business insights at a glance
                   </p>
                 </div>
               </div>

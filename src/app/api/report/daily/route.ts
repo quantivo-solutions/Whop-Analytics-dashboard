@@ -145,9 +145,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      message: `Daily reports sent to ${successCount} of ${proInstallations.length} Pro installation(s)`,
+      message: `Daily reports sent to ${successCount} of ${validInstallations.length} Pro installation(s)`,
       sent: successCount,
-      total: proInstallations.length,
+      total: validInstallations.length,
       results,
       timestamp: new Date().toISOString(),
     })
