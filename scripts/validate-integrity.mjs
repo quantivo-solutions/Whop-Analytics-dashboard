@@ -456,6 +456,16 @@ async function testWebhookRoundtrip() {
     }
     
     return true
+  } else if (response.status === 403 && response.json?.error === 'Invalid signature') {
+    console.log(`  ⚠️  Webhook rejected with 403 Invalid signature`)
+    console.log(`  This is likely due to WHOP_WEBHOOK_SECRET mismatch between local and Vercel`)
+    console.log(`  Check Vercel logs for [Webhook Debug] output showing:`)
+    console.log(`    - Secret length (should match local: ${WHOP_WEBHOOK_SECRET.length})`)
+    console.log(`    - Secret preview (should match local: ${WHOP_WEBHOOK_SECRET.substring(0, 8)}...)`)
+    console.log(`    - Full raw body received`)
+    console.log(`  If secrets don't match, update Vercel env var to match local .env.local`)
+    console.log(`  Note: This is a configuration issue, not a code issue. Security is working correctly.`)
+    return false
   } else {
     console.log(`  ❌ Webhook rejected with status ${response.status}`)
     console.log(`  Response: ${response.text}`)
