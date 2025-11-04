@@ -406,12 +406,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
           {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
           <ProWelcomeWrapper
             companyId={finalCompanyId}
-            onClose={() => {
-              // Reload page to show dashboard
-              if (typeof window !== 'undefined') {
-                window.location.reload()
-              }
-            }}
           />
         </div>
       )

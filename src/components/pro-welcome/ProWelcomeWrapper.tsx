@@ -1,15 +1,16 @@
 'use client'
 
 import { ProWelcomeModal } from './ProWelcomeModal'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface ProWelcomeWrapperProps {
   companyId: string
-  onClose: () => void
 }
 
-export function ProWelcomeWrapper({ companyId, onClose }: ProWelcomeWrapperProps) {
+export function ProWelcomeWrapper({ companyId }: ProWelcomeWrapperProps) {
   const [open, setOpen] = useState(true)
+  const router = useRouter()
 
   const handleClose = async () => {
     setOpen(false)
@@ -26,7 +27,8 @@ export function ProWelcomeWrapper({ companyId, onClose }: ProWelcomeWrapperProps
     } catch (error) {
       console.error('[Pro Welcome] Error marking as shown:', error)
     }
-    onClose()
+    // Reload page to show dashboard
+    router.refresh()
   }
 
   return <ProWelcomeModal open={open} onClose={handleClose} />

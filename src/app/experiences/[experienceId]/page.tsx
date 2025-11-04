@@ -589,12 +589,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           <TokenCleanup />
           <ProWelcomeWrapper
             companyId={finalCompanyId}
-            onClose={() => {
-              // Reload page to show dashboard
-              if (typeof window !== 'undefined') {
-                window.location.reload()
-              }
-            }}
           />
         </div>
       )
