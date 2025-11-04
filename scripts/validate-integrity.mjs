@@ -399,14 +399,16 @@ async function testWebhookRoundtrip() {
   // The payload here MUST be the exact string that will be sent as the body
   const signature = computeWebhookSignature(payloadString, WHOP_WEBHOOK_SECRET)
   
-  // Verify signature computation locally
-  const testSignature = computeWebhookSignature(payloadString, WHOP_WEBHOOK_SECRET)
-  
   // Verify signature computation locally for debugging
   const testSignature = computeWebhookSignature(payloadString, WHOP_WEBHOOK_SECRET)
   if (signature !== testSignature) {
     console.log('  ⚠️  Signature computation inconsistency detected!')
   }
+  
+  // Debug: Show what we're computing locally
+  console.log('  [Local Debug] Computed signature:', signature.substring(0, 32) + '...')
+  console.log('  [Local Debug] Secret length:', WHOP_WEBHOOK_SECRET.length)
+  console.log('  [Local Debug] Secret preview:', WHOP_WEBHOOK_SECRET.substring(0, 8) + '...')
   
   console.log('Sending webhook payload...')
   console.log(`  Type: ${payload.type}`)
