@@ -181,12 +181,26 @@ export async function getInstallationByCompany(companyId: string) {
 export async function getMonthlyRevenue(companyId: string): Promise<number> {
   try {
     const now = new Date()
-    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    // Use local time for month boundaries to match user expectations
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     startOfMonth.setHours(0, 0, 0, 0)
-    const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
     endOfMonth.setHours(23, 59, 59, 999)
 
-    console.log(`[getMonthlyRevenue] Calculating for companyId: ${companyId}, month: ${startOfMonth.toISOString()} to ${endOfMonth.toISOString()}`)
+    console.log(`[getMonthlyRevenue] Calculating for companyId: ${companyId}`)
+    console.log(`[getMonthlyRevenue] Month range: ${startOfMonth.toISOString()} to ${endOfMonth.toISOString()}`)
+    console.log(`[getMonthlyRevenue] Current date: ${now.toISOString()}`)
+
+    // First, check all records for this company to see what dates exist
+    const allRecords = await prisma.metricsDaily.findMany({
+      where: { companyId },
+      orderBy: { date: 'desc' },
+      take: 10,
+    })
+    console.log(`[getMonthlyRevenue] Latest ${allRecords.length} records for companyId ${companyId}:`)
+    allRecords.forEach((r, i) => {
+      console.log(`[getMonthlyRevenue]   Record ${i}: date=${r.date.toISOString()}, grossRevenue=${r.grossRevenue}`)
+    })
 
     const metrics = await prisma.metricsDaily.findMany({
       where: {
@@ -201,14 +215,34 @@ export async function getMonthlyRevenue(companyId: string): Promise<number> {
       },
     })
 
-    console.log(`[getMonthlyRevenue] Found ${metrics.length} records for month`)
+    console.log(`[getMonthlyRevenue] Found ${metrics.length} records for current month`)
+    if (metrics.length === 0) {
+      console.log(`[getMonthlyRevenue] ⚠️ No records found for current month. Checking if data exists in other months...`)
+      // Check if there's any data at all for this company
+      const anyData = await prisma.metricsDaily.findFirst({
+        where: { companyId },
+        orderBy: { date: 'desc' },
+      })
+      if (anyData) {
+        console.log(`[getMonthlyRevenue] Latest record date: ${anyData.date.toISOString()}, month: ${anyData.date.getMonth() + 1}, current month: ${now.getMonth() + 1}`)
+        // If data exists but in a different month, sum all available data as fallback
+        const allMetrics = await prisma.metricsDaily.findMany({
+          where: { companyId },
+          orderBy: { date: 'asc' },
+        })
+        const totalRevenue = allMetrics.reduce((sum, m) => sum + Number(m.grossRevenue), 0)
+        console.log(`[getMonthlyRevenue] Using fallback: summing all ${allMetrics.length} records = ${totalRevenue}`)
+        return totalRevenue
+      }
+      return 0
+    }
+
     metrics.forEach((m, i) => {
       console.log(`[getMonthlyRevenue] Record ${i}: date=${m.date.toISOString()}, grossRevenue=${m.grossRevenue}`)
     })
 
     const totalRevenue = metrics.reduce((sum, m) => {
       const revenue = Number(m.grossRevenue)
-      console.log(`[getMonthlyRevenue] Adding ${revenue} to sum (current: ${sum})`)
       return sum + revenue
     }, 0)
     
