@@ -178,10 +178,10 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Trial Conversion */}
-        <Card className="relative">
+        <Card className="relative border-2 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg transition-all duration-300">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Trial Conversion</CardTitle>
+              <CardTitle className="text-base font-semibold">Trial Conversion</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardHeader>
