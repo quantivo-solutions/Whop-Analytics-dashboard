@@ -502,14 +502,23 @@ async function printSummary() {
   console.log(`  ${results.planGatingWorks ? '✅' : '⚠️ '} Plan gating (manual verification)`)
   console.log(`  ${results.dashboardReflectsOnlyCompanyData ? '✅' : '⚠️ '} Dashboard reflects only company data (manual verification)`)
   
-  const allPassed = Object.values(results).every(v => v === true)
+  // Check only automated tests (exclude manual verification)
+  const automatedTests = {
+    integrityRouteSecure: results.integrityRouteSecure,
+    smokeRouteSecure: results.smokeRouteSecure,
+    noCrossTenantLeaks: results.noCrossTenantLeaks,
+    dataIsolationConfirmed: results.dataIsolationConfirmed,
+    webhookIngestionWorks: results.webhookIngestionWorks,
+  }
+  
+  const allAutomatedPassed = Object.values(automatedTests).every(v => v === true)
   
   console.log('\n' + '=' .repeat(60))
-  if (allPassed) {
+  if (allAutomatedPassed) {
     console.log('🎉 All automated tests passed!')
     console.log('⚠️  Please manually verify plan gating and dashboard data isolation')
   } else {
-    console.log('❌ Some tests failed. Review output above for details.')
+    console.log('❌ Some automated tests failed. Review output above for details.')
   }
   console.log('=' .repeat(60))
   console.log('')
