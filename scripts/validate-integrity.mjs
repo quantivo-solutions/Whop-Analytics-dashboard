@@ -391,12 +391,16 @@ async function testWebhookRoundtrip() {
   
   // IMPORTANT: The payload must be stringified exactly once, and the signature computed from that exact string
   // The server reads the raw body using request.text(), so we must send the exact same string
+  // Use JSON.stringify without any formatting to ensure consistent output
   const payloadString = JSON.stringify(payload)
   
   // Compute signature - must match exactly how server verifies it
   // Server uses: crypto.createHmac('sha256', secret).update(payload).digest('hex')
   // The payload here MUST be the exact string that will be sent as the body
   const signature = computeWebhookSignature(payloadString, WHOP_WEBHOOK_SECRET)
+  
+  // Verify signature computation locally
+  const testSignature = computeWebhookSignature(payloadString, WHOP_WEBHOOK_SECRET)
   
   // Verify signature computation locally for debugging
   const testSignature = computeWebhookSignature(payloadString, WHOP_WEBHOOK_SECRET)
