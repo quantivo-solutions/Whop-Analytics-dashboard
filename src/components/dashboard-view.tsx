@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * Reusable Dashboard View Component
  * Used across all dashboard pages (main, experience-scoped, company-scoped)
