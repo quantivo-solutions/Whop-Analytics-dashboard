@@ -230,7 +230,7 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               <Button
                 variant="outline"
                 size="sm"
-                className="border-2 hover:bg-muted/50 transition-colors"
+                className="gap-2 border-2 hover:bg-muted/50 transition-colors"
                 onClick={async () => {
                   try {
                     const url = `/api/export/csv?companyId=${companyId}&days=${series.length}`
@@ -252,7 +252,6 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
                     alert('Failed to export CSV. Please try again.')
                   }
                 }}
-                className="gap-2"
               >
                 <Download className="h-4 w-4" />
                 Export CSV
