@@ -23,6 +23,7 @@ import { InsightsPanel } from '@/components/insights/InsightsPanel'
 import { GoalProgress } from '@/components/goal-progress'
 import { WhoplyticsLogo } from '@/components/whoplytics-logo'
 import { env } from '@/lib/env'
+import { Badge } from '@/components/ui/badge'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
