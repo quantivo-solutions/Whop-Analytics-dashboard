@@ -17,14 +17,14 @@ export function LockedCard({ title, subtitle, companyId }: LockedCardProps) {
 
   return (
     <>
-      <Card className="relative border-dashed border-2 border-slate-300 dark:border-slate-700 bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-900/50 dark:to-slate-800/30 backdrop-blur-sm overflow-hidden">
+      <Card className="relative border-2 border-dashed border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-900 shadow-lg overflow-hidden">
         {/* Lock overlay */}
-        <div className="absolute inset-0 bg-background/98 dark:bg-slate-950/98 backdrop-blur-md z-10 flex flex-col items-center justify-center p-6 sm:p-8 text-center">
-          <div className="p-3.5 rounded-full bg-muted/80 dark:bg-slate-800/80 mb-4 ring-2 ring-slate-200 dark:ring-slate-700">
-            <Lock className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+        <div className="absolute inset-0 bg-white dark:bg-slate-900 z-10 flex flex-col items-center justify-center p-6 sm:p-8 text-center border-2 border-slate-200 dark:border-slate-700 rounded-lg">
+          <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 mb-4 ring-4 ring-slate-200 dark:ring-slate-700 shadow-lg">
+            <Lock className="h-7 w-7 text-slate-700 dark:text-slate-300" />
           </div>
-          <h3 className="text-base font-bold mb-2.5 text-foreground">{title}</h3>
-          <p className="text-sm text-muted-foreground mb-5 max-w-xs leading-relaxed">{subtitle}</p>
+          <h3 className="text-lg font-bold mb-3 text-slate-900 dark:text-slate-100">{title}</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-xs leading-relaxed font-medium">{subtitle}</p>
           <Button
             size="default"
             onClick={() => setUpsellOpen(true)}
@@ -35,8 +35,8 @@ export function LockedCard({ title, subtitle, companyId }: LockedCardProps) {
         </div>
 
         {/* Blurred content underneath */}
-        <CardContent className="p-4 blur-sm opacity-30">
-          <div className="h-24 bg-muted/50 rounded-lg" />
+        <CardContent className="p-4 blur-sm opacity-20">
+          <div className="h-24 bg-slate-200 dark:bg-slate-700 rounded-lg" />
         </CardContent>
       </Card>
 

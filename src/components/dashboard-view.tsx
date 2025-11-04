@@ -154,7 +154,7 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
             return (
               <Card 
                 key={index} 
-                className="relative overflow-hidden border-2 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+                className="relative overflow-hidden border-2 border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-white dark:bg-slate-900 hover:shadow-xl hover:shadow-slate-300/30 dark:hover:shadow-slate-900/50 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 shadow-md"
                 style={{ 
                   animationDelay: `${index * 50}ms`,
                   animationFillMode: 'backwards'
@@ -162,16 +162,16 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               >
                 <CardContent className="p-5 sm:p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <div className={`${iconColors[index]} rounded-lg p-2 shadow-sm`}>
-                      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
+                    <div className={`${iconColors[index]} rounded-lg p-2.5 shadow-md`}>
+                      <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
                       {stat.title}
                     </p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground mb-0.5">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">{stat.value}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                       {stat.description}
                     </p>
                   </div>
