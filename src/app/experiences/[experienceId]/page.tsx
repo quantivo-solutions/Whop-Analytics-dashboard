@@ -18,6 +18,7 @@ import { TokenCleanup } from '@/components/token-cleanup'
 import { SessionSetter } from '@/components/session-setter'
 import { verifyWhopUserToken, isWhopIframe } from '@/lib/whop-auth'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
+import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
 import { env } from '@/lib/env'
 
@@ -354,8 +355,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
   }
 
-  // EXTRA SAFETY: If installation was updated moments ago, consider it a fresh event and reset onboarding
-  if (installation) {
+  // EXTRA SAFETY: If installation was updated moments ago AND plan is free, consider it a fresh event and reset onboarding
+  // BUT: Don't reset if user just upgraded to Pro (plan is pro/business)
+  if (installation && installation.plan === 'free') {
     const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
     if (updatedAgoMs < 5000) {
       try {
@@ -504,23 +506,32 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     })
 
     // CRITICAL: Check onboarding status FIRST before fetching dashboard data
-    // IMPORTANT: Only reset onboarding if:
-    // 1. Installation was just created (not just updated)
-    // 2. OR experienceId changed AND onboarding was never completed
+    // Check for Pro upgrade welcome BEFORE checking onboarding
     console.log('[Experience Page] Checking onboarding status for companyId:', finalCompanyId, 'experienceId:', experienceId)
     
     let prefs
     let onboardingComplete = false
+    let showProWelcome = false
     
     try {
       prefs = await getCompanyPrefs(finalCompanyId)
+      
+      // Check if user just upgraded to Pro (plan is pro/business, recently updated, onboarding completed, but welcome not shown)
+      const isPro = installation.plan === 'pro' || installation.plan === 'business'
+      const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
+      const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
+      const onboardingWasCompleted = prefs.completedAt !== null
+      const proWelcomeNotShown = prefs.proWelcomeShownAt === null
+      
+      if (isPro && wasRecentlyUpdated && onboardingWasCompleted && proWelcomeNotShown) {
+        console.log('[Experience Page] ✅ Pro upgrade detected - showing Pro welcome modal')
+        showProWelcome = true
+      }
       
       // Check if installation was just CREATED (not just updated)
       // This indicates a truly fresh install, not just an experienceId update
       const installationJustCreated = installation.createdAt && 
         (Date.now() - new Date(installation.createdAt).getTime()) < 10 * 60 * 1000 // 10 minutes
-      const installationUpdatedRecently = installation.updatedAt && 
-        (Date.now() - new Date(installation.updatedAt).getTime()) < 5 * 60 * 1000 // 5 minutes
       const wasJustCreated = installationJustCreated && 
         (new Date(installation.createdAt).getTime() === new Date(installation.updatedAt).getTime() || 
          (new Date(installation.updatedAt).getTime() - new Date(installation.createdAt).getTime()) < 60000) // Created and updated within 1 min
@@ -530,13 +541,16 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         updatedAt: installation.updatedAt,
         justCreated: wasJustCreated,
         wasCompleted: !!prefs.completedAt,
-        experienceIdMatches: installation.experienceId === experienceId
+        experienceIdMatches: installation.experienceId === experienceId,
+        isPro,
+        showProWelcome,
       })
       
       // Only reset onboarding if:
       // 1. Installation was just created (truly fresh install)
       // 2. AND onboarding was never completed for this companyId
-      if (wasJustCreated && !prefs.completedAt) {
+      // 3. AND NOT a Pro upgrade (don't reset onboarding for Pro users)
+      if (wasJustCreated && !prefs.completedAt && !isPro) {
         console.log('[Experience Page] Fresh installation detected - onboarding not completed yet')
         onboardingComplete = false
       } else {
@@ -550,7 +564,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         completedAt: prefs.completedAt,
         isComplete: onboardingComplete,
         hasGoalAmount: !!prefs.goalAmount,
-        wasJustCreated
+        wasJustCreated,
+        showProWelcome,
       })
     } catch (prefsError) {
       console.error('[Experience Page] Error checking onboarding status:', prefsError)
@@ -562,6 +577,27 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         completedAt: null,
         companyId: finalCompanyId,
       } as any
+    }
+
+    // Show Pro welcome modal if user just upgraded
+    if (showProWelcome) {
+      console.log('[Experience Page] Showing Pro welcome modal')
+      const sessionTokenForClient = (global as any).__whopSessionToken
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+          <TokenCleanup />
+          <ProWelcomeWrapper
+            companyId={finalCompanyId}
+            onClose={() => {
+              // Reload page to show dashboard
+              if (typeof window !== 'undefined') {
+                window.location.reload()
+              }
+            }}
+          />
+        </div>
+      )
     }
 
     // BLOCK dashboard access until onboarding is complete

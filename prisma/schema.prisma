@@ -57,13 +57,14 @@ model WhopInstallation {
 }
 
 model CompanyPrefs {
-  companyId      String   @id
-  goalAmount     Decimal? @db.Decimal(12, 2)
-  wantsDailyMail Boolean  @default(false)
-  wantsDiscord   Boolean  @default(false)
-  completedAt    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  companyId        String   @id
+  goalAmount       Decimal? @db.Decimal(12, 2)
+  wantsDailyMail   Boolean  @default(false)
+  wantsDiscord     Boolean  @default(false)
+  completedAt      DateTime?
+  proWelcomeShownAt DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@map("CompanyPrefs")
 }

@@ -12,6 +12,7 @@ export interface CompanyPrefsData {
   wantsDailyMail?: boolean
   wantsDiscord?: boolean
   completedAt?: Date | null
+  proWelcomeShownAt?: Date | null
 }
 
 /**
@@ -32,6 +33,7 @@ export async function getCompanyPrefs(companyId: string) {
           wantsDailyMail: false,
           wantsDiscord: false,
           completedAt: null,
+          proWelcomeShownAt: null,
         },
       })
       console.log('[Company Prefs] Created default prefs for:', companyId)
@@ -66,6 +68,9 @@ export async function setCompanyPrefs(
     if (patch.completedAt !== undefined) {
       updateData.completedAt = patch.completedAt
     }
+    if (patch.proWelcomeShownAt !== undefined) {
+      updateData.proWelcomeShownAt = patch.proWelcomeShownAt
+    }
 
     await prisma.companyPrefs.upsert({
       where: { companyId },
@@ -75,6 +80,7 @@ export async function setCompanyPrefs(
         wantsDailyMail: patch.wantsDailyMail ?? false,
         wantsDiscord: patch.wantsDiscord ?? false,
         completedAt: patch.completedAt ?? null,
+        proWelcomeShownAt: patch.proWelcomeShownAt ?? null,
       },
       update: updateData,
     })

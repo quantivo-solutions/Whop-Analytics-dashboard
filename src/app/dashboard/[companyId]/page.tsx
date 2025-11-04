@@ -33,6 +33,7 @@ import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { SessionSetter } from '@/components/session-setter'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
+import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
 import { env } from '@/lib/env'
 
@@ -371,8 +372,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   let onboardingComplete = false
   
   try {
-    // SAFETY: If installation was just updated moments ago, treat as fresh and reset onboarding to force wizard first
-    if (installation) {
+    // SAFETY: If installation was just updated moments ago AND plan is free, treat as fresh and reset onboarding
+    // BUT: Don't reset if user just upgraded to Pro (plan is pro/business)
+    if (installation && installation.plan === 'free') {
       const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
       if (updatedAgoMs < 5000) {
         try {
@@ -386,6 +388,35 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
 
     prefs = await getCompanyPrefs(finalCompanyId) // Use installation.companyId, not URL companyId
+    
+    // Check if user just upgraded to Pro (plan is pro/business, recently updated, onboarding completed, but welcome not shown)
+    const isPro = installation && (installation.plan === 'pro' || installation.plan === 'business')
+    const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
+    const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
+    const onboardingWasCompleted = prefs.completedAt !== null
+    const proWelcomeNotShown = prefs.proWelcomeShownAt === null
+    
+    const showProWelcome = isPro && wasRecentlyUpdated && onboardingWasCompleted && proWelcomeNotShown
+    
+    if (showProWelcome) {
+      console.log('[Dashboard View] ✅ Pro upgrade detected - showing Pro welcome modal')
+      const sessionTokenForClient = (global as any).__whopSessionToken
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+          <ProWelcomeWrapper
+            companyId={finalCompanyId}
+            onClose={() => {
+              // Reload page to show dashboard
+              if (typeof window !== 'undefined') {
+                window.location.reload()
+              }
+            }}
+          />
+        </div>
+      )
+    }
+    
     onboardingComplete = await isOnboardingComplete(finalCompanyId)
     
     console.log('[Dashboard View] Onboarding status:', {
@@ -393,7 +424,8 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       urlCompanyId: companyId,
       completedAt: prefs.completedAt,
       isComplete: onboardingComplete,
-      hasGoalAmount: !!prefs.goalAmount
+      hasGoalAmount: !!prefs.goalAmount,
+      showProWelcome,
     })
   } catch (prefsError) {
     console.error('[Dashboard View] Error checking onboarding status:', prefsError)
