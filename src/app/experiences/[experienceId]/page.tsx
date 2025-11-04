@@ -21,6 +21,7 @@ import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
 import { GoalProgress } from '@/components/goal-progress'
+import { WhoplyticsLogo } from '@/components/whoplytics-logo'
 import { env } from '@/lib/env'
 
 export const runtime = 'nodejs'
