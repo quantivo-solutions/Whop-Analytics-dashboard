@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendDailyReportEmail } from '@/lib/email'
 import { postToDiscord, formatDailySummary } from '@/lib/discord'
-import { getPlanForCompany, hasPro } from '@/lib/plan'
+import { getPlanForCompany, isPro } from '@/lib/plan'
 
 export const runtime = 'nodejs'
 
@@ -29,30 +29,40 @@ export async function GET(request: Request) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Find all Pro installations that have daily email enabled
-    const proInstallations = await prisma.whopInstallation.findMany({
-      where: {
-        plan: { in: ['pro', 'business'] },
-        dailyEmail: true,
-        reportEmail: { not: null },
-      },
-    })
+          // Find all Pro installations that have daily email enabled
+          // Only send to Pro/Business plans (Free plan gets weekly only)
+          const proInstallations = await prisma.whopInstallation.findMany({
+            where: {
+              plan: { in: ['pro', 'business'] },
+              dailyEmail: true,
+              reportEmail: { not: null },
+            },
+          })
+          
+          // Double-check plan status for each installation
+          const validInstallations = []
+          for (const installation of proInstallations) {
+            const plan = await getPlanForCompany(installation.companyId)
+            if (isPro(plan)) {
+              validInstallations.push(installation)
+            }
+          }
 
-    console.log(`[Whoplytics] Found ${proInstallations.length} Pro installation(s) with daily email enabled`)
+          console.log(`[Whoplytics] Found ${validInstallations.length} Pro installation(s) with daily email enabled (out of ${proInstallations.length} total)`)
 
-    if (proInstallations.length === 0) {
-      console.log('[Whoplytics] ℹ️  No Pro installations with daily email enabled')
-      return NextResponse.json({
-        ok: true,
-        message: 'No Pro installations with daily email enabled',
-        sent: 0,
-      })
-    }
+          if (validInstallations.length === 0) {
+            console.log('[Whoplytics] ℹ️  No Pro installations with daily email enabled')
+            return NextResponse.json({
+              ok: true,
+              message: 'No Pro installations with daily email enabled',
+              sent: 0,
+            })
+          }
 
-    const results = []
+          const results = []
 
-    // Send daily report to each Pro installation
-    for (const installation of proInstallations) {
+          // Send daily report to each Pro installation
+          for (const installation of validInstallations) {
       try {
         // Get yesterday's metrics for this company
         let metric = await prisma.metricsDaily.findFirst({

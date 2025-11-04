@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Lock, TrendingUp, TrendingDown, Users, DollarSign } from 'lucide-react'
 import { UpsellModal } from '../upsell/UpsellModal'
+import { LockedCard } from '../locked-card'
+import { isFree } from '@/lib/plan'
 import { useState } from 'react'
 import type { DashboardData } from '@/lib/metrics'
 
@@ -16,6 +18,7 @@ interface InsightsPanelProps {
 
 export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
   const [upsellOpen, setUpsellOpen] = useState(false)
+  const isFreePlan = isFree(plan)
 
   // Trial Conversion (Free)
   const trialConversion = (() => {
@@ -128,6 +131,40 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
       default:
         return 'outline'
     }
+  }
+
+  // If Free plan, show locked insights cards
+  if (isFreePlan) {
+    return (
+      <>
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold tracking-tight mb-2">Insights</h2>
+          <p className="text-muted-foreground">
+            Unlock advanced analytics with Pro
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <LockedCard
+            title="Churn Risk (Pro)"
+            subtitle="Spot churn before it happens (Pro)"
+            companyId={data.companyId}
+          />
+          <LockedCard
+            title="Trial Conversion (Pro)"
+            subtitle="See where trials drop off (Pro)"
+            companyId={data.companyId}
+          />
+          <LockedCard
+            title="Top Customers (Pro)"
+            subtitle="Identify your best customers (Pro)"
+            companyId={data.companyId}
+          />
+        </div>
+
+        <UpsellModal open={upsellOpen} onClose={() => setUpsellOpen(false)} />
+      </>
+    )
   }
 
   return (

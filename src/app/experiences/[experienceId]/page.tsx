@@ -4,7 +4,7 @@
  */
 
 import { DashboardView } from '@/components/dashboard-view'
-import { getCompanySeries, getInstallationByExperience } from '@/lib/metrics'
+import { getCompanySeries, getInstallationByExperience, getMonthlyRevenue } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { getCompanyPrefs, isOnboardingComplete } from '@/lib/company'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
@@ -20,6 +20,7 @@ import { verifyWhopUserToken, isWhopIframe } from '@/lib/whop-auth'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
+import { GoalProgress } from '@/components/goal-progress'
 import { env } from '@/lib/env'
 
 export const runtime = 'nodejs'
@@ -623,8 +624,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
              // Use installation.plan directly (most up-to-date from webhooks, already refreshed in STEP 4)
              plan = installation.plan || 'free'
              
-             // Fetch dashboard data - Pro users get 90 days, Free users get 30 days
-             const daysToFetch = (plan === 'pro' || plan === 'business') ? 90 : 30
+             // Fetch dashboard data - Pro users get 90 days, Free users get 7 days
+             const { getDaysForPlan } = await import('@/lib/data-window')
+             const daysToFetch = getDaysForPlan(plan)
              dashboardData = await getCompanySeries(finalCompanyId, daysToFetch)
              
              console.log('[Experience Page] Dashboard data fetched successfully, plan:', plan)
@@ -636,10 +638,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
            // Get upgrade URL with company context for better Whop integration
            const upgradeUrl = getUpgradeUrl(finalCompanyId)
 
+    // Calculate monthly revenue and get last sync date
+    const monthlyRevenue = await getMonthlyRevenue(finalCompanyId)
+    const lastSyncAt = dashboardData.kpis.latestDate
     const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
-    const currentRevenue = dashboardData.kpis.grossRevenue
-    const goalProgress = goalAmount ? (currentRevenue / goalAmount) * 100 : null
-    const goalRemaining = goalAmount ? Math.max(0, goalAmount - currentRevenue) : null
 
     // Dashboard content with new UI
     // SessionSetter will set cookie via API route if we have Whop auth session
@@ -740,6 +742,16 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 />
               </div>
             </div>
+          </div>
+
+          {/* Goal Progress Bar */}
+          <div className="mb-6">
+            <GoalProgress
+              goalAmount={goalAmount}
+              revenueThisMonth={monthlyRevenue}
+              lastSyncAt={lastSyncAt}
+              companyId={finalCompanyId}
+            />
           </div>
 
           {/* Dashboard view */}

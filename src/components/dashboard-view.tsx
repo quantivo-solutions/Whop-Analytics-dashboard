@@ -9,11 +9,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { DollarSign, Users, UserPlus, UserMinus, CheckCircle, TrendingUp, TrendingDown, Info, Zap, Activity, Download } from 'lucide-react'
 import type { DashboardData } from '@/lib/metrics'
 import type { Plan } from '@/lib/plan'
-import { getPlanFeatures, hasPro } from '@/lib/plan'
+import { getPlanFeatures, hasPro, isPro, isFree } from '@/lib/plan'
 import { ProFeatureLock } from './pro-feature-lock'
 import { ModernChart } from './modern-chart'
 import { Button } from './ui/button'
 import { UpsellModal } from './upsell/UpsellModal'
+import { LockedCard } from './locked-card'
 import { useState } from 'react'
 
 interface DashboardViewProps {
@@ -34,27 +35,21 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
   
   // Get plan features
   const features = getPlanFeatures(plan)
-  const isPro = hasPro(plan)
+  const isProPlan = isPro(plan)
+  const isFreePlan = isFree(plan)
 
   // Format date range for display
   const dateRange = series.length > 0
     ? `${new Date(series[0].date).toLocaleDateString()} - ${new Date(series[series.length - 1].date).toLocaleDateString()}`
     : 'No data'
 
-  // Build stats data
-  const statsData = [
+  // Build stats data - Free shows 3 KPIs, Pro shows all 5
+  const freeStatsData = [
     {
       title: 'Gross Revenue',
       value: `$${kpis.grossRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       description: kpis.latestDate ? `as of ${new Date(kpis.latestDate).toLocaleDateString()}` : 'no data yet',
       icon: DollarSign,
-      trend: 'up' as const,
-    },
-    {
-      title: 'Active Members',
-      value: kpis.activeMembers.toLocaleString(),
-      description: 'currently active',
-      icon: Users,
       trend: 'up' as const,
     },
     {
@@ -71,6 +66,17 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
       icon: UserMinus,
       trend: 'down' as const,
     },
+  ]
+
+  const proStatsData = [
+    ...freeStatsData,
+    {
+      title: 'Active Members',
+      value: kpis.activeMembers.toLocaleString(),
+      description: 'currently active',
+      icon: Users,
+      trend: 'up' as const,
+    },
     {
       title: 'Trials Paid',
       value: kpis.trialsPaid.toLocaleString(),
@@ -79,6 +85,8 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
       trend: 'up' as const,
     },
   ]
+
+  const statsData = isProPlan ? proStatsData : freeStatsData
 
   return (
     <div className="space-y-6">
@@ -132,7 +140,7 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
 
       {/* Stats cards - Modern & Clean */}
       {hasData && (
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-5">
+        <div className={`grid gap-3 sm:gap-4 ${isProPlan ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-3'}`}>
           {statsData.map((stat, index) => {
             const Icon = stat.icon
             const iconColors = [
@@ -171,6 +179,22 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               </Card>
             )
           })}
+          
+          {/* Locked cards for Free plan */}
+          {isFreePlan && (
+            <>
+              <LockedCard
+                title="Active Members (Pro)"
+                subtitle="See how many paying members are active today (Pro)"
+                companyId={companyId}
+              />
+              <LockedCard
+                title="Trials Converted (Pro)"
+                subtitle="Track trial conversions to paid (Pro)"
+                companyId={companyId}
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -181,11 +205,33 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
             <div>
               <h2 className="text-2xl font-bold tracking-tight">Revenue Trend</h2>
               <p className="text-sm text-muted-foreground">
-                {series.length} day{series.length !== 1 ? 's' : ''} of data
-                {isPro && series.length >= 90 && ' (Extended history)'}
+                {isFreePlan ? (
+                  <>
+                    Showing last {series.length} day{series.length !== 1 ? 's' : ''} — Pro unlocks 90-day history
+                  </>
+                ) : (
+                  <>
+                    {series.length} day{series.length !== 1 ? 's' : ''} of data
+                    {series.length >= 90 && ' (Extended history)'}
+                  </>
+                )}
               </p>
             </div>
-            {isPro && companyId && (
+            {isFreePlan && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID
+                  const url = appId ? `https://whop.com/apps/${appId}` : '#'
+                  window.open(url, '_blank')
+                }}
+                className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white border-0"
+              >
+                Upgrade to Pro
+              </Button>
+            )}
+            {isProPlan && companyId && (
               <Button
                 variant="outline"
                 size="sm"
@@ -216,32 +262,11 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
                 Export CSV
               </Button>
             )}
-            {!isPro && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setUpsellOpen(true)}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export CSV (Pro)
-              </Button>
-            )}
           </div>
           <ModernChart data={series} />
         </div>
       )}
 
-      {/* Pro Features Section - Elegant Lock */}
-      {hasData && !isPro && upgradeUrl && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '400ms', animationFillMode: 'backwards' }}>
-          <ProFeatureLock
-            title="Daily Trend Breakdown"
-            description="Unlock daily email reports, Discord alerts, and advanced insights with Pro."
-            upgradeUrl={upgradeUrl}
-          />
-        </div>
-      )}
 
       {/* Upsell Modal for CSV Export */}
       <UpsellModal open={upsellOpen} onClose={() => setUpsellOpen(false)} />

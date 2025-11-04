@@ -22,8 +22,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Lock } from 'lucide-react'
 import { DashboardView } from '@/components/dashboard-view'
-import { getCompanySeries } from '@/lib/metrics'
+import { getCompanySeries, getMonthlyRevenue } from '@/lib/metrics'
 import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
+import { GoalProgress } from '@/components/goal-progress'
 import { getCompanyPrefs, isOnboardingComplete } from '@/lib/company'
 import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
@@ -463,8 +464,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     
     // CRITICAL: Use dataCompanyId (may be userId-based if migration needed)
     // This handles cases where data exists under old user-based companyId
-    // Pro users get 90 days extended history, Free users get 30 days
-    const daysToFetch = (plan === 'pro' || plan === 'business') ? 90 : 30
+    // Pro users get 90 days extended history, Free users get 7 days
+    const { getDaysForPlan } = await import('@/lib/data-window')
+    const daysToFetch = getDaysForPlan(plan)
     console.log('[Dashboard View] Fetching data for companyId:', dataCompanyId, '(prefs companyId:', finalCompanyId, ', URL:', companyId, ', days:', daysToFetch, ')')
     dashboardData = await getCompanySeries(dataCompanyId, daysToFetch)
     console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', plan)
@@ -574,9 +576,10 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // Get upgrade URL with company context (use finalCompanyId for consistency)
   const upgradeUrl = getUpgradeUrl(finalCompanyId)
 
+  // Calculate monthly revenue and get last sync date
+  const monthlyRevenue = await getMonthlyRevenue(finalCompanyId)
+  const lastSyncAt = dashboardData.kpis.latestDate
   const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
-  const currentRevenue = dashboardData.kpis.grossRevenue
-  const goalRemaining = goalAmount ? Math.max(0, goalAmount - currentRevenue) : null
 
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
@@ -674,6 +677,16 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               )}
             </div>
           </div>
+        </div>
+
+        {/* Goal Progress Bar */}
+        <div className="mb-6">
+          <GoalProgress
+            goalAmount={goalAmount}
+            revenueThisMonth={monthlyRevenue}
+            lastSyncAt={lastSyncAt}
+            companyId={finalCompanyId}
+          />
         </div>
 
         {/* Dashboard view */}

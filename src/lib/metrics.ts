@@ -67,9 +67,19 @@ export async function getCompanySeries(
     })
 
     // Get time series data (last N days)
+    // Calculate date threshold
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - days)
+    startDate.setHours(0, 0, 0, 0)
+    
     // IMPORTANT: Always fetch most recent data, ordered by date DESC then take last N
     const allSeries = await prisma.metricsDaily.findMany({
-      where: { companyId },
+      where: { 
+        companyId,
+        date: {
+          gte: startDate,
+        }
+      },
       orderBy: { date: 'desc' },
       take: days,
     })
@@ -160,6 +170,35 @@ export async function getInstallationByCompany(companyId: string) {
   } catch (error) {
     console.error(`Error fetching installation for company ${companyId}:`, error)
     return null
+  }
+}
+
+/**
+ * Get monthly revenue for current month (UTC)
+ * @param companyId - Company ID
+ * @returns Total revenue for current month
+ */
+export async function getMonthlyRevenue(companyId: string): Promise<number> {
+  try {
+    const now = new Date()
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+
+    const metrics = await prisma.metricsDaily.findMany({
+      where: {
+        companyId,
+        date: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+    })
+
+    const totalRevenue = metrics.reduce((sum, m) => sum + Number(m.grossRevenue), 0)
+    return totalRevenue
+  } catch (error) {
+    console.error(`Error calculating monthly revenue for ${companyId}:`, error)
+    return 0
   }
 }
 

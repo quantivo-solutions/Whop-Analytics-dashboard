@@ -96,6 +96,20 @@ export function hasBusiness(plan: string): boolean {
 }
 
 /**
+ * Check if plan is Free (or undefined/null)
+ */
+export function isFree(plan?: string): boolean {
+  return !plan || plan === 'free'
+}
+
+/**
+ * Check if plan is Pro or Business
+ */
+export function isPro(plan?: string): boolean {
+  return plan === 'pro' || plan === 'business'
+}
+
+/**
  * Get plan display name
  */
 export function getPlanDisplayName(plan: Plan): string {
