@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     console.log('[Webhook Debug] Raw body length:', rawBody.length)
     console.log('[Webhook Debug] Raw body (first 200 chars):', rawBody.substring(0, 200))
     console.log('[Webhook Debug] Raw body (last 50 chars):', rawBody.substring(Math.max(0, rawBody.length - 50)))
+    console.log('[Webhook Debug] Raw body (full):', rawBody)
     
     // Verify webhook signature if secret is configured
     if (env.WHOP_WEBHOOK_SECRET && env.WHOP_WEBHOOK_SECRET !== '') {
@@ -41,6 +42,13 @@ export async function POST(request: Request) {
         console.log('[Webhook Debug] Received signature header:', signature.substring(0, 32) + '...')
         console.log('[Webhook Debug] Secret length:', env.WHOP_WEBHOOK_SECRET.length)
         console.log('[Webhook Debug] Secret preview:', env.WHOP_WEBHOOK_SECRET.substring(0, 8) + '...')
+        
+        // Compute expected signature locally for debugging
+        const testExpected = crypto
+          .createHmac('sha256', env.WHOP_WEBHOOK_SECRET)
+          .update(rawBody)
+          .digest('hex')
+        console.log('[Webhook Debug] Computed expected signature:', testExpected.substring(0, 32) + '...')
         
         if (!verifyWebhookSignature(rawBody, signature)) {
           console.error('❌ Invalid webhook signature')
