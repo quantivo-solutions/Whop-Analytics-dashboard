@@ -160,6 +160,7 @@ export function UserProfileMenu({
             completedAt: prefs.completedAt,
           } : undefined}
           onComplete={() => setPreferencesOpen(false)}
+          initialStep={isPro ? 1 : undefined} // Skip to goal step for Pro users
         />
       )}
 

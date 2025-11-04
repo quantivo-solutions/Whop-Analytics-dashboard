@@ -15,10 +15,11 @@ interface WizardProps {
     completedAt: string | null
   }
   onComplete?: () => void // If provided, this is editing mode - show close button
+  initialStep?: number // Optional: start at a specific step (e.g., 1 for goal step when editing from Pro)
 }
 
-export function Wizard({ companyId, initialPrefs, onComplete }: WizardProps) {
-  const [step, setStep] = useState(0) // 0: Welcome, 1: Goal, 2: Compare
+export function Wizard({ companyId, initialPrefs, onComplete, initialStep }: WizardProps) {
+  const [step, setStep] = useState(initialStep ?? 0) // 0: Welcome, 1: Goal, 2: Compare
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -165,7 +166,7 @@ export function Wizard({ companyId, initialPrefs, onComplete }: WizardProps) {
           <div className="min-h-[400px]">
             {step === 0 && <StepWelcome />}
             {step === 1 && <StepGoal goalAmount={goalAmount} onGoalChange={setGoalAmount} />}
-            {step === 2 && (
+            {step === 2 && !isEditingMode && (
               <StepCompare
                 onChooseFree={() => handleFinish('free')}
                 onChoosePro={() => handleFinish('pro')}
@@ -175,27 +176,37 @@ export function Wizard({ companyId, initialPrefs, onComplete }: WizardProps) {
         </CardContent>
 
         <CardFooter className="flex justify-between px-8 pb-8">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={step === 0 || loading}
-            className="border-2 hover:bg-muted/50 transition-colors"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+          {!isEditingMode && (
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={step === 0 || loading}
+              className="border-2 hover:bg-muted/50 transition-colors"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+          )}
 
-          {step < 2 ? (
+          {step === 1 && isEditingMode ? (
+            <Button 
+              onClick={handleGoalSave} 
+              disabled={loading}
+              className="ml-auto bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
+            >
+              {loading ? 'Saving...' : 'Save Goal'}
+            </Button>
+          ) : step < 2 ? (
             <Button 
               onClick={handleNext} 
               disabled={loading}
-              className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
+              className={`bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300 ${isEditingMode ? 'ml-auto' : ''}`}
             >
               {step === 0 ? 'Get started' : 'Next'}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <div className="w-24" />
+            <div className={isEditingMode ? 'w-0' : 'w-24'} />
           )}
         </CardFooter>
       </Card>

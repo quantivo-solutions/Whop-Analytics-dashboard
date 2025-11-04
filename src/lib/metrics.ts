@@ -182,7 +182,11 @@ export async function getMonthlyRevenue(companyId: string): Promise<number> {
   try {
     const now = new Date()
     const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    startOfMonth.setHours(0, 0, 0, 0)
     const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+    endOfMonth.setHours(23, 59, 59, 999)
+
+    console.log(`[getMonthlyRevenue] Calculating for companyId: ${companyId}, month: ${startOfMonth.toISOString()} to ${endOfMonth.toISOString()}`)
 
     const metrics = await prisma.metricsDaily.findMany({
       where: {
@@ -192,9 +196,23 @@ export async function getMonthlyRevenue(companyId: string): Promise<number> {
           lte: endOfMonth,
         },
       },
+      orderBy: {
+        date: 'asc',
+      },
     })
 
-    const totalRevenue = metrics.reduce((sum, m) => sum + Number(m.grossRevenue), 0)
+    console.log(`[getMonthlyRevenue] Found ${metrics.length} records for month`)
+    metrics.forEach((m, i) => {
+      console.log(`[getMonthlyRevenue] Record ${i}: date=${m.date.toISOString()}, grossRevenue=${m.grossRevenue}`)
+    })
+
+    const totalRevenue = metrics.reduce((sum, m) => {
+      const revenue = Number(m.grossRevenue)
+      console.log(`[getMonthlyRevenue] Adding ${revenue} to sum (current: ${sum})`)
+      return sum + revenue
+    }, 0)
+    
+    console.log(`[getMonthlyRevenue] Total monthly revenue: ${totalRevenue}`)
     return totalRevenue
   } catch (error) {
     console.error(`Error calculating monthly revenue for ${companyId}:`, error)
