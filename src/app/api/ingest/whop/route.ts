@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { fetchDailySummary } from '@/lib/whop'
 import { sendDailyReportEmail } from '@/lib/email'
 import { postToDiscord, formatDailySummary } from '@/lib/discord'
+import { getPlanForCompany, hasPro } from '@/lib/plan'
 import { env } from '@/lib/env'
 import { getWhopToken } from '@/lib/whop-installation'
 
@@ -78,16 +79,18 @@ export async function POST(request: Request) {
 
     // --- Post-ingestion actions (Daily Report) ---
 
-    // After ingesting data, automatically send daily report if enabled
+    // After ingesting data, automatically send daily report if enabled for this company
     let emailSent = false
     let discordSent = false
 
     try {
-      const settings = await prisma.workspaceSettings.findFirst()
+      // Check if this installation has Pro plan and daily email enabled
+      const plan = await getPlanForCompany(companyId)
+      const hasProPlan = hasPro(plan)
 
-      if (settings && settings.dailyEmail && settings.reportEmail) {
-        console.log('📧 Sending daily report email...')
-        const emailResult = await sendDailyReportEmail(settings.reportEmail, metric)
+      if (hasProPlan && whopInstallation.dailyEmail && whopInstallation.reportEmail) {
+        console.log(`📧 Sending daily report email to ${whopInstallation.reportEmail} for company ${companyId}...`)
+        const emailResult = await sendDailyReportEmail(whopInstallation.reportEmail, metric)
         
         if (emailResult.error) {
           console.error('Failed to send daily report email:', emailResult.error)
@@ -97,13 +100,13 @@ export async function POST(request: Request) {
         }
 
         // Send to Discord if webhook is configured
-        if (settings.discordWebhook) {
-          console.log('📢 Posting daily summary to Discord...')
+        if (whopInstallation.discordWebhook) {
+          console.log(`📢 Posting daily summary to Discord for company ${companyId}...`)
           const discordMessage = formatDailySummary({
             ...metric,
             grossRevenue: Number(metric.grossRevenue)
           })
-          const discordResult = await postToDiscord(settings.discordWebhook, discordMessage)
+          const discordResult = await postToDiscord(whopInstallation.discordWebhook, discordMessage)
           
           if (discordResult.success) {
             console.log('✅ Posted to Discord successfully')
@@ -112,6 +115,8 @@ export async function POST(request: Request) {
             console.error('Failed to post to Discord:', discordResult.error)
           }
         }
+      } else {
+        console.log(`ℹ️  Skipping daily report for ${companyId}: plan=${plan}, dailyEmail=${whopInstallation.dailyEmail}, reportEmail=${!!whopInstallation.reportEmail}`)
       }
     } catch (reportError) {
       console.error('Error sending daily report:', reportError)

@@ -4,12 +4,13 @@
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, Users, UserPlus, UserMinus, CheckCircle, TrendingUp, TrendingDown, Info, Zap, Activity } from 'lucide-react'
+import { DollarSign, Users, UserPlus, UserMinus, CheckCircle, TrendingUp, TrendingDown, Info, Zap, Activity, Download } from 'lucide-react'
 import type { DashboardData } from '@/lib/metrics'
 import type { Plan } from '@/lib/plan'
 import { getPlanFeatures, hasPro } from '@/lib/plan'
 import { ProFeatureLock } from './pro-feature-lock'
 import { ModernChart } from './modern-chart'
+import { Button } from './ui/button'
 
 interface DashboardViewProps {
   data: DashboardData
@@ -17,9 +18,10 @@ interface DashboardViewProps {
   badgeType?: 'live' | 'stale'
   plan?: Plan
   upgradeUrl?: string
+  companyId?: string
 }
 
-export function DashboardView({ data, showBadge = true, badgeType, plan = 'free', upgradeUrl }: DashboardViewProps) {
+export function DashboardView({ data, showBadge = true, badgeType, plan = 'free', upgradeUrl, companyId }: DashboardViewProps) {
   const { kpis, series, hasData } = data
 
   // Determine badge type if not explicitly provided
@@ -170,6 +172,40 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
       {/* Charts Section */}
       {hasData && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Revenue Trend</h2>
+              <p className="text-sm text-muted-foreground">
+                {series.length} day{series.length !== 1 ? 's' : ''} of data
+                {isPro && series.length >= 90 && ' (Extended history)'}
+              </p>
+            </div>
+            {isPro && companyId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const url = `/api/export/csv?companyId=${companyId}&days=${series.length}`
+                  window.open(url, '_blank')
+                }}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+            )}
+            {!isPro && upgradeUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(upgradeUrl, '_blank')}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV (Pro)
+              </Button>
+            )}
+          </div>
           <ModernChart data={series} />
         </div>
       )}

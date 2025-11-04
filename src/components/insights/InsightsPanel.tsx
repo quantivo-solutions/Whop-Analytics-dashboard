@@ -94,11 +94,28 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
     }
   })()
 
-  // Top Customers (Pro placeholder)
-  const topCustomers = {
-    locked: plan !== 'pro' && plan !== 'business',
-    label: plan === 'pro' || plan === 'business' ? 'Coming soon' : 'Pro feature',
-  }
+  // Top Customers (Pro feature - placeholder for now)
+  // In future, this would analyze individual customer revenue from Whop API
+  const topCustomers = (() => {
+    if (plan !== 'pro' && plan !== 'business') {
+      return { locked: true, value: '—', label: 'Pro feature', badge: null as any }
+    }
+
+    // Placeholder: Calculate from aggregate data
+    // In a real implementation, we'd fetch individual customer data from Whop API
+    if (!data.hasData) {
+      return { locked: false, value: '—', label: 'No data yet', badge: 'neutral' as const }
+    }
+
+    // Simple estimate: active members = potential top customers
+    const estimatedCustomers = data.kpis.activeMembers
+    return {
+      locked: false,
+      value: estimatedCustomers > 0 ? estimatedCustomers.toString() : '—',
+      label: estimatedCustomers > 0 ? 'Active members' : 'No active members',
+      badge: 'good' as const,
+    }
+  })()
 
   const getBadgeVariant = (badge: 'good' | 'watch' | 'action' | 'neutral') => {
     switch (badge) {
@@ -228,10 +245,22 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <p className="text-2xl font-bold text-muted-foreground">—</p>
-              <p className="text-sm text-muted-foreground">{topCustomers.label}</p>
-            </div>
+            {!topCustomers.locked ? (
+              <div className="space-y-2">
+                <p className="text-2xl font-bold">{topCustomers.value}</p>
+                <p className="text-sm text-muted-foreground">{topCustomers.label}</p>
+                {topCustomers.badge && (
+                  <Badge variant={getBadgeVariant(topCustomers.badge)} className="text-xs">
+                    {topCustomers.badge === 'good' ? 'Active' : 'N/A'}
+                  </Badge>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-2xl font-bold text-muted-foreground">—</p>
+                <p className="text-sm text-muted-foreground">Locked</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

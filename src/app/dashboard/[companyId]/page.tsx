@@ -437,8 +437,10 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     
     // CRITICAL: Use dataCompanyId (may be userId-based if migration needed)
     // This handles cases where data exists under old user-based companyId
-    console.log('[Dashboard View] Fetching data for companyId:', dataCompanyId, '(prefs companyId:', finalCompanyId, ', URL:', companyId, ')')
-    dashboardData = await getCompanySeries(dataCompanyId, 30)
+    // Pro users get 90 days extended history, Free users get 30 days
+    const daysToFetch = (plan === 'pro' || plan === 'business') ? 90 : 30
+    console.log('[Dashboard View] Fetching data for companyId:', dataCompanyId, '(prefs companyId:', finalCompanyId, ', URL:', companyId, ', days:', daysToFetch, ')')
+    dashboardData = await getCompanySeries(dataCompanyId, daysToFetch)
     console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', plan)
     console.log('[Dashboard View] Dashboard data companyId:', dashboardData.companyId, 'hasData:', dashboardData.hasData)
     console.log('[Dashboard View] Dashboard data series length:', dashboardData.series.length)
@@ -649,7 +651,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         </div>
 
         {/* Dashboard view */}
-        <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
+        <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} companyId={finalCompanyId} />
 
         {/* Insights Panel */}
         <div className="mt-8">

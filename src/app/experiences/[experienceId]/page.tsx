@@ -593,8 +593,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
              // Use installation.plan directly (most up-to-date from webhooks, already refreshed in STEP 4)
              plan = installation.plan || 'free'
              
-             // Fetch dashboard data
-             dashboardData = await getCompanySeries(finalCompanyId, 30)
+             // Fetch dashboard data - Pro users get 90 days, Free users get 30 days
+             const daysToFetch = (plan === 'pro' || plan === 'business') ? 90 : 30
+             dashboardData = await getCompanySeries(finalCompanyId, daysToFetch)
              
              console.log('[Experience Page] Dashboard data fetched successfully, plan:', plan)
     } catch (fetchError) {
@@ -712,7 +713,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           </div>
 
           {/* Dashboard view */}
-          <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} />
+          <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} companyId={finalCompanyId} />
 
           {/* Insights Panel */}
           <div className="mt-8">
