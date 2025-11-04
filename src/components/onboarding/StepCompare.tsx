@@ -42,37 +42,38 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
           <p className="text-sm text-muted-foreground">Start free. Upgrade anytime.</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-3">
+        <div className="grid md:grid-cols-2 gap-2.5">
           {/* Free Plan */}
-          <Card className="border-2">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xl font-semibold">Free</h3>
-                <Badge variant="outline">Starter</Badge>
+          <Card className="border-2 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300">
+            <CardHeader className="pb-2.5">
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-base font-bold">Free</h3>
+                <Badge variant="outline" className="border text-[10px] px-1.5 py-0">Starter</Badge>
               </div>
-              <div className="space-y-1">
-                <p className="text-3xl font-bold">$0</p>
-                <p className="text-sm text-muted-foreground">/ month</p>
+              <div className="space-y-0.5">
+                <p className="text-xl font-bold">$0</p>
+                <p className="text-xs text-muted-foreground">/ month</p>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">7-day dashboard history</span>
+            <CardContent className="space-y-2.5">
+              <ul className="space-y-1.5">
+                <li className="flex items-start gap-1.5">
+                  <Check className="h-3 w-3 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-xs leading-tight">7-day dashboard history</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">3 core KPIs (Revenue, New Members, Cancellations)</span>
+                <li className="flex items-start gap-1.5">
+                  <Check className="h-3 w-3 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-xs leading-tight">3 core KPIs (Revenue, New Members, Cancellations)</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">Weekly email summary</span>
+                <li className="flex items-start gap-1.5">
+                  <Check className="h-3 w-3 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-xs leading-tight">Weekly email summary</span>
                 </li>
               </ul>
               <Button
                 variant="outline"
-                className="w-full border-2 hover:bg-muted/50"
+                size="sm"
+                className="w-full border-2 hover:bg-muted/50 transition-colors font-medium text-xs"
                 onClick={handleFreeClick}
                 disabled={loading !== null}
               >
