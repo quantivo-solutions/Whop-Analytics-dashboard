@@ -449,6 +449,18 @@ async function handleMembershipActivated(data: any) {
           },
         })
         console.log(`[WHOP] ✅ Updated additional installation ${mostRecentOther.companyId} to ${plan} plan`)
+        
+        // Also reset proWelcomeShownAt for the additional installation if upgrading to Pro/Business
+        if (plan === 'pro' || plan === 'business') {
+          try {
+            const { setCompanyPrefs } = await import('@/lib/company')
+            await setCompanyPrefs(mostRecentOther.companyId, { proWelcomeShownAt: null })
+            console.log(`[WHOP] ✅ Reset proWelcomeShownAt for ${mostRecentOther.companyId} to trigger Pro welcome modal`)
+          } catch (prefsError) {
+            console.error(`[WHOP] Error resetting proWelcomeShownAt for additional installation:`, prefsError)
+            // Don't fail the webhook if this fails
+          }
+        }
       }
     }
   } else {
