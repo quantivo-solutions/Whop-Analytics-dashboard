@@ -47,8 +47,10 @@ export async function POST(request: Request) {
     // Parse body after verification
     const body = JSON.parse(rawBody)
     
-    // Log the FULL raw body to see structure
-    console.log('📦 Raw webhook body:', JSON.stringify(body, null, 2))
+    // TASK 4 - Webhook handler: Derive companyId from payload and add safe-guard logs
+    // INTEGRITY: Extract companyId early and validate
+    const companyId = body.data?.company_id || body.company_id || body.data?.companyId || body.companyId
+    const dayKey = body.data?.date || new Date().toISOString().split('T')[0]
     
     // Whop uses different fields for event type:
     // - "action" for some webhooks (e.g., "app_membership.went_valid")
@@ -56,6 +58,18 @@ export async function POST(request: Request) {
     // - "event" as fallback
     const action = body.action || body.type || body.event
     const data = body.data || body // If data is null, use body itself
+
+    // TASK 4 - Safe-guard log prefix
+    console.log('[Whoplytics] webhook', { type: action, companyId: companyId || 'missing', dayKey })
+    
+    // INTEGRITY: Reject if companyId is missing for critical events
+    if (!companyId && (action === 'app.installed' || action === 'membership.activated' || action === 'membership.cancelled')) {
+      console.error('[Whoplytics] INTEGRITY ERROR: Missing companyId in webhook payload for action:', action)
+      return NextResponse.json(
+        { error: 'Missing companyId in webhook payload', action },
+        { status: 400 }
+      )
+    }
 
     console.log(`📥 Whop webhook action: ${action}`)
     console.log(`📦 Webhook data keys:`, Object.keys(data || {}))
