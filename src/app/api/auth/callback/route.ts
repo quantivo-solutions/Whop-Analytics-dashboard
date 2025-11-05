@@ -436,15 +436,40 @@ export async function GET(request: Request) {
         }
       }
     } catch (dbError: any) {
-      console.error(`[OAuth Callback] ❌ Database error during installation upsert:`, {
+      console.error(`[OAuth Callback] ❌ CRITICAL: Database error during installation upsert:`, {
         code: dbError.code,
         message: dbError.message,
         meta: dbError.meta,
         companyId,
+        installationCreated,
+        stack: dbError.stack,
       })
-      // Return error redirect instead of failing silently
-      return NextResponse.redirect(new URL(`/login?error=db_error&details=${encodeURIComponent(dbError.message)}`, request.url))
+      
+      // CRITICAL: If installation creation failed, DO NOT proceed - user cannot use the app
+      if (!installationCreated && !installation) {
+        console.error(`[OAuth Callback] ❌ BLOCKING: Installation was not created - aborting OAuth flow`)
+        return NextResponse.redirect(new URL(`/login?error=installation_failed&details=${encodeURIComponent(dbError.message)}&companyId=${companyId}`, request.url))
+      }
+      
+      // If update failed but installation exists, log warning but continue (installation exists, just not updated)
+      if (installation) {
+        console.warn(`[OAuth Callback] ⚠️ Installation exists but update failed - continuing with existing installation`)
+      }
     }
+    
+    // CRITICAL: Final verification - installation MUST exist before proceeding
+    if (!installation) {
+      console.error(`[OAuth Callback] ❌ CRITICAL: Installation is null after upsert - aborting`)
+      return NextResponse.redirect(new URL(`/login?error=installation_missing&companyId=${companyId}`, request.url))
+    }
+    
+    console.log(`[OAuth Callback] ✅ FINAL VERIFICATION: Installation confirmed for ${companyId}:`, {
+      installationId: installation.id,
+      companyId: installation.companyId,
+      userId: installation.userId,
+      experienceId: installation.experienceId || 'none',
+      plan: installation.plan,
+    })
 
     // CRITICAL: Ensure CompanyPrefs exists for this installation (required for onboarding)
     try {
