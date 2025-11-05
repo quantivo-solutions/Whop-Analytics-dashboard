@@ -194,7 +194,7 @@ function verifyWebhookSignature(payload: string, signature: string): boolean {
 async function handleAppInstalled(data: any) {
   // Extract all possible fields from webhook payload
   const company_id = data.company_id || data.company?.id
-  const experience_id = data.experience_id || data.experience?.id
+  let experience_id = data.experience_id || data.experience?.id
   const access_token = data.access_token || data.accessToken
   const plan = data.plan
   const user = data.user
