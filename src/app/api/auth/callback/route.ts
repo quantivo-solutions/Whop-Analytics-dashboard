@@ -425,13 +425,24 @@ export async function GET(request: Request) {
         }
       }
     } catch (dbError: any) {
-      console.error(`[OAuth] ❌ Database error during installation upsert:`, {
+      console.error(`[OAuth Callback] ❌ Database error during installation upsert:`, {
         code: dbError.code,
         message: dbError.message,
         meta: dbError.meta,
+        companyId,
       })
       // Return error redirect instead of failing silently
       return NextResponse.redirect(new URL(`/login?error=db_error&details=${encodeURIComponent(dbError.message)}`, request.url))
+    }
+
+    // CRITICAL: Ensure CompanyPrefs exists for this installation (required for onboarding)
+    try {
+      const { getCompanyPrefs } = await import('@/lib/company')
+      await getCompanyPrefs(companyId) // This will create default prefs if they don't exist
+      console.log(`[OAuth Callback] ✅ Ensured CompanyPrefs exists for companyId: ${companyId}`)
+    } catch (prefsError) {
+      console.error(`[OAuth Callback] ⚠️ Failed to ensure CompanyPrefs:`, prefsError)
+      // Don't fail the OAuth flow if prefs creation fails - it will be created on first access
     }
 
     // Create session cookie
