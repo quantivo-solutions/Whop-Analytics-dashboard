@@ -243,36 +243,121 @@ export async function GET(request: Request) {
       where: { companyId },
     })
 
+    // CRITICAL: Also check if experienceId is already taken by another installation
+    let existingByExperienceId = null
+    if (experienceId) {
+      existingByExperienceId = await prisma.whopInstallation.findUnique({
+        where: { experienceId },
+      })
+      
+      if (existingByExperienceId && existingByExperienceId.companyId !== companyId) {
+        console.warn(`[OAuth] ⚠️ ExperienceId ${experienceId} already belongs to company ${existingByExperienceId.companyId}, cannot assign to ${companyId}`)
+        console.warn(`[OAuth] This is likely a reinstall scenario. Setting experienceId to null for this installation.`)
+        // Don't set experienceId for this installation to avoid constraint violation
+        experienceId = null
+      }
+    }
+
     // Upsert installation with synced plan, experienceId, userId, and user data
-    if (!installation) {
-      installation = await prisma.whopInstallation.create({
-        data: {
-          companyId,
-          userId: userData.id, // Store user ID for webhook matching
-          experienceId,
-          accessToken: access_token,
-          plan: userPlan,
-          username: userData.username || null,
-          email: userData.email || null,
-          profilePicUrl: userData.profile_pic_url || null,
-        },
+    try {
+      if (!installation) {
+        // Create new installation
+        try {
+          installation = await prisma.whopInstallation.create({
+            data: {
+              companyId,
+              userId: userData.id, // Store user ID for webhook matching
+              experienceId: experienceId || null, // May be null if conflict detected
+              accessToken: access_token,
+              plan: userPlan,
+              username: userData.username || null,
+              email: userData.email || null,
+              profilePicUrl: userData.profile_pic_url || null,
+            },
+          })
+          console.log(`[OAuth] ✅ Created new installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
+        } catch (createError: any) {
+          // Handle unique constraint violations
+          if (createError.code === 'P2002') {
+            console.error(`[OAuth] ❌ Unique constraint violation during create:`, createError.meta)
+            
+            // If companyId conflict, try to find existing installation
+            if (createError.meta?.target?.includes('companyId')) {
+              console.log(`[OAuth] Installation already exists for companyId ${companyId}, fetching...`)
+              installation = await prisma.whopInstallation.findUnique({
+                where: { companyId },
+              })
+            }
+            // If experienceId conflict, retry without experienceId
+            else if (createError.meta?.target?.includes('experienceId') && experienceId) {
+              console.log(`[OAuth] Retrying create without experienceId due to conflict...`)
+              installation = await prisma.whopInstallation.create({
+                data: {
+                  companyId,
+                  userId: userData.id,
+                  experienceId: null, // Don't set if conflict
+                  accessToken: access_token,
+                  plan: userPlan,
+                  username: userData.username || null,
+                  email: userData.email || null,
+                  profilePicUrl: userData.profile_pic_url || null,
+                },
+              })
+              console.log(`[OAuth] ✅ Created installation without experienceId due to conflict`)
+            } else {
+              throw createError // Re-throw if we can't handle it
+            }
+          } else {
+            throw createError // Re-throw non-constraint errors
+          }
+        }
+      } else {
+        // Update existing installation
+        try {
+          await prisma.whopInstallation.update({
+            where: { companyId },
+            data: { 
+              userId: userData.id, // Store/update user ID for webhook matching
+              experienceId: experienceId || installation.experienceId, // Keep existing if not provided or conflict
+              accessToken: access_token,
+              plan: userPlan, // Sync plan from Whop
+              username: userData.username || null,
+              email: userData.email || null,
+              profilePicUrl: userData.profile_pic_url || null,
+            },
+          })
+          console.log(`[OAuth] ✅ Updated installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
+        } catch (updateError: any) {
+          // Handle unique constraint violations during update
+          if (updateError.code === 'P2002' && updateError.meta?.target?.includes('experienceId')) {
+            console.warn(`[OAuth] ⚠️ Cannot update experienceId due to conflict, keeping existing value`)
+            // Update without changing experienceId
+            await prisma.whopInstallation.update({
+              where: { companyId },
+              data: { 
+                userId: userData.id,
+                // Don't update experienceId if conflict
+                accessToken: access_token,
+                plan: userPlan,
+                username: userData.username || null,
+                email: userData.email || null,
+                profilePicUrl: userData.profile_pic_url || null,
+              },
+            })
+            console.log(`[OAuth] ✅ Updated installation without experienceId due to conflict`)
+          } else {
+            throw updateError // Re-throw if we can't handle it
+          }
+        }
+      }
+    } catch (dbError: any) {
+      console.error(`[OAuth] ❌ Database error during installation upsert:`, {
+        code: dbError.code,
+        message: dbError.message,
+        meta: dbError.meta,
       })
-      console.log(`[OAuth] Created new installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
-    } else {
-      // Update access token, plan, experienceId, userId, and user data
-      await prisma.whopInstallation.update({
-        where: { companyId },
-        data: { 
-          userId: userData.id, // Store/update user ID for webhook matching
-          experienceId: experienceId || installation.experienceId, // Keep existing if not provided
-          accessToken: access_token,
-          plan: userPlan, // Sync plan from Whop
-          username: userData.username || null,
-          email: userData.email || null,
-          profilePicUrl: userData.profile_pic_url || null,
-        },
-      })
-      console.log(`[OAuth] Updated installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
+      // Return error redirect instead of failing silently
+      return NextResponse.redirect(new URL(`/login?error=db_error&details=${encodeURIComponent(dbError.message)}`, request.url))
     }
 
     // Create session cookie
@@ -320,9 +405,25 @@ export async function GET(request: Request) {
     console.log('[OAuth] Session token passed through URL (fallback for iframe cookies)')
     
     return NextResponse.redirect(new URL(loadingUrl, request.url))
-  } catch (error) {
-    console.error('OAuth callback error:', error)
-    return NextResponse.redirect(new URL('/login?error=internal_error', request.url))
+  } catch (error: any) {
+    console.error('[OAuth] ❌ OAuth callback error:', {
+      message: error?.message || String(error),
+      stack: error?.stack,
+      code: error?.code,
+      meta: error?.meta,
+    })
+    
+    // Provide more specific error messages
+    let errorMessage = 'internal_error'
+    if (error?.code === 'P2002') {
+      errorMessage = 'database_constraint_violation'
+    } else if (error?.message?.includes('token')) {
+      errorMessage = 'token_exchange_failed'
+    } else if (error?.message?.includes('user')) {
+      errorMessage = 'user_fetch_failed'
+    }
+    
+    return NextResponse.redirect(new URL(`/login?error=${errorMessage}&details=${encodeURIComponent(error?.message || 'Unknown error')}`, request.url))
   }
 }
 
