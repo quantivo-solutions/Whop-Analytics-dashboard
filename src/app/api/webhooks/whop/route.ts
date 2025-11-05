@@ -69,7 +69,8 @@ export async function POST(request: Request) {
     
     // TASK 4 - Webhook handler: Derive companyId from payload and add safe-guard logs
     // INTEGRITY: Extract companyId early and validate
-    const companyId = body.data?.company_id || body.company_id || body.data?.companyId || body.companyId
+    // Try multiple paths: data.company.id (new format), data.company_id (old format), and top-level variants
+    const companyId = body.data?.company?.id || body.data?.company_id || body.company_id || body.data?.companyId || body.companyId || body.company?.id
     const dayKey = body.data?.date || new Date().toISOString().split('T')[0]
     
     // Whop uses different fields for event type:
