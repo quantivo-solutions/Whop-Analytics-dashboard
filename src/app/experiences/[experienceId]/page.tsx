@@ -78,7 +78,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         const expData = await expResponse.json()
         companyId = expData.company?.id || expData.company_id || null
         // Extract experience name from various possible fields
-        experienceName = expData.name || expData.title || expData.slug || null
+        experienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
         
         if (companyId) {
           console.log('[Experience Page] Got companyId from experience:', companyId)
@@ -651,6 +651,30 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     const lastSyncAt = dashboardData.kpis.latestDate
     const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
 
+    // Fetch experience name right before rendering to ensure it's available
+    let finalExperienceName = experienceName
+    if (!finalExperienceName) {
+      try {
+        const { env } = await import('@/lib/env')
+        const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+          headers: {
+            'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+          },
+        })
+        
+        if (expResponse.ok) {
+          const expData = await expResponse.json()
+          // Try multiple possible fields for experience name
+          finalExperienceName = expData.name || expData.title || expData.slug || expData.display_name || null
+          if (finalExperienceName) {
+            console.log('[Experience Page] ✅ Fetched experience name:', finalExperienceName)
+          }
+        }
+      } catch (expError) {
+        console.error('[Experience Page] Error fetching experience name:', expError)
+      }
+    }
+
     // Dashboard content with new UI
     // SessionSetter will set cookie via API route if we have Whop auth session
     // TokenCleanup will remove token from URL after session is confirmed
@@ -669,7 +693,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               {/* Left: Branding */}
               <div className="flex items-center gap-3">
                 <WhoplyticsLogo 
-                  personalizedText={experienceName ? `${experienceName} Analytics` : (installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics')}
+                  personalizedText={finalExperienceName ? `${finalExperienceName} Analytics` : (installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics')}
                   tagline="Business insights at a glance"
                 />
                 {/* Company/scope badge removed per request */}
