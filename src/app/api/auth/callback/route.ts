@@ -34,18 +34,37 @@ export async function GET(request: Request) {
       statePreview: state ? state.substring(0, 20) + '...' : 'none',
     })
 
-    // Handle OAuth errors
+    // Handle OAuth errors from Whop
     if (error) {
       console.error('[OAuth Callback] ❌ OAuth error from Whop:', error)
       return NextResponse.redirect(new URL(`/login?error=${error}`, request.url))
     }
 
+    // CRITICAL: If no code/state, this might be Whop validating the callback URL during installation
+    // Return a simple success response instead of redirecting to avoid breaking installation
     if (!code || !state) {
-      console.warn('[OAuth Callback] ⚠️ Missing required params:', {
+      console.warn('[OAuth Callback] ⚠️ Missing required params - this might be Whop validation:', {
         hasCode: !!code,
         hasState: !!state,
         fullUrl: requestUrl,
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        referer: request.headers.get('referer') || 'none',
       })
+      
+      // Check if this is likely a Whop validation request (has referer or specific headers)
+      const referer = request.headers.get('referer') || ''
+      const isWhopValidation = referer.includes('whop.com') || request.headers.get('user-agent')?.includes('Whop')
+      
+      if (isWhopValidation) {
+        console.log('[OAuth Callback] ✅ Detected Whop validation request - returning success response')
+        return NextResponse.json({
+          status: 'ok',
+          message: 'OAuth callback endpoint is ready',
+          timestamp: new Date().toISOString(),
+        }, { status: 200 })
+      }
+      
+      // Not a Whop validation - redirect to login with error
       return NextResponse.redirect(new URL('/login?error=missing_params', request.url))
     }
 
