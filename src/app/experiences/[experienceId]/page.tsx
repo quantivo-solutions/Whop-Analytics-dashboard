@@ -686,8 +686,30 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             console.log('[Experience Page] ⚠️ Experience data received but no name field found. Full response:', JSON.stringify(expData, null, 2))
           }
         } else {
-          const errorText = await expResponse.text().catch(() => 'Unable to read error')
-          console.log('[Experience Page] ⚠️ Experience API returned:', expResponse.status, errorText.substring(0, 200))
+          // If experience API fails, try fetching company name from company API
+          console.log('[Experience Page] Experience API failed, trying company API for company name...')
+          try {
+            const companyResponse = await fetch(`https://api.whop.com/api/v5/companies/${installation.companyId}`, {
+              headers: {
+                'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+              },
+            })
+            
+            if (companyResponse.ok) {
+              const companyData = await companyResponse.json()
+              console.log('[Experience Page] Company API response keys:', Object.keys(companyData))
+              // Try company name/title fields
+              finalExperienceName = companyData.name || companyData.title || companyData.display_name || null
+              if (finalExperienceName) {
+                console.log('[Experience Page] ✅ Fetched company name as experience name:', finalExperienceName)
+              }
+            } else {
+              const errorText = await companyResponse.text().catch(() => 'Unable to read error')
+              console.log('[Experience Page] ⚠️ Company API returned:', companyResponse.status, errorText.substring(0, 200))
+            }
+          } catch (companyError) {
+            console.error('[Experience Page] Error fetching company name:', companyError)
+          }
         }
       } catch (expError) {
         console.error('[Experience Page] Error fetching experience name:', expError)
