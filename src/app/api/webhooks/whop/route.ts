@@ -17,6 +17,8 @@ export const runtime = 'nodejs'
  * - app.plan.updated: Update plan details
  */
 export async function POST(request: Request) {
+  let action: string | undefined = undefined // Declare outside try block for error handler
+  
   try {
     // Read raw body first for signature verification
     const rawBody = await request.text()
@@ -77,7 +79,7 @@ export async function POST(request: Request) {
     // - "action" for some webhooks (e.g., "app_membership.went_valid")
     // - "type" for others (e.g., "membership.activated")
     // - "event" as fallback
-    const action = body.action || body.type || body.event
+    action = body.action || body.type || body.event
     const data = body.data || body // If data is null, use body itself
 
     // TASK 4 - Safe-guard log prefix
