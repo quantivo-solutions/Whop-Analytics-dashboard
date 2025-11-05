@@ -254,9 +254,55 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             }
           }
           
-          // Installation exists - always update user data to ensure it's current
-          // This ensures username, email, and profilePicUrl are always up-to-date
+          // Installation exists - always update user data and fetch experienceId if missing
           if (installation) {
+            // Check if experienceId is missing and fetch it
+            if (!installation.experienceId) {
+              console.log('[Dashboard View] ⚠️ Installation missing experienceId, fetching from Whop API...')
+              const { env } = await import('@/lib/env')
+              
+              try {
+                const experiencesResponse = await fetch(`https://api.whop.com/api/v5/companies/${installation.companyId}/experiences`, {
+                  headers: {
+                    'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+                  },
+                })
+                
+                if (experiencesResponse.ok) {
+                  const experiencesData = await experiencesResponse.json()
+                  const experiences = experiencesData.data || []
+                  
+                  if (experiences.length > 0) {
+                    const foundExperienceId = experiences[0].id
+                    console.log('[Dashboard View] ✅ Found experienceId for existing installation:', foundExperienceId)
+                    
+                    // Check if this experienceId is already taken
+                    const existingByExp = await prisma.whopInstallation.findUnique({
+                      where: { experienceId: foundExperienceId },
+                    })
+                    
+                    if (!existingByExp || existingByExp.companyId === installation.companyId) {
+                      // Update installation with experienceId
+                      installation = await prisma.whopInstallation.update({
+                        where: { companyId: installation.companyId },
+                        data: { experienceId: foundExperienceId },
+                      })
+                      console.log('[Dashboard View] ✅ Updated installation with experienceId:', foundExperienceId)
+                    } else {
+                      console.warn('[Dashboard View] ⚠️ ExperienceId already taken by another company, skipping')
+                    }
+                  } else {
+                    console.log('[Dashboard View] ⚠️ No experiences found for company')
+                  }
+                } else {
+                  console.warn('[Dashboard View] ⚠️ Failed to fetch experiences (status:', experiencesResponse.status, ')')
+                }
+              } catch (expError) {
+                console.warn('[Dashboard View] ⚠️ Error fetching experienceId:', expError)
+              }
+            }
+            
+            // Update user data to ensure it's current
             const needsUpdate = 
               installation.userId !== whopUser.userId ||
               installation.username !== (whopUserDetails.username || whopUser.username || installation.username) ||
@@ -279,7 +325,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                 where: { companyId: installation.companyId },
               })
             }
-            console.log('[Dashboard View] ✅ Installation exists:', installation?.companyId, 'plan:', installation?.plan || 'unknown')
+            console.log('[Dashboard View] ✅ Installation exists:', installation?.companyId, 'plan:', installation?.plan || 'unknown', 'experienceId:', installation?.experienceId || 'none')
             
             // Refresh installation to get latest plan (webhook may have updated it)
             if (installation) {
