@@ -653,22 +653,41 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
     // Fetch experience name right before rendering to ensure it's available
     let finalExperienceName = experienceName
-    if (!finalExperienceName) {
+    if (!finalExperienceName && installation) {
       try {
         const { env } = await import('@/lib/env')
-        const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+        console.log('[Experience Page] Attempting to fetch experience name for:', experienceId)
+        
+        // Try with app server key first
+        let expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
           headers: {
             'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
           },
         })
         
+        // If that fails, try with user's access token from installation
+        if (!expResponse.ok && installation.accessToken && installation.accessToken !== env.WHOP_APP_SERVER_KEY) {
+          console.log('[Experience Page] App server key failed, trying with user access token...')
+          expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+            headers: {
+              'Authorization': `Bearer ${installation.accessToken}`,
+            },
+          })
+        }
+        
         if (expResponse.ok) {
           const expData = await expResponse.json()
+          console.log('[Experience Page] Experience API response keys:', Object.keys(expData))
           // Try multiple possible fields for experience name
-          finalExperienceName = expData.name || expData.title || expData.slug || expData.display_name || null
+          finalExperienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
           if (finalExperienceName) {
             console.log('[Experience Page] ✅ Fetched experience name:', finalExperienceName)
+          } else {
+            console.log('[Experience Page] ⚠️ Experience data received but no name field found. Full response:', JSON.stringify(expData, null, 2))
           }
+        } else {
+          const errorText = await expResponse.text().catch(() => 'Unable to read error')
+          console.log('[Experience Page] ⚠️ Experience API returned:', expResponse.status, errorText.substring(0, 200))
         }
       } catch (expError) {
         console.error('[Experience Page] Error fetching experience name:', expError)
