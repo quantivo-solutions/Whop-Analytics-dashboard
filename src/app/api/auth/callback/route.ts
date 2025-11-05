@@ -249,7 +249,7 @@ export async function GET(request: Request) {
     console.log(`[OAuth Callback] 🎯 Processing installation for companyId: ${companyId}`)
     
     // Special logging for known problematic company
-    if (companyId === 'biz_jjFeUmtshsC1pr') {
+    if (companyId === 'biz_RRUhpqBUJ4cu4f') {
       console.log('[OAuth Callback] 🔍 SPECIAL DEBUG: Processing known problematic company')
       console.log('[OAuth Callback] 🔍 User data:', {
         id: userData.id,
