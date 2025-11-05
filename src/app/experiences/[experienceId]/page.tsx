@@ -735,6 +735,18 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
     }
 
+    // CRITICAL: Refresh installation one final time to ensure we have the latest experienceName
+    // This ensures any updates we made to the database are reflected in the UI
+    if (installation) {
+      const refreshedInstallation = await prisma.whopInstallation.findUnique({
+        where: { companyId: installation.companyId },
+      })
+      if (refreshedInstallation) {
+        installation = refreshedInstallation
+        console.log('[Experience Page] ✅ Installation refreshed before render, experienceName:', installation.experienceName || '(not set)')
+      }
+    }
+
     // Dashboard content with new UI
     // SessionSetter will set cookie via API route if we have Whop auth session
     // TokenCleanup will remove token from URL after session is confirmed
