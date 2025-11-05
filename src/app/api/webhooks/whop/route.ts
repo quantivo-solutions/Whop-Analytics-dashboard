@@ -6,6 +6,23 @@ import crypto from 'crypto'
 export const runtime = 'nodejs'
 
 /**
+ * GET endpoint for webhook health check
+ * This helps verify that the webhook URL is accessible
+ */
+export async function GET() {
+  const timestamp = new Date().toISOString()
+  console.log(`[WHOP Webhook] GET request received at ${timestamp}`)
+  
+  return NextResponse.json({
+    status: 'ok',
+    message: 'Webhook endpoint is accessible',
+    timestamp,
+    method: 'GET',
+    endpoint: '/api/webhooks/whop',
+  })
+}
+
+/**
  * Whop Webhook Handler
  * 
  * Handles app installation, uninstallation, and updates from Whop.
@@ -18,6 +35,12 @@ export const runtime = 'nodejs'
  */
 export async function POST(request: Request) {
   let action: string | undefined = undefined // Declare outside try block for error handler
+  
+  // CRITICAL: Log immediately when POST is received
+  const requestStartTime = Date.now()
+  console.log(`[WHOP Webhook] ⚡ POST request received at ${new Date().toISOString()}`)
+  console.log(`[WHOP Webhook] Request URL: ${request.url}`)
+  console.log(`[WHOP Webhook] Request headers:`, Object.fromEntries(request.headers.entries()))
   
   try {
     // Read raw body first for signature verification
