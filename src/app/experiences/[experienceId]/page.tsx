@@ -55,6 +55,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   let installation = null
   let experienceIdWasUpdated = false
   let companyId: string | null = null
+  let experienceName: string | null = null
   
   // If user is authenticated via Whop headers, we can auto-create installation
   if (whopUser && whopUser.userId) {
@@ -62,7 +63,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     
     let companyId: string | null = null
     
-    // Try to get companyId from experience API
+    // Try to get companyId and experience name from experience API
     console.log('[Experience Page] Fetching experience data from Whop API to get companyId...')
     const { env } = await import('@/lib/env')
     
@@ -76,11 +77,16 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       if (expResponse.ok) {
         const expData = await expResponse.json()
         companyId = expData.company?.id || expData.company_id || null
+        // Extract experience name from various possible fields
+        experienceName = expData.name || expData.title || expData.slug || null
         
         if (companyId) {
           console.log('[Experience Page] Got companyId from experience:', companyId)
         } else {
           console.log('[Experience Page] ⚠️ Experience data missing companyId')
+        }
+        if (experienceName) {
+          console.log('[Experience Page] Got experience name:', experienceName)
         }
       } else {
         console.log('[Experience Page] Experience API returned:', expResponse.status, '- will use fallback')
@@ -663,7 +669,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               {/* Left: Branding */}
               <div className="flex items-center gap-3">
                 <WhoplyticsLogo 
-                  personalizedText={installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics'}
+                  personalizedText={experienceName ? `${experienceName} Analytics` : (installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics')}
                   tagline="Business insights at a glance"
                 />
                 {/* Company/scope badge removed per request */}
