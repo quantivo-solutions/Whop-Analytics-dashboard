@@ -178,7 +178,24 @@ function verifyWebhookSignature(payload: string, signature: string): boolean {
  * Then trigger a 7-day backfill asynchronously
  */
 async function handleAppInstalled(data: any) {
-  const { company_id, experience_id, access_token, plan } = data
+  // Extract all possible fields from webhook payload
+  const company_id = data.company_id || data.company?.id
+  const experience_id = data.experience_id || data.experience?.id
+  const access_token = data.access_token || data.accessToken
+  const plan = data.plan
+  const user = data.user
+  const user_id = user?.id || data.user_id || data.userId
+  
+  console.log('[WHOP] app.installed webhook received:', {
+    company_id,
+    experience_id: experience_id || 'none',
+    user_id: user_id || 'none',
+    has_access_token: !!access_token,
+    plan: plan || 'none'
+  })
+  
+  // Log full payload for debugging
+  console.log('[WHOP] Full app.installed payload:', JSON.stringify(data, null, 2))
 
   if (!company_id || !access_token) {
     throw new Error('Missing required installation data: company_id or access_token')
@@ -196,24 +213,48 @@ async function handleAppInstalled(data: any) {
   // The plan will be updated by membership.activated webhook if user actually has Pro
   // This ensures cancelled memberships don't persist across reinstalls
 
-  // Store installation
-  await prisma.whopInstallation.upsert({
-    where: { companyId: company_id },
-    update: {
-      experienceId: experience_id || null,
-      accessToken: access_token,
-      plan: 'free', // ALWAYS reset to free on install/reinstall
-      updatedAt: new Date(),
-    },
-    create: {
-      companyId: company_id,
-      experienceId: experience_id || null,
-      accessToken: access_token,
-      plan: 'free', // Always start with free for new installs
-    },
-  })
+  // Store installation with userId if available
+  try {
+    await prisma.whopInstallation.upsert({
+      where: { companyId: company_id },
+      update: {
+        experienceId: experience_id || null,
+        accessToken: access_token,
+        plan: 'free', // ALWAYS reset to free on install/reinstall
+        userId: user_id || existing?.userId || null, // Preserve existing userId if not provided
+        updatedAt: new Date(),
+      },
+      create: {
+        companyId: company_id,
+        experienceId: experience_id || null,
+        accessToken: access_token,
+        plan: 'free', // Always start with free for new installs
+        userId: user_id || null, // Store userId if provided
+      },
+    })
 
-  console.log(`Installed companyId=${company_id}, plan=free (isNew: ${isNewInstallation}), experienceId=${experience_id || 'none'}`)
+    console.log(`[WHOP] ✅ Installed companyId=${company_id}, plan=free (isNew: ${isNewInstallation}), experienceId=${experience_id || 'none'}, userId=${user_id || 'none'}`)
+  } catch (error: any) {
+    // Handle unique constraint violations (e.g., duplicate experienceId)
+    if (error.code === 'P2002') {
+      console.error(`[WHOP] ❌ Database constraint violation:`, error.meta)
+      // If it's a duplicate experienceId, try updating the existing record
+      if (error.meta?.target?.includes('experienceId')) {
+        console.log('[WHOP] ⚠️ Duplicate experienceId detected, trying to update existing installation...')
+        const existingByExp = await prisma.whopInstallation.findUnique({
+          where: { experienceId: experience_id },
+        })
+        if (existingByExp && existingByExp.companyId !== company_id) {
+          // This is a different company trying to use the same experienceId
+          // This shouldn't happen, but let's handle it gracefully
+          console.error(`[WHOP] ❌ ExperienceId ${experience_id} already belongs to company ${existingByExp.companyId}, cannot assign to ${company_id}`)
+          throw new Error(`Experience ID ${experience_id} is already in use by another company`)
+        }
+      }
+      throw error
+    }
+    throw error
+  }
   
   // CRITICAL: For ALL installations (new and reinstalls), ensure CompanyPrefs exists with completedAt=null
   // This ensures onboarding shows on fresh installs AND reinstalls after cancellation
