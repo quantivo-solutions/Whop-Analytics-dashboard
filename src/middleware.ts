@@ -44,6 +44,27 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // CRITICAL: Allow root path (/) if it's from Whop (for app installation validation)
+  // Whop validates the app URL during installation by loading it
+  if (pathname === '/') {
+    const whopUserToken = request.headers.get('x-whop-user-token')
+    const referer = request.headers.get('referer') || ''
+    const isWhopContext = !!whopUserToken || referer.includes('whop.com')
+    
+    if (isWhopContext) {
+      console.log('[Middleware] Allowing root path from Whop context (installation validation)')
+      return NextResponse.next()
+    }
+    
+    // Check if this looks like a Whop iframe request (has companyId or experienceId in URL)
+    const hasWhopContext = searchParams.get('experienceId') || searchParams.get('companyId') || searchParams.get('company_id')
+    
+    if (hasWhopContext) {
+      console.log('[Middleware] Allowing root path with Whop context params')
+      return NextResponse.next()
+    }
+  }
+
   // Check for session cookie
   const sessionCookie = request.cookies.get('whop_session')
   
