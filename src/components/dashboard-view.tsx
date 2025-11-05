@@ -216,7 +216,13 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               <p className="text-sm text-muted-foreground">
                 {isFreePlan ? (
                   <>
-                    Showing last {series.length} day{series.length !== 1 ? 's' : ''} — Pro unlocks 90-day history
+                    Showing last {series.length} day{series.length !== 1 ? 's' : ''} —{' '}
+                    <button
+                      onClick={() => setUpsellOpen(true)}
+                      className="text-primary hover:underline font-medium transition-colors"
+                    >
+                      Pro unlocks 90-day history
+                    </button>
                   </>
                 ) : (
                   <>
@@ -226,15 +232,6 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
                 )}
               </p>
             </div>
-            {isFreePlan && (
-              <Button
-                size="sm"
-                onClick={() => setUpsellOpen(true)}
-                className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
-              >
-                Upgrade to Pro
-              </Button>
-            )}
             {isProPlan && companyId && (
               <Button
                 variant="outline"

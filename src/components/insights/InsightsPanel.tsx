@@ -1,7 +1,6 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Lock, TrendingUp, TrendingDown, Users, DollarSign } from 'lucide-react'
 import { UpsellModal } from '../upsell/UpsellModal'
@@ -199,19 +198,16 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
         {/* Churn Risk */}
         <Card className={`relative border-2 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg transition-all duration-300 ${churnRisk.locked ? 'opacity-75' : ''}`}>
           {churnRisk.locked && (
-            <div className="absolute inset-0 bg-background/95 dark:bg-slate-950/95 backdrop-blur-md rounded-lg flex items-center justify-center z-10">
-              <div className="text-center space-y-3 p-4">
-                <div className="p-3 rounded-full bg-muted/80 dark:bg-slate-800/80 mx-auto w-fit">
-                  <Lock className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+            <div 
+              className="absolute inset-0 bg-background/95 dark:bg-slate-950/95 backdrop-blur-md rounded-lg flex items-center justify-center z-10 cursor-pointer hover:bg-background/98 dark:hover:bg-slate-950/98 transition-colors"
+              onClick={() => setUpsellOpen(true)}
+            >
+              <div className="text-center space-y-2 p-4">
+                <div className="p-2 rounded-full bg-muted/80 dark:bg-slate-800/80 mx-auto w-fit">
+                  <Lock className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                 </div>
-                <p className="text-sm font-semibold">Pro feature</p>
-                <Button
-                  size="sm"
-                  onClick={() => setUpsellOpen(true)}
-                  className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
-                >
-                  Upgrade to unlock
-                </Button>
+                <p className="text-xs font-medium text-muted-foreground">Pro feature</p>
+                <p className="text-xs text-primary hover:underline font-medium">Click to learn more</p>
               </div>
             </div>
           )}
@@ -263,19 +259,16 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
         {/* Top Customers */}
         <Card className={`relative border-2 border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg transition-all duration-300 ${topCustomers.locked ? 'opacity-75' : ''}`}>
           {topCustomers.locked && (
-            <div className="absolute inset-0 bg-background/95 dark:bg-slate-950/95 backdrop-blur-md rounded-lg flex items-center justify-center z-10">
-              <div className="text-center space-y-3 p-4">
-                <div className="p-3 rounded-full bg-muted/80 dark:bg-slate-800/80 mx-auto w-fit">
-                  <Lock className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+            <div 
+              className="absolute inset-0 bg-background/95 dark:bg-slate-950/95 backdrop-blur-md rounded-lg flex items-center justify-center z-10 cursor-pointer hover:bg-background/98 dark:hover:bg-slate-950/98 transition-colors"
+              onClick={() => setUpsellOpen(true)}
+            >
+              <div className="text-center space-y-2 p-4">
+                <div className="p-2 rounded-full bg-muted/80 dark:bg-slate-800/80 mx-auto w-fit">
+                  <Lock className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                 </div>
-                <p className="text-sm font-semibold">Pro feature</p>
-                <Button
-                  size="sm"
-                  onClick={() => setUpsellOpen(true)}
-                  className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
-                >
-                  Upgrade to unlock
-                </Button>
+                <p className="text-xs font-medium text-muted-foreground">Pro feature</p>
+                <p className="text-xs text-primary hover:underline font-medium">Click to learn more</p>
               </div>
             </div>
           )}
