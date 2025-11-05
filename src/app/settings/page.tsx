@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { NavHeader } from '@/components/nav-header'
+import { PageHeader } from '@/components/page-header'
 import { PlanBadge } from '@/components/plan-badge'
 import { Save, Mail, MessageSquare, Crown, Lock } from 'lucide-react'
 import type { Plan } from '@/lib/plan'
@@ -101,17 +101,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <NavHeader />
-      
-      <div className="container mx-auto p-6">
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-              <PlanBadge plan={settings.plan || 'free'} />
-            </div>
-            <p className="text-muted-foreground mt-1">Manage your workspace preferences and integrations.</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
+        <PageHeader title="Settings" subtitle="Manage your workspace preferences and integrations" />
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <PlanBadge plan={settings.plan || 'free'} />
           </div>
           <Button onClick={handleSaveSettings} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />

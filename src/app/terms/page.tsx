@@ -4,7 +4,7 @@
 
 import { Metadata } from 'next'
 import { Card, CardContent } from '@/components/ui/card'
-import { NavHeader } from '@/components/nav-header'
+import { PageHeader } from '@/components/page-header'
 
 export const metadata: Metadata = {
   title: 'Terms of Service | Whoplytics',
@@ -22,11 +22,12 @@ const EFFECTIVE_DATE = 'November 5, 2025'
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted">
-      <NavHeader />
-      
-      <div className="container mx-auto px-6 py-16 max-w-4xl">
-        <Card className="shadow-lg">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
+        <PageHeader title="Terms of Service" />
+        
+        <div className="max-w-4xl mx-auto">
+          <Card className="shadow-lg">
           <CardContent className="pt-8 pb-12 px-8">
             <h1 className="text-4xl font-bold mb-2">Terms of Service</h1>
             <p className="text-muted-foreground mb-8">
@@ -216,6 +217,7 @@ export default function TermsPage() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   )
