@@ -47,10 +47,10 @@ export default async function Home({ searchParams }: PageProps) {
     }
   }
   
-  // No Whop context - redirect to login
-  // Don't check session here because:
-  // 1. Fresh installs should always go to login first
-  // 2. If user has session, they should access via /experiences/[experienceId] with experienceId from Whop
-  // 3. Preventing auto-redirect to old /dashboard route
-  redirect('/login')
+  // No Whop context - show discover page instead of redirecting to login
+  // This is critical for Whop app installation:
+  // - When Whop loads the app URL during installation, it might not have context yet
+  // - Redirecting to /login causes Whop to see an error page
+  // - Showing discover page allows installation to proceed
+  redirect('/discover')
 }
