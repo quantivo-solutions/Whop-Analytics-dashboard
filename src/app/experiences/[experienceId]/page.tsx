@@ -652,7 +652,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
 
     // Fetch experience name right before rendering to ensure it's available
-    let finalExperienceName = experienceName
+    // First check if we already have it stored in the database
+    let finalExperienceName = installation?.experienceName || experienceName
     if (!finalExperienceName && installation) {
       try {
         const { env } = await import('@/lib/env')
@@ -682,6 +683,15 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           finalExperienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
           if (finalExperienceName) {
             console.log('[Experience Page] ✅ Fetched experience name:', finalExperienceName)
+            // Save to database for future use
+            await prisma.whopInstallation.update({
+              where: { companyId: installation.companyId },
+              data: { experienceName: finalExperienceName },
+            })
+            // Refresh installation to include the new experienceName
+            installation = await prisma.whopInstallation.findUnique({
+              where: { companyId: installation.companyId },
+            })
           } else {
             console.log('[Experience Page] ⚠️ Experience data received but no name field found. Full response:', JSON.stringify(expData, null, 2))
           }
@@ -702,6 +712,15 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               finalExperienceName = companyData.name || companyData.title || companyData.display_name || null
               if (finalExperienceName) {
                 console.log('[Experience Page] ✅ Fetched company name as experience name:', finalExperienceName)
+                // Save to database for future use
+                await prisma.whopInstallation.update({
+                  where: { companyId: installation.companyId },
+                  data: { experienceName: finalExperienceName },
+                })
+                // Refresh installation to include the new experienceName
+                installation = await prisma.whopInstallation.findUnique({
+                  where: { companyId: installation.companyId },
+                })
               }
             } else {
               const errorText = await companyResponse.text().catch(() => 'Unable to read error')
@@ -734,7 +753,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               {/* Left: Branding */}
               <div className="flex items-center gap-3">
                 <WhoplyticsLogo 
-                  personalizedText={finalExperienceName ? `${finalExperienceName} Analytics` : (installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics')}
+                  personalizedText={installation?.experienceName ? `${installation.experienceName} Analytics` : (installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics')}
                   tagline="Business insights at a glance"
                 />
                 {/* Company/scope badge removed per request */}

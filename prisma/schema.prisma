@@ -40,6 +40,7 @@ model WhopInstallation {
   companyId      String         @unique
   userId         String?        // Whop user ID for matching memberships
   experienceId   String?        @unique
+  experienceName String?        // Experience/company name for display
   plan           String?
   accessToken    String
   username       String?        // User's Whop username
