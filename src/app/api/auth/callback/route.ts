@@ -333,6 +333,7 @@ export async function GET(request: Request) {
     }
 
     // Upsert installation with synced plan, experienceId, userId, and user data
+    let installationCreated = false
     try {
       if (!installation) {
         // Create new installation
@@ -349,7 +350,17 @@ export async function GET(request: Request) {
               profilePicUrl: userData.profile_pic_url || null,
             },
           })
-          console.log(`[OAuth] ✅ Created new installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
+          installationCreated = true
+          console.log(`[OAuth Callback] ✅ CREATED new installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
+          
+          // CRITICAL: Verify installation was actually created
+          const verifyInstallation = await prisma.whopInstallation.findUnique({
+            where: { companyId },
+          })
+          if (!verifyInstallation) {
+            throw new Error(`Installation creation verification failed - installation not found in database after create`)
+          }
+          console.log(`[OAuth Callback] ✅ VERIFIED installation exists in database: ${verifyInstallation.companyId}`)
         } catch (createError: any) {
           // Handle unique constraint violations
           if (createError.code === 'P2002') {
