@@ -185,10 +185,51 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             if (!installation) {
               // Create new installation
               const { env } = await import('@/lib/env')
+              
+              // Try to fetch experienceId from Whop API for this company
+              let experienceId: string | null = null
+              try {
+                // Get company's experiences to find the experienceId
+                const experiencesResponse = await fetch(`https://api.whop.com/api/v5/companies/${companyId}/experiences`, {
+                  headers: {
+                    'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+                  },
+                })
+                
+                if (experiencesResponse.ok) {
+                  const experiencesData = await experiencesResponse.json()
+                  const experiences = experiencesData.data || []
+                  
+                  if (experiences.length > 0) {
+                    // Use the first experience (usually the main one)
+                    experienceId = experiences[0].id
+                    console.log('[Dashboard View] ✅ Found experienceId for company:', experienceId)
+                    
+                    // Check if this experienceId is already taken by another installation
+                    const existingByExp = await prisma.whopInstallation.findUnique({
+                      where: { experienceId },
+                    })
+                    
+                    if (existingByExp && existingByExp.companyId !== companyId) {
+                      console.warn('[Dashboard View] ⚠️ ExperienceId already taken by another company, setting to null')
+                      experienceId = null
+                    }
+                  } else {
+                    console.log('[Dashboard View] ⚠️ No experiences found for company:', companyId)
+                  }
+                } else {
+                  console.warn('[Dashboard View] ⚠️ Failed to fetch experiences (status:', experiencesResponse.status, ')')
+                }
+              } catch (expError) {
+                console.warn('[Dashboard View] ⚠️ Error fetching experienceId:', expError)
+                // Continue without experienceId - it can be set later
+              }
+              
               installation = await prisma.whopInstallation.create({
                 data: {
                   companyId,
                   userId: whopUser.userId,
+                  experienceId: experienceId || null,
                   accessToken: env.WHOP_APP_SERVER_KEY,
                   plan: 'free',
                   username: whopUserDetails.username || whopUser.username || null,
@@ -196,7 +237,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                   profilePicUrl: whopUserDetails.profile_pic_url || null,
                 },
               })
-              console.log('[Dashboard View] ✅ Created new installation:', companyId)
+              console.log('[Dashboard View] ✅ Created new installation:', companyId, 'experienceId:', experienceId || 'none')
               
               // Ensure CompanyPrefs exists
               try {
