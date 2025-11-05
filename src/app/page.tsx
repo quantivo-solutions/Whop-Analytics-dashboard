@@ -7,8 +7,6 @@
  */
 
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/session'
-import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 
 export const runtime = 'nodejs'
@@ -64,34 +62,13 @@ export default async function Home({ searchParams }: PageProps) {
       redirect(`/experiences/${experienceId}`)
     }
     
-    // If opened from Whop with companyId, redirect to company dashboard
-    if (companyId) {
-      console.log('[Home] ✅ Redirecting to company dashboard:', companyId)
-      
-      // Check if installation exists for this company
-      try {
-        const installation = await prisma.whopInstallation.findUnique({
-          where: { companyId },
-        })
-        
-        if (installation) {
-          redirect(`/dashboard/${companyId}`)
-        } else {
-          // No installation found, show discover page
-          console.log('[Home] ⚠️ No installation found for companyId, redirecting to discover')
-          redirect('/discover')
-        }
-      } catch (dbError) {
-        console.error('[Home] ❌ Database error checking installation:', dbError)
-        // Don't fail - still show install page
-      }
-    }
-    
     // CRITICAL: If we're in a Whop context (iframe headers) but no params, show a simple install page
     // This handles the case where Whop is validating the app URL during installation
     // We MUST return a valid HTML page (not redirect) to allow Whop validation to succeed
-    if (isWhopContext) {
-      console.log('[Home] ✅ Whop context detected - showing install page (this is likely Whop validation)')
+    // IMPORTANT: During installation validation, Whop may not send params, so we should
+    // prioritize showing a valid page over trying to redirect or query the database
+    if (isWhopContext && !experienceId && !companyId) {
+      console.log('[Home] ✅ Whop context detected WITHOUT params - showing install page (this is Whop validation)')
       return (
         <html>
           <head>
@@ -142,6 +119,14 @@ export default async function Home({ searchParams }: PageProps) {
           </body>
         </html>
       )
+    }
+    
+    // If opened from Whop with companyId, redirect to company dashboard
+    // BUT: Don't query database here - let the dashboard page handle it
+    // This prevents database timeouts from breaking Whop validation
+    if (companyId) {
+      console.log('[Home] ✅ Redirecting to company dashboard:', companyId)
+      redirect(`/dashboard/${companyId}`)
     }
     
     // No Whop context - show discover page
