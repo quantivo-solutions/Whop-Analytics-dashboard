@@ -241,6 +241,16 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               })
               console.log('[Dashboard View] ✅ Created new installation:', companyId, 'experienceId:', experienceId || 'none')
               
+              // CRITICAL: Verify installation was actually created
+              const verifyInstallation = await prisma.whopInstallation.findUnique({
+                where: { companyId },
+              })
+              if (!verifyInstallation) {
+                console.error('[Dashboard View] ❌ CRITICAL: Installation creation verification failed - installation not found in database after create')
+                throw new Error('Installation creation failed - verification returned null')
+              }
+              console.log('[Dashboard View] ✅ VERIFIED installation exists in database:', verifyInstallation.companyId)
+              
               // Ensure CompanyPrefs exists
               try {
                 const { getCompanyPrefs } = await import('@/lib/company')
