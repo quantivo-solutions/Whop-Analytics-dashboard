@@ -169,7 +169,14 @@ export async function POST(request: Request) {
       message: errorMessage,
       stack: errorStack,
       name: error instanceof Error ? error.name : undefined,
+      action: action || 'unknown',
     })
+    
+    // Log database errors specifically
+    if (error && typeof error === 'object' && 'code' in error) {
+      console.error('[WHOP] Database error code:', (error as any).code)
+      console.error('[WHOP] Database error meta:', (error as any).meta)
+    }
     
     return NextResponse.json(
       { 
@@ -290,6 +297,14 @@ async function handleAppInstalled(data: any) {
     console.log(`[WHOP] ✅ Installed companyId=${company_id}, plan=free (isNew: ${isNewInstallation}), experienceId=${experience_id || 'none'}, userId=${user_id || 'none'}`)
   } catch (error: any) {
     // Handle unique constraint violations (e.g., duplicate experienceId)
+    console.error(`[WHOP] ❌ Error during installation upsert:`, {
+      code: error?.code,
+      message: error?.message,
+      meta: error?.meta,
+      company_id,
+      experience_id: experience_id || 'none',
+    })
+    
     if (error.code === 'P2002') {
       console.error(`[WHOP] ❌ Database constraint violation:`, error.meta)
       // If it's a duplicate experienceId, try updating without experienceId
@@ -314,14 +329,26 @@ async function handleAppInstalled(data: any) {
             },
           })
           console.log(`[WHOP] ✅ Installed companyId=${company_id} without experienceId (duplicate conflict resolved)`)
-        } catch (retryError) {
-          console.error(`[WHOP] ❌ Retry failed:`, retryError)
+          return // Success, exit early
+        } catch (retryError: any) {
+          console.error(`[WHOP] ❌ Retry failed:`, {
+            code: retryError?.code,
+            message: retryError?.message,
+            meta: retryError?.meta,
+          })
           throw retryError
         }
+      } else if (error.meta?.target?.includes('companyId')) {
+        // This shouldn't happen with upsert, but handle it
+        console.error(`[WHOP] ❌ Duplicate companyId detected (unexpected with upsert):`, company_id)
+        throw new Error(`Installation already exists for companyId: ${company_id}`)
       } else {
+        console.error(`[WHOP] ❌ Unknown constraint violation:`, error.meta)
         throw error
       }
     } else {
+      // Re-throw non-constraint errors
+      console.error(`[WHOP] ❌ Non-constraint database error:`, error)
       throw error
     }
   }
