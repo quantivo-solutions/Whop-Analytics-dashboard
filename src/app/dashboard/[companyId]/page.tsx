@@ -202,17 +202,19 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                   
                   if (experiences.length > 0) {
                     // Use the first experience (usually the main one)
-                    experienceId = experiences[0].id
-                    console.log('[Dashboard View] ✅ Found experienceId for company:', experienceId)
+                    const foundExperienceId = experiences[0].id
+                    console.log('[Dashboard View] ✅ Found experienceId for company:', foundExperienceId)
                     
                     // Check if this experienceId is already taken by another installation
                     const existingByExp = await prisma.whopInstallation.findUnique({
-                      where: { experienceId },
+                      where: { experienceId: foundExperienceId },
                     })
                     
                     if (existingByExp && existingByExp.companyId !== companyId) {
                       console.warn('[Dashboard View] ⚠️ ExperienceId already taken by another company, setting to null')
                       experienceId = null
+                    } else {
+                      experienceId = foundExperienceId
                     }
                   } else {
                     console.log('[Dashboard View] ⚠️ No experiences found for company:', companyId)
