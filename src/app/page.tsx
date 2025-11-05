@@ -23,44 +23,71 @@ interface PageProps {
 }
 
 export default async function Home({ searchParams }: PageProps) {
+  // CRITICAL: Log immediately when root page is accessed
+  const headersList = await headers()
+  const whopUserToken = headersList.get('x-whop-user-token')
+  const referer = headersList.get('referer') || ''
+  const userAgent = headersList.get('user-agent') || 'unknown'
+  
+  console.log('[Home] 🚀 Root page accessed:', {
+    timestamp: new Date().toISOString(),
+    hasWhopToken: !!whopUserToken,
+    referer: referer || 'none',
+    userAgent: userAgent.substring(0, 100) || 'unknown',
+  })
+  
   // Check if we're in Whop iframe context (has experienceId or companyId)
   const params = await searchParams
   const experienceId = params.experienceId
   const companyId = params.companyId || params.company_id
   
+  console.log('[Home] 📋 Query params:', {
+    experienceId: experienceId || 'none',
+    companyId: companyId || 'none',
+  })
+  
   // Check for Whop iframe headers (these indicate we're in a Whop context)
-  const headersList = await headers()
-  const whopUserToken = headersList.get('x-whop-user-token')
-  const referer = headersList.get('referer') || ''
   const isWhopContext = !!whopUserToken || referer.includes('whop.com')
+  
+  console.log('[Home] 🔍 Context detection:', {
+    isWhopContext,
+    hasWhopToken: !!whopUserToken,
+    refererIncludesWhop: referer.includes('whop.com'),
+  })
   
   // If opened from Whop with experienceId, redirect to experience dashboard
   if (experienceId) {
-    console.log('[Home] Whop iframe detected with experienceId:', experienceId)
+    console.log('[Home] ✅ Redirecting to experience dashboard:', experienceId)
     redirect(`/experiences/${experienceId}`)
   }
   
   // If opened from Whop with companyId, redirect to company dashboard
   if (companyId) {
-    console.log('[Home] Whop iframe detected with companyId:', companyId)
+    console.log('[Home] ✅ Redirecting to company dashboard:', companyId)
     
     // Check if installation exists for this company
-    const installation = await prisma.whopInstallation.findUnique({
-      where: { companyId },
-    })
-    
-    if (installation) {
-      redirect(`/dashboard/${companyId}`)
-    } else {
-      // No installation found, show discover page
-      redirect('/discover')
+    try {
+      const installation = await prisma.whopInstallation.findUnique({
+        where: { companyId },
+      })
+      
+      if (installation) {
+        redirect(`/dashboard/${companyId}`)
+      } else {
+        // No installation found, show discover page
+        console.log('[Home] ⚠️ No installation found for companyId, redirecting to discover')
+        redirect('/discover')
+      }
+    } catch (dbError) {
+      console.error('[Home] ❌ Database error checking installation:', dbError)
+      // Don't fail - still show install page
     }
   }
   
   // If we're in a Whop context (iframe headers) but no params, show a simple install page
   // This handles the case where Whop is validating the app URL during installation
   if (isWhopContext) {
-    console.log('[Home] Whop context detected (headers), showing install page')
+    console.log('[Home] ✅ Whop context detected - showing install page')
     return (
       <html>
         <head>
@@ -115,5 +142,6 @@ export default async function Home({ searchParams }: PageProps) {
   
   // No Whop context - show discover page
   // This is for direct access (not from Whop)
+  console.log('[Home] ℹ️ No Whop context - redirecting to discover page')
   redirect('/discover')
 }
