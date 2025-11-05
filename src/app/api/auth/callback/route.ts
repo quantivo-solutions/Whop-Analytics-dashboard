@@ -241,7 +241,24 @@ export async function GET(request: Request) {
     }
 
     if (!companyId) {
+      console.error('[OAuth Callback] ❌ No companyId determined - cannot proceed')
       return NextResponse.redirect(new URL('/login?error=no_company', request.url))
+    }
+
+    // CRITICAL: Log companyId for debugging specific installations
+    console.log(`[OAuth Callback] 🎯 Processing installation for companyId: ${companyId}`)
+    
+    // Special logging for known problematic company
+    if (companyId === 'biz_jjFeUmtshsC1pr') {
+      console.log('[OAuth Callback] 🔍 SPECIAL DEBUG: Processing known problematic company')
+      console.log('[OAuth Callback] 🔍 User data:', {
+        id: userData.id,
+        username: userData.username,
+        email: userData.email,
+        company_id: userData.company_id,
+      })
+      console.log('[OAuth Callback] 🔍 ExperienceId:', experienceId || 'none')
+      console.log('[OAuth Callback] 🔍 State companyId:', stateCompanyId || 'none')
     }
 
     // 🔄 CRITICAL: Check Whop API for active memberships to sync plan
@@ -290,6 +307,14 @@ export async function GET(request: Request) {
       where: { companyId },
     })
 
+    // CRITICAL: Log installation status for debugging
+    console.log(`[OAuth Callback] 📊 Installation lookup for ${companyId}:`, {
+      exists: !!installation,
+      currentPlan: installation?.plan || 'none',
+      currentExperienceId: installation?.experienceId || 'none',
+      currentUserId: installation?.userId || 'none',
+    })
+
     // CRITICAL: Also check if experienceId is already taken by another installation
     let existingByExperienceId = null
     if (experienceId) {
@@ -298,10 +323,12 @@ export async function GET(request: Request) {
       })
       
       if (existingByExperienceId && existingByExperienceId.companyId !== companyId) {
-        console.warn(`[OAuth] ⚠️ ExperienceId ${experienceId} already belongs to company ${existingByExperienceId.companyId}, cannot assign to ${companyId}`)
-        console.warn(`[OAuth] This is likely a reinstall scenario. Setting experienceId to null for this installation.`)
+        console.warn(`[OAuth Callback] ⚠️ ExperienceId ${experienceId} already belongs to company ${existingByExperienceId.companyId}, cannot assign to ${companyId}`)
+        console.warn(`[OAuth Callback] This is likely a reinstall scenario. Setting experienceId to null for this installation.`)
         // Don't set experienceId for this installation to avoid constraint violation
         experienceId = null
+      } else if (existingByExperienceId) {
+        console.log(`[OAuth Callback] ✅ ExperienceId ${experienceId} already belongs to this company - this is fine`)
       }
     }
 
