@@ -11,18 +11,41 @@ import { WHOP_CLIENT_ID, WHOP_CLIENT_SECRET } from '@/lib/whop-sdk'
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
+  // CRITICAL: Log immediately when request arrives
+  const requestUrl = request.url
+  console.log('[OAuth Callback] 🚀 Request received:', {
+    url: requestUrl,
+    method: request.method,
+    timestamp: new Date().toISOString(),
+  })
+  
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = new URL(requestUrl)
     const code = searchParams.get('code')
     const state = searchParams.get('state')
     const error = searchParams.get('error')
 
+    console.log('[OAuth Callback] 📋 Query params:', {
+      hasCode: !!code,
+      hasState: !!state,
+      hasError: !!error,
+      error: error || 'none',
+      codePreview: code ? code.substring(0, 10) + '...' : 'none',
+      statePreview: state ? state.substring(0, 20) + '...' : 'none',
+    })
+
     // Handle OAuth errors
     if (error) {
+      console.error('[OAuth Callback] ❌ OAuth error from Whop:', error)
       return NextResponse.redirect(new URL(`/login?error=${error}`, request.url))
     }
 
     if (!code || !state) {
+      console.warn('[OAuth Callback] ⚠️ Missing required params:', {
+        hasCode: !!code,
+        hasState: !!state,
+        fullUrl: requestUrl,
+      })
       return NextResponse.redirect(new URL('/login?error=missing_params', request.url))
     }
 
