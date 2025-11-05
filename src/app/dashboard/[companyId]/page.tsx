@@ -38,7 +38,7 @@ import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
 import { env } from '@/lib/env'
-import { Badge } from '@/components/ui/badge'
+import { RemoveScopeBadge } from '@/components/remove-scope-badge'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -629,6 +629,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
+        <RemoveScopeBadge />
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -637,15 +638,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                 personalizedText={installation?.username ? `${installation.username}'s Dashboard` : 'Your Dashboard'}
                 tagline="Business insights at a glance"
               />
-              {/* TASK 9 - UI badge: Show companyId and demo mode status */}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>Company: {companyId} • Scope locked</span>
-                {env.WHOPLYTICS_DEMO_MODE === '1' && (
-                  <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700">
-                    DEMO DATA (not real)
-                  </Badge>
-                )}
-              </div>
+              {/* Company/scope badge removed per request */}
             </div>
 
             {/* Right: Actions */}
