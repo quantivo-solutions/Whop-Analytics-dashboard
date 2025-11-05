@@ -229,10 +229,25 @@ async function handleAppInstalled(data: any) {
 
   // Store installation with userId if available
   try {
+    // If experienceId is provided and already exists for a different company, handle it
+    if (experience_id) {
+      const existingByExp = await prisma.whopInstallation.findUnique({
+        where: { experienceId: experience_id },
+      })
+      
+      if (existingByExp && existingByExp.companyId !== company_id) {
+        // ExperienceId already belongs to a different company
+        // This shouldn't happen in normal Whop flow, but handle gracefully
+        console.warn(`[WHOP] ⚠️ ExperienceId ${experience_id} already belongs to company ${existingByExp.companyId}, cannot assign to ${company_id}`)
+        // Don't set experienceId for this installation to avoid constraint violation
+        experience_id = null
+      }
+    }
+    
     await prisma.whopInstallation.upsert({
       where: { companyId: company_id },
       update: {
-        experienceId: experience_id || null,
+        experienceId: experience_id || existing?.experienceId || null, // Only update if provided and unique
         accessToken: access_token,
         plan: 'free', // ALWAYS reset to free on install/reinstall
         userId: user_id || existing?.userId || null, // Preserve existing userId if not provided
@@ -252,22 +267,38 @@ async function handleAppInstalled(data: any) {
     // Handle unique constraint violations (e.g., duplicate experienceId)
     if (error.code === 'P2002') {
       console.error(`[WHOP] ❌ Database constraint violation:`, error.meta)
-      // If it's a duplicate experienceId, try updating the existing record
+      // If it's a duplicate experienceId, try updating without experienceId
       if (error.meta?.target?.includes('experienceId')) {
-        console.log('[WHOP] ⚠️ Duplicate experienceId detected, trying to update existing installation...')
-        const existingByExp = await prisma.whopInstallation.findUnique({
-          where: { experienceId: experience_id },
-        })
-        if (existingByExp && existingByExp.companyId !== company_id) {
-          // This is a different company trying to use the same experienceId
-          // This shouldn't happen, but let's handle it gracefully
-          console.error(`[WHOP] ❌ ExperienceId ${experience_id} already belongs to company ${existingByExp.companyId}, cannot assign to ${company_id}`)
-          throw new Error(`Experience ID ${experience_id} is already in use by another company`)
+        console.log('[WHOP] ⚠️ Duplicate experienceId detected, retrying without experienceId...')
+        try {
+          await prisma.whopInstallation.upsert({
+            where: { companyId: company_id },
+            update: {
+              accessToken: access_token,
+              plan: 'free',
+              userId: user_id || existing?.userId || null,
+              updatedAt: new Date(),
+              // Don't update experienceId if it causes a conflict
+            },
+            create: {
+              companyId: company_id,
+              accessToken: access_token,
+              plan: 'free',
+              userId: user_id || null,
+              // Don't set experienceId if it causes a conflict
+            },
+          })
+          console.log(`[WHOP] ✅ Installed companyId=${company_id} without experienceId (duplicate conflict resolved)`)
+        } catch (retryError) {
+          console.error(`[WHOP] ❌ Retry failed:`, retryError)
+          throw retryError
         }
+      } else {
+        throw error
       }
+    } else {
       throw error
     }
-    throw error
   }
   
   // CRITICAL: For ALL installations (new and reinstalls), ensure CompanyPrefs exists with completedAt=null
