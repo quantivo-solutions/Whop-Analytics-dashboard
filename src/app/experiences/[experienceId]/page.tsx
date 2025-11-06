@@ -167,6 +167,61 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
   }
 
+  // Ensure we have an installation before proceeding (legacy flow)
+  if (!installation) {
+    try {
+      console.log('[Experience Page] Legacy resolve: finding installation...')
+      // 1) Try by experienceId
+      installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
+
+      // 2) Try by Whop user context
+      if (!installation && whopUser) {
+        const candidateCompanyId = whopUser.companyId || whopUser.userId
+        if (candidateCompanyId) {
+          installation = await prisma.whopInstallation.findUnique({ where: { companyId: candidateCompanyId } })
+        }
+      }
+
+      // 3) Try by userId most recent
+      if (!installation && whopUser?.userId) {
+        const userInstallations = await prisma.whopInstallation.findMany({
+          where: { userId: whopUser.userId },
+          orderBy: { updatedAt: 'desc' },
+          take: 1,
+        })
+        installation = userInstallations[0] || null
+      }
+
+      // 4) Create minimal installation if still not found and we have a candidate companyId
+      if (!installation && whopUser) {
+        const companyId = whopUser.companyId || whopUser.userId
+        if (companyId) {
+          console.log('[Experience Page] Creating minimal installation for companyId:', companyId)
+          const { env } = await import('@/lib/env')
+          installation = await prisma.whopInstallation.create({
+            data: {
+              companyId,
+              userId: whopUser.userId,
+              experienceId,
+              accessToken: env.WHOP_APP_SERVER_KEY || '',
+              plan: 'free',
+              username: whopUser.username || null,
+            },
+          })
+          // Ensure prefs exist
+          try {
+            const { getCompanyPrefs } = await import('@/lib/company')
+            await getCompanyPrefs(companyId)
+          } catch (e) {
+            console.warn('[Experience Page] Failed to ensure CompanyPrefs on create:', e)
+          }
+        }
+      }
+    } catch (legacyErr) {
+      console.error('[Experience Page] Legacy resolve error:', legacyErr)
+    }
+  }
+
   // CRITICAL: Verify the installation matches the current experienceId
   // After reinstall, a new experienceId is generated, so old installations shouldn't match
   // BUT: If installation was found by userId (most recent), it may have different experienceId
