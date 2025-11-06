@@ -850,5 +850,60 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       </div>
     </div>
   )
+  } catch (error: any) {
+    console.error('[Dashboard View] 💥 FATAL ERROR:', {
+      companyId,
+      error: error instanceof Error ? error.message : 'Unknown',
+      code: (error as any)?.code,
+      meta: (error as any)?.meta,
+      stack: error instanceof Error ? error.stack?.substring(0, 1000) : undefined,
+    })
+    
+    // Log fatal error attempt (fire and forget - don't await to avoid blocking)
+    if (typeof fetch !== 'undefined') {
+      fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app'}/api/debug/log-install-attempt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          success: false,
+          errorMessage: error instanceof Error ? error.message : 'Unknown',
+          metadata: { 
+            source: 'dashboard_view',
+            fatal: true,
+            code: (error as any)?.code,
+            meta: (error as any)?.meta,
+          }
+        })
+      }).catch(() => {})
+    }
+    
+    // Return error page instead of throwing
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="max-w-md border-red-200 dark:border-red-800">
+          <CardContent className="pt-6 text-center space-y-4">
+            <div className="rounded-full bg-red-100 dark:bg-red-950 p-3 w-12 h-12 mx-auto flex items-center justify-center">
+              <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-2xl font-bold">Installation Failed</h2>
+            <p className="text-muted-foreground">
+              We encountered an error while setting up your installation.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Error: {error instanceof Error ? error.message : 'Unknown error'}
+            </p>
+            <div className="pt-4">
+              <Link href={`/dashboard/${companyId}`}>
+                <Button variant="default" className="w-full">
+                  Try Again
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 }
 
