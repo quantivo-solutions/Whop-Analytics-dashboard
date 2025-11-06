@@ -648,7 +648,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
     }
 
-    // CRITICAL: Refresh installation one final time to ensure we have the latest experienceName
+    // CRITICAL: Refresh installation one final time to ensure we have the latest experienceName and profilePicUrl
     // This ensures any updates we made to the database are reflected in the UI
     if (installation) {
       const refreshedInstallation = await prisma.whopInstallation.findUnique({
@@ -656,7 +656,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       })
       if (refreshedInstallation) {
         installation = refreshedInstallation
-        console.log('[Experience Page] ✅ Installation refreshed before render, experienceName:', (installation as any).experienceName || '(not set)')
+        // Update experienceName and profilePicUrl from refreshed installation
+        experienceName = (installation as any).experienceName || experienceName
+        console.log('[Experience Page] ✅ Installation refreshed before render, experienceName:', experienceName || '(not set)', 'profilePicUrl:', installation.profilePicUrl || '(not set)')
       }
     }
 
