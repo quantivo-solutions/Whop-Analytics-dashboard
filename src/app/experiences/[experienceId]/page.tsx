@@ -369,9 +369,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   // Proceed to load dashboard with error handling
   // CRITICAL: Use installation.companyId (not session.companyId) to ensure we get the correct plan
-  const finalCompanyId = installation.companyId
+  // finalCompanyId is already declared above, reuse it
     
-    console.log('[Experience Page] Installation details:', {
+  console.log('[Experience Page] Installation details:', {
       companyId: finalCompanyId,
       plan: installation.plan,
       userId: installation.userId,
