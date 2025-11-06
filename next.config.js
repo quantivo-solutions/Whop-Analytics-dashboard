@@ -13,20 +13,30 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Allow Whop to embed our app in iframes
-        source: '/:path*',
+        source: "/(.*)",
         headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'ALLOWALL',
+          // Modern way - allow Whop to embed our app in iframes
+          { 
+            key: "Content-Security-Policy", 
+            value: "frame-ancestors https://*.whop.com https://whop.com 'self';" 
           },
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://*.whop.com https://whop.com",
+          // Legacy fallback (ignored by modern CSP but some proxies still check it)
+          { 
+            key: "X-Frame-Options", 
+            value: "ALLOW-FROM https://whop.com" 
+          },
+          // Security hygiene
+          { 
+            key: "Referrer-Policy", 
+            value: "strict-origin-when-cross-origin" 
+          },
+          { 
+            key: "X-Content-Type-Options", 
+            value: "nosniff" 
           },
         ],
       },
-    ]
+    ];
   },
 }
 

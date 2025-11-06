@@ -50,62 +50,66 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   const resolvedSearchParams = await searchParams
   const { token } = resolvedSearchParams
 
-  console.log('[Whoplytics] [Experience Page] START - experienceId:', experienceId)
+  // Install trace logging
+  console.log("[Whoplytics] experience-enter", { experienceId })
 
-  // AUTO-CLAIM: Try to find installation by experienceId first
-  let install = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
+  try {
+    console.log('[Whoplytics] [Experience Page] START - experienceId:', experienceId)
 
-  // If no installation found, auto-claim by resolving companyId from Whop API
-  if (!install) {
-    console.log('[Whoplytics] No installation found for experienceId, attempting auto-claim...')
-    
-    try {
-      const exp = await getExperienceById(experienceId)
-      const companyId = exp?.company_id || exp?.company?.id || exp?.companyId
+    // AUTO-CLAIM: Try to find installation by experienceId first
+    let install = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
+
+    // If no installation found, auto-claim by resolving companyId from Whop API
+    if (!install) {
+      console.log('[Whoplytics] No installation found for experienceId, attempting auto-claim...')
       
-      if (companyId?.startsWith("biz_")) {
-        // Link experience to company (creates or updates installation)
-        const result = await linkExperienceToCompany({ experienceId, companyId })
-        console.log('[Whoplytics] Auto-claimed install', { 
-          experienceId, 
-          companyId, 
-          created: result.created, 
-          updated: result.updated 
-        })
+      try {
+        const exp = await getExperienceById(experienceId)
+        const companyId = exp?.company_id || exp?.company?.id || exp?.companyId
         
-        // Refresh installation after linking
-        install = await prisma.whopInstallation.findUnique({ where: { experienceId } })
-      } else {
-        console.log('[Whoplytics] No biz_* company found for experience', { experienceId, companyId })
+        if (companyId?.startsWith("biz_")) {
+          // Link experience to company (creates or updates installation)
+          const result = await linkExperienceToCompany({ experienceId, companyId })
+          console.log('[Whoplytics] Auto-claimed install', { 
+            experienceId, 
+            companyId, 
+            created: result.created, 
+            updated: result.updated 
+          })
+          
+          // Refresh installation after linking
+          install = await prisma.whopInstallation.findUnique({ where: { experienceId } })
+        } else {
+          console.log('[Whoplytics] No biz_* company found for experience', { experienceId, companyId })
+        }
+      } catch (e) {
+        console.warn('[Whoplytics] Auto-claim error', { experienceId, error: String(e) })
       }
-    } catch (e) {
-      console.warn('[Whoplytics] Auto-claim error', { experienceId, error: String(e) })
     }
-  }
 
-  // If still no installation after auto-claim, show discover fallback
-  if (!install) {
-    console.log('[Whoplytics] No installation found after auto-claim, showing discover fallback')
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
-          <Card className="p-8 text-center">
-            <CardContent className="pt-6 space-y-4">
-              <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
-              <p className="text-muted-foreground">
-                We couldn't automatically set up your analytics dashboard. Please install Whoplytics from your Whop dashboard.
-              </p>
-              <div className="pt-4">
-                <Link href="/discover">
-                  <Button variant="default">Learn More</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+    // If still no installation after auto-claim, show discover fallback (200 OK, not 500)
+    if (!install) {
+      console.log('[Whoplytics] No installation found after auto-claim, showing discover fallback')
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+            <Card className="p-8 text-center">
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+                <p className="text-muted-foreground">
+                  We couldn't automatically set up your analytics dashboard. Please install Whoplytics from your Whop dashboard.
+                </p>
+                <div className="pt-4">
+                  <Link href="/discover">
+                    <Button variant="default">Learn More</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
-    )
-  }
+      )
+    }
 
   // From here on, install exists - proceed with normal flow
   const companyId = ensureBizCompanyId(install.companyId)
@@ -873,18 +877,33 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         </div>
       </div>
     )
-  } catch (error) {
-    // Log error for debugging
-    console.error('Error loading experience dashboard:', error)
+  } catch (error: any) {
+    // CRITICAL: Never 500 on unknown IDs - return friendly 200 OK response instead
+    console.error('[Whoplytics] Error loading experience dashboard:', {
+      experienceId,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+    })
     
-    // Show user-friendly error message
+    // Return friendly "Not installed yet" state with Install CTA (200 OK, not 500)
     return (
-      <ErrorDisplay
-        title="Unable to Load Experience"
-        message="We're having trouble loading this experience dashboard. Please try again or contact support if the issue persists."
-        showRefreshButton={true}
-        showHomeButton={true}
-      />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+          <Card className="p-8 text-center">
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+              <p className="text-muted-foreground">
+                We couldn't automatically set up your analytics dashboard. Please install Whoplytics from your Whop dashboard.
+              </p>
+              <div className="pt-4">
+                <Link href="/discover">
+                  <Button variant="default">Learn More</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     )
   }
 }

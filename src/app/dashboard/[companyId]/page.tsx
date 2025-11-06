@@ -66,20 +66,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   console.log('[Dashboard View] 🎯 START - Loading dashboard for:', companyId)
   
   try {
-  
-  // TASK 2 - Page guard: Resolve installation via getInstallationByCompany
-  // INTEGRITY: Validate companyId before proceeding
-  if (!companyId || typeof companyId !== 'string') {
-    console.error('[Dashboard View] INTEGRITY ERROR: Invalid companyId in URL')
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="p-8 text-center">
-          <h2 className="text-xl font-bold mb-2">Invalid Company ID</h2>
-          <p className="text-muted-foreground">No installation found for this companyId.</p>
-        </Card>
-      </div>
-    )
-  }
 
   // STEP 1: Verify user authentication via Whop iframe headers (Dashboard View pattern)
   // According to Whop docs: Dashboard apps should verify user token first
@@ -868,57 +854,31 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     </div>
   )
   } catch (error: any) {
-    console.error('[Dashboard View] 💥 FATAL ERROR:', {
+    // CRITICAL: Never 500 on unknown IDs - return friendly 200 OK response instead
+    console.error('[Whoplytics] Error loading dashboard:', {
       companyId,
-      error: error instanceof Error ? error.message : 'Unknown',
-      code: (error as any)?.code,
-      meta: (error as any)?.meta,
-      stack: error instanceof Error ? error.stack?.substring(0, 1000) : undefined,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
     })
     
-    // Log fatal error attempt (fire and forget - don't await to avoid blocking)
-    if (typeof fetch !== 'undefined') {
-      fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app'}/api/debug/log-install-attempt`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId,
-          success: false,
-          errorMessage: error instanceof Error ? error.message : 'Unknown',
-          metadata: { 
-            source: 'dashboard_view',
-            fatal: true,
-            code: (error as any)?.code,
-            meta: (error as any)?.meta,
-          }
-        })
-      }).catch(() => {})
-    }
-    
-    // Return error page instead of throwing
+    // Return friendly "Not installed yet" state with Install CTA (200 OK, not 500)
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <Card className="max-w-md border-red-200 dark:border-red-800">
-          <CardContent className="pt-6 text-center space-y-4">
-            <div className="rounded-full bg-red-100 dark:bg-red-950 p-3 w-12 h-12 mx-auto flex items-center justify-center">
-              <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
-            </div>
-            <h2 className="text-2xl font-bold">Installation Failed</h2>
-            <p className="text-muted-foreground">
-              We encountered an error while setting up your installation.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Error: {error instanceof Error ? error.message : 'Unknown error'}
-            </p>
-            <div className="pt-4">
-              <Link href={`/dashboard/${companyId}`}>
-                <Button variant="default" className="w-full">
-                  Try Again
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+          <Card className="p-8 text-center">
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+              <p className="text-muted-foreground">
+                We couldn't automatically set up your analytics dashboard. Please install Whoplytics from your Whop dashboard.
+              </p>
+              <div className="pt-4">
+                <Link href="/discover">
+                  <Button variant="default">Learn More</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
