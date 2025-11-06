@@ -323,7 +323,7 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string)
         created_before: endTime,
         limit,
         page,
-      })
+      }, accessToken)
       
       const payments = response.data || []
       console.log(`  Found ${payments.length} payments on page ${page}`)
