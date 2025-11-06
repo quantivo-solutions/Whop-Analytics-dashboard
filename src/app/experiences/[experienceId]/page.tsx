@@ -87,44 +87,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
     }
 
-    // If still no installation after auto-claim, show discover fallback (200 OK, not 500)
-    if (!install) {
-      console.log('[Whoplytics] No installation found after auto-claim, showing discover fallback')
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
-            <Card className="p-8 text-center">
-              <CardContent className="pt-6 space-y-4">
-                <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
-                <p className="text-muted-foreground">
-                  We couldn't automatically set up your analytics dashboard. Please install Whoplytics from your Whop dashboard.
-                </p>
-                <div className="pt-4">
-                  <Link href="/discover">
-                    <Button variant="default">Learn More</Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )
-    }
+    // Do NOT return here; continue to normal discovery/create flow below
 
-  // From here on, install exists - proceed with normal flow
-  // Use companyId as-is (may be biz_ or user_ for legacy installations)
-  const finalCompanyId = install.companyId
-  if (!finalCompanyId) {
-    throw new Error('[Whoplytics] Installation found but companyId is missing')
-  }
-  if (!finalCompanyId.startsWith('biz_') && !finalCompanyId.startsWith('user_')) {
-    throw new Error(`[Whoplytics] Invalid companyId format: must start with 'biz_' or 'user_' but got '${finalCompanyId}'`)
-  }
-  console.log('[Whoplytics] Installation found, proceeding with companyId:', finalCompanyId)
-  
-  // Use install as installation
-  let installation = install
-  let experienceName: string | null = (installation as any).experienceName || null
+  // Proceed even if install is null; later logic will resolve or create it
+  let installation = install as any
+  let experienceName: string | null = (installation as any)?.experienceName || null
   
   // STEP 1: Check Whop iframe authentication (for session creation)
   console.log('[Whoplytics] Step 1: Checking Whop iframe authentication...')
@@ -160,9 +127,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           console.log('[Experience Page] Updating username:', username)
         }
         
-        if (Object.keys(updateData).length > 0) {
+        if (Object.keys(updateData).length > 0 && installation && installation.companyId) {
           installation = await prisma.whopInstallation.update({
-            where: { companyId: finalCompanyId },
+            where: { companyId: installation.companyId },
             data: updateData,
           })
           console.log('[Experience Page] ✅ Updated installation with user profile data')
@@ -185,11 +152,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           const expData = await expResponse.json()
           experienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
           
-          if (experienceName) {
+          if (experienceName && installation && installation.companyId) {
             console.log('[Experience Page] Got experience name:', experienceName)
             // Save to database
             installation = await prisma.whopInstallation.update({
-              where: { companyId: finalCompanyId },
+              where: { companyId: installation.companyId },
               data: { experienceName } as any,
             })
           }
@@ -416,7 +383,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   // Proceed to load dashboard with error handling
   // CRITICAL: Use installation.companyId (not session.companyId) to ensure we get the correct plan
-  // finalCompanyId is already declared above, reuse it
+  const finalCompanyId = installation.companyId
     
   console.log('[Experience Page] Installation details:', {
       companyId: finalCompanyId,
