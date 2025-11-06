@@ -190,45 +190,62 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               console.log('[Dashboard View] 🎯 Step 2: Creating NEW installation for:', companyId)
               const { env } = await import('@/lib/env')
               
-              // Try to fetch experienceId from Whop API for this company
+              // CRITICAL: Try to create a Whop experience if one doesn't exist
               let experienceId: string | null = null
               try {
-                // Get company's experiences to find the experienceId
-                const experiencesResponse = await fetch(`https://api.whop.com/api/v5/companies/${companyId}/experiences`, {
-                  headers: {
-                    'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
-                  },
-                })
+                const { createExperienceForCompany } = await import('@/lib/create-experience')
+                console.log('[Dashboard View] 🚀 Attempting to create Whop experience for company:', companyId)
+                experienceId = await createExperienceForCompany(companyId, env.WHOP_APP_SERVER_KEY)
                 
-                if (experiencesResponse.ok) {
-                  const experiencesData = await experiencesResponse.json()
-                  const experiences = experiencesData.data || []
+                if (experienceId) {
+                  console.log('[Dashboard View] ✅ Created/found experienceId:', experienceId)
+                } else {
+                  console.warn('[Dashboard View] ⚠️ Could not create experience, will try fetching existing ones')
+                }
+              } catch (createExpError) {
+                console.warn('[Dashboard View] ⚠️ Error creating experience:', createExpError)
+              }
+              
+              // Fallback: Try to fetch existing experiences if creation failed
+              if (!experienceId) {
+                try {
+                  // Get company's experiences to find the experienceId
+                  const experiencesResponse = await fetch(`https://api.whop.com/api/v5/companies/${companyId}/experiences`, {
+                    headers: {
+                      'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+                    },
+                  })
                   
-                  if (experiences.length > 0) {
-                    // Use the first experience (usually the main one)
-                    const foundExperienceId = experiences[0].id
-                    console.log('[Dashboard View] ✅ Found experienceId for company:', foundExperienceId)
+                  if (experiencesResponse.ok) {
+                    const experiencesData = await experiencesResponse.json()
+                    const experiences = experiencesData.data || []
                     
-                    // Check if this experienceId is already taken by another installation
-                    const existingByExp = await prisma.whopInstallation.findUnique({
-                      where: { experienceId: foundExperienceId },
-                    })
-                    
-                    if (existingByExp && existingByExp.companyId !== companyId) {
-                      console.warn('[Dashboard View] ⚠️ ExperienceId already taken by another company, setting to null')
-                      experienceId = null
+                    if (experiences.length > 0) {
+                      // Use the first experience (usually the main one)
+                      const foundExperienceId = experiences[0].id
+                      console.log('[Dashboard View] ✅ Found experienceId for company:', foundExperienceId)
+                      
+                      // Check if this experienceId is already taken by another installation
+                      const existingByExp = await prisma.whopInstallation.findUnique({
+                        where: { experienceId: foundExperienceId },
+                      })
+                      
+                      if (existingByExp && existingByExp.companyId !== companyId) {
+                        console.warn('[Dashboard View] ⚠️ ExperienceId already taken by another company, setting to null')
+                        experienceId = null
+                      } else {
+                        experienceId = foundExperienceId
+                      }
                     } else {
-                      experienceId = foundExperienceId
+                      console.log('[Dashboard View] ⚠️ No experiences found for company:', companyId)
                     }
                   } else {
-                    console.log('[Dashboard View] ⚠️ No experiences found for company:', companyId)
+                    console.warn('[Dashboard View] ⚠️ Failed to fetch experiences (status:', experiencesResponse.status, ')')
                   }
-                } else {
-                  console.warn('[Dashboard View] ⚠️ Failed to fetch experiences (status:', experiencesResponse.status, ')')
+                } catch (expError) {
+                  console.warn('[Dashboard View] ⚠️ Error fetching experienceId:', expError)
+                  // Continue without experienceId - it can be set later
                 }
-              } catch (expError) {
-                console.warn('[Dashboard View] ⚠️ Error fetching experienceId:', expError)
-                // Continue without experienceId - it can be set later
               }
               
               try {

@@ -240,11 +240,26 @@ export async function GET(request: Request) {
       console.log('[OAuth] Direct login, using user company:', companyId)
     }
 
-    if (!companyId) {
-      console.error('[OAuth Callback] ❌ No companyId determined - cannot proceed')
-      return NextResponse.redirect(new URL('/login?error=no_company', request.url))
+    // CRITICAL: If no experienceId was provided, try to create one or fetch existing
+    if (!experienceId && companyId) {
+      console.log('[OAuth Callback] ⚠️ No experienceId provided, attempting to create/fetch experience for company:', companyId)
+      
+      try {
+        const { createExperienceForCompany } = await import('@/lib/create-experience')
+        const createdExperienceId = await createExperienceForCompany(companyId, access_token)
+        
+        if (createdExperienceId) {
+          experienceId = createdExperienceId
+          console.log('[OAuth Callback] ✅ Created/found experienceId:', experienceId)
+        } else {
+          console.warn('[OAuth Callback] ⚠️ Could not create/fetch experience, proceeding without experienceId')
+        }
+      } catch (createExpError) {
+        console.warn('[OAuth Callback] ⚠️ Error creating/fetching experience:', createExpError)
+        // Continue without experienceId - not critical for installation
+      }
     }
-
+    
     // CRITICAL: Log companyId for debugging specific installations
     console.log(`[OAuth Callback] 🎯 Processing installation for companyId: ${companyId}`)
     
