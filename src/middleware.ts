@@ -26,7 +26,16 @@ const publicApiRoutes = [
 const whopIframeRoutes = ['/experiences', '/dashboard']
 
 export function middleware(request: NextRequest) {
+  // CRITICAL: Log EVERY request immediately to verify middleware is running
   const { pathname, searchParams } = request.nextUrl
+  console.log('[Middleware] 🚀 Request received:', {
+    pathname,
+    method: request.method,
+    timestamp: new Date().toISOString(),
+    hasSessionCookie: !!request.cookies.get('whop_session'),
+    hasWhopToken: !!request.headers.get('x-whop-user-token'),
+    referer: request.headers.get('referer') || 'none',
+  })
   
   // Allow public routes
   if (publicRoutes.some(route => pathname.startsWith(route))) {
