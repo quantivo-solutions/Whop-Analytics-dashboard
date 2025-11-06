@@ -181,7 +181,13 @@ export default async function Home({ searchParams }: PageProps) {
         </body>
       </html>
     )
-  } catch (error) {
+  } catch (error: any) {
+    // CRITICAL: Next.js redirect() throws NEXT_REDIRECT error - this is expected behavior
+    // Don't catch redirect errors - let them propagate
+    if (error?.digest?.startsWith('NEXT_REDIRECT')) {
+      throw error // Re-throw redirect errors so Next.js can handle them
+    }
+    
     // CRITICAL: Never let errors break Whop validation
     // Always return a valid HTML page even on error
     console.error('[Home] ❌ Error in root page:', error)
