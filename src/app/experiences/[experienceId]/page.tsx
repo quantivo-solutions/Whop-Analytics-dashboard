@@ -50,17 +50,76 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   const resolvedSearchParams = await searchParams
   const { token } = resolvedSearchParams
 
-  console.log('[Experience Page] START - experienceId:', experienceId, 'token:', token ? 'present' : 'none')
+  console.log('[Whoplytics] [Experience Page] START - experienceId:', experienceId)
 
-  // STEP 1: ALWAYS check Whop iframe authentication FIRST (before checking installation)
-  // This is what other Whop apps do - they auto-login users already authenticated in Whop
-  console.log('[Experience Page] Step 1: Checking Whop iframe authentication...')
+  // AUTO-CLAIM: Try to find installation by experienceId first
+  let install = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
+
+  // If no installation found, auto-claim by resolving companyId from Whop API
+  if (!install) {
+    console.log('[Whoplytics] No installation found for experienceId, attempting auto-claim...')
+    
+    try {
+      const exp = await getExperienceById(experienceId)
+      const companyId = exp?.company_id || exp?.company?.id || exp?.companyId
+      
+      if (companyId?.startsWith("biz_")) {
+        // Link experience to company (creates or updates installation)
+        const result = await linkExperienceToCompany({ experienceId, companyId })
+        console.log('[Whoplytics] Auto-claimed install', { 
+          experienceId, 
+          companyId, 
+          created: result.created, 
+          updated: result.updated 
+        })
+        
+        // Refresh installation after linking
+        install = await prisma.whopInstallation.findUnique({ where: { experienceId } })
+      } else {
+        console.log('[Whoplytics] No biz_* company found for experience', { experienceId, companyId })
+      }
+    } catch (e) {
+      console.warn('[Whoplytics] Auto-claim error', { experienceId, error: String(e) })
+    }
+  }
+
+  // If still no installation after auto-claim, show discover fallback
+  if (!install) {
+    console.log('[Whoplytics] No installation found after auto-claim, showing discover fallback')
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+          <Card className="p-8 text-center">
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+              <p className="text-muted-foreground">
+                We couldn't automatically set up your analytics dashboard. Please install Whoplytics from your Whop dashboard.
+              </p>
+              <div className="pt-4">
+                <Link href="/discover">
+                  <Button variant="default">Learn More</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // From here on, install exists - proceed with normal flow
+  const companyId = ensureBizCompanyId(install.companyId)
+  console.log('[Whoplytics] Installation found, proceeding with companyId:', companyId)
+  
+  // Continue with existing logic (but use install instead of installation)
+  let installation = install
+  let experienceName: string | null = installation.experienceName || null
+  
+  // STEP 1: Check Whop iframe authentication (for session creation)
+  console.log('[Whoplytics] Step 1: Checking Whop iframe authentication...')
   const whopUser = await verifyWhopUserToken()
   
-  let installation = null
   let experienceIdWasUpdated = false
-  let companyId: string | null = null
-  let experienceName: string | null = null
   
   // If user is authenticated via Whop headers, we can auto-create installation
   if (whopUser && whopUser.userId) {
