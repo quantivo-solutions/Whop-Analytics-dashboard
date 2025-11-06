@@ -57,11 +57,27 @@ export function middleware(request: NextRequest) {
       return NextResponse.next()
     }
 
-    // CRITICAL: Always allow root path (/) - it handles its own validation
-    // Whop validates the app URL during installation by loading it
-    // We must NEVER block the root path, as it can break installation
+    // CRITICAL: Always allow root path (/) - but if referer is Whop dashboard/experience,
+    // auto-redirect to the correct embedded route to avoid showing a generic installing page.
     if (pathname === '/') {
-      console.log('[Middleware] ✅ Allowing root path (always allowed for Whop validation)')
+      const referer = request.headers.get('referer') || ''
+      const isWhop = referer.includes('whop.com')
+      if (isWhop) {
+        // Try to extract companyId or experienceId from referer URL
+        const bizMatch = referer.match(/\/dashboard\/(biz_[A-Za-z0-9]+)/)
+        const expMatch = referer.match(/\/experiences\/(exp_[A-Za-z0-9]+)/)
+        if (expMatch && expMatch[1]) {
+          const url = new URL(`/experiences/${expMatch[1]}`, request.url)
+          console.log('[Middleware] 🔁 Redirecting / -> experience via referer:', expMatch[1])
+          return NextResponse.redirect(url)
+        }
+        if (bizMatch && bizMatch[1]) {
+          const url = new URL(`/dashboard/${bizMatch[1]}`, request.url)
+          console.log('[Middleware] 🔁 Redirecting / -> dashboard via referer:', bizMatch[1])
+          return NextResponse.redirect(url)
+        }
+      }
+      console.log('[Middleware] ✅ Allowing root path (validation or non-Whop access)')
       return NextResponse.next()
     }
 
