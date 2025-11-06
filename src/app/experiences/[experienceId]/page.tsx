@@ -368,9 +368,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   console.log('[Experience Page] Valid session found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
   
   // Proceed to load dashboard with error handling
-  try {
-    // CRITICAL: Use installation.companyId (not session.companyId) to ensure we get the correct plan
-    const finalCompanyId = installation.companyId
+  // CRITICAL: Use installation.companyId (not session.companyId) to ensure we get the correct plan
+  const finalCompanyId = installation.companyId
     
     console.log('[Experience Page] Installation details:', {
       companyId: finalCompanyId,
@@ -551,12 +550,13 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             // Save to database for future use
             await prisma.whopInstallation.update({
               where: { companyId: installation.companyId },
-              data: { experienceName: finalExperienceName },
+              data: { experienceName: finalExperienceName } as any,
             })
             // Refresh installation to include the new experienceName
-            installation = await prisma.whopInstallation.findUnique({
+            const refreshed = await prisma.whopInstallation.findUnique({
               where: { companyId: installation.companyId },
             })
+            if (refreshed) installation = refreshed
           } else {
             console.log('[Experience Page] ⚠️ Experience data received but no name field found. Full response:', JSON.stringify(expData, null, 2))
           }
