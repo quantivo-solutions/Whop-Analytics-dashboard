@@ -3,6 +3,49 @@
  * Simple fetch-based client for Whop API calls
  */
 
+/**
+ * Generic GET request to Whop API
+ * @param endpoint - API endpoint (e.g., '/payments', '/memberships')
+ * @param params - Query parameters
+ * @param accessToken - Optional access token (defaults to server key)
+ * @returns API response
+ */
+export async function whopGET<T = any>(
+  endpoint: string,
+  params?: Record<string, any>,
+  accessToken?: string
+): Promise<T> {
+  const token = accessToken || process.env.WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY
+
+  if (!token) {
+    throw new Error("Missing WHOP_APP_SERVER_KEY/WHOP_API_KEY - required for Whop API calls")
+  }
+
+  const url = new URL(`https://api.whop.com/api/v5${endpoint}`)
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value))
+      }
+    })
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`Whop API ${endpoint} failed: ${res.status} ${text}`)
+  }
+
+  return res.json()
+}
+
+/**
+ * Get experience by ID
+ */
 export async function getExperienceById(experienceId: string) {
   const token = process.env.WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY
 
@@ -24,3 +67,4 @@ export async function getExperienceById(experienceId: string) {
 
   return res.json()
 }
+

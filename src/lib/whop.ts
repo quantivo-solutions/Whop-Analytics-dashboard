@@ -422,7 +422,7 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
         created_before: endTime,
         limit,
         page,
-      })
+      }, accessToken)
       
       const memberships = response.data || []
       console.log(`  Found ${memberships.length} memberships on page ${page}`)
@@ -500,7 +500,7 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
         canceled_before: endTime,
         limit,
         page,
-      })
+      }, accessToken)
       
       const cancellations = response.data || []
       console.log(`  Found ${cancellations.length} cancellations on page ${page}`)
@@ -574,7 +574,7 @@ export async function countActiveAtEndOfDay(dateStr: string, accessToken: string
         status: 'active,trialing,past_due', // Common active statuses
         created_before: endTime,
         limit: 1, // We only need the count
-      })
+      }, accessToken)
       
       // Check if API provides a total count
       if (response.pagination?.total !== undefined) {
