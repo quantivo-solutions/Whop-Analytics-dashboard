@@ -112,7 +112,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
 
   // From here on, install exists - proceed with normal flow
-  const finalCompanyId = ensureBizCompanyId(install.companyId)
+  // Use companyId as-is (may be biz_ or user_ for legacy installations)
+  const finalCompanyId = install.companyId
+  if (!finalCompanyId) {
+    throw new Error('[Whoplytics] Installation found but companyId is missing')
+  }
+  if (!finalCompanyId.startsWith('biz_') && !finalCompanyId.startsWith('user_')) {
+    throw new Error(`[Whoplytics] Invalid companyId format: must start with 'biz_' or 'user_' but got '${finalCompanyId}'`)
+  }
   console.log('[Whoplytics] Installation found, proceeding with companyId:', finalCompanyId)
   
   // Use install as installation
