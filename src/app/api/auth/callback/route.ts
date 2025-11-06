@@ -361,6 +361,23 @@ export async function GET(request: Request) {
             throw new Error(`Installation creation verification failed - installation not found in database after create`)
           }
           console.log(`[OAuth Callback] ✅ VERIFIED installation exists in database: ${verifyInstallation.companyId}`)
+          
+          // Log successful installation attempt
+          try {
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/api/debug/log-install-attempt`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                companyId,
+                userId: userData.id,
+                experienceId: experienceId || null,
+                success: true,
+                metadata: { source: 'oauth_callback', isNew: true }
+              })
+            }).catch(err => console.warn('[OAuth Callback] Failed to log attempt:', err))
+          } catch (logError) {
+            console.warn('[OAuth Callback] Could not log installation attempt:', logError)
+          }
         } catch (createError: any) {
           // Handle unique constraint violations
           if (createError.code === 'P2002') {
@@ -448,6 +465,27 @@ export async function GET(request: Request) {
       // CRITICAL: If installation creation failed, DO NOT proceed - user cannot use the app
       if (!installationCreated && !installation) {
         console.error(`[OAuth Callback] ❌ BLOCKING: Installation was not created - aborting OAuth flow`)
+        
+        // Log failed installation attempt
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/api/debug/log-install-attempt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              companyId,
+              userId: userData?.id || null,
+              experienceId: experienceId || null,
+              success: false,
+              errorMessage: dbError.message,
+              metadata: { 
+                source: 'oauth_callback',
+                code: dbError?.code,
+                meta: dbError?.meta,
+              }
+            })
+          }).catch(() => {})
+        } catch {}
+        
         return NextResponse.redirect(new URL(`/login?error=installation_failed&details=${encodeURIComponent(dbError.message)}&companyId=${companyId}`, request.url))
       }
       
