@@ -199,4 +199,15 @@ export function ensureBizCompanyId(companyId: string | null | undefined): Compan
   return companyId as CompanyID
 }
 
-
+/**
+ * Check if onboarding is complete for a company
+ */
+export async function isOnboardingComplete(companyId: string): Promise<boolean> {
+  try {
+    const prefs = await getCompanyPrefs(companyId)
+    return prefs.completedAt !== null
+  } catch (error) {
+    console.error('[Company Prefs] Error checking onboarding status:', error)
+    return false
+  }
+}
