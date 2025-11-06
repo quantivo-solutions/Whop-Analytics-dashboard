@@ -44,7 +44,13 @@ export const env = {
 export function validateServerEnv() {
   const missing: string[] = []
   
-  if (!WHOP_APP_SERVER_KEY) missing.push('WHOP_APP_SERVER_KEY')
+  // Check for Whop API key (preferred or fallback)
+  const whopKey = WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY
+  if (!whopKey) {
+    missing.push('WHOP_APP_SERVER_KEY (or WHOP_API_KEY as fallback)')
+    console.warn('[Whoplytics] ⚠️ Missing WHOP_APP_SERVER_KEY/WHOP_API_KEY - Whop API calls will fail')
+  }
+  
   if (!WHOP_WEBHOOK_SECRET) missing.push('WHOP_WEBHOOK_SECRET')
   if (!DATABASE_URL) missing.push('DATABASE_URL')
   

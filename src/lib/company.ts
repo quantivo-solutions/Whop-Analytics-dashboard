@@ -125,15 +125,78 @@ export async function setCompanyPrefs(
 }
 
 /**
- * Check if onboarding is complete for a company
+ * Link experience to company (upsert installation mapping)
+ * This auto-claims installations when Whop opens /experiences/[experienceId]
+ * 
+ * @param params - Object with experienceId and companyId
+ * @returns Object indicating if installation was created or updated
  */
-export async function isOnboardingComplete(companyId: string): Promise<boolean> {
-  try {
-    const prefs = await getCompanyPrefs(companyId)
-    return prefs.completedAt !== null
-  } catch (error) {
-    console.error('[Company Prefs] Error checking onboarding status:', error)
-    return false
+export async function linkExperienceToCompany(params: { experienceId: string; companyId: string }) {
+  const { experienceId, companyId } = params
+  
+  // GUARD: Ensure companyId is biz_* format
+  if (!companyId?.startsWith("biz_")) {
+    throw new Error(`[Whoplytics] Invalid companyId format: must start with 'biz_' but got '${companyId}'`)
   }
+  
+  console.log(`[Whoplytics] Linking experience ${experienceId} to company ${companyId}`)
+  
+  // Try by company first
+  const byCompany = await prisma.whopInstallation.findUnique({ where: { companyId } })
+  
+  if (byCompany) {
+    if (byCompany.experienceId !== experienceId) {
+      await prisma.whopInstallation.update({ 
+        where: { companyId }, 
+        data: { experienceId } 
+      })
+      console.log(`[Whoplytics] Updated installation: companyId ${companyId} now linked to experienceId ${experienceId}`)
+      return { created: false, updated: true }
+    }
+    return { created: false, updated: false }
+  }
+  
+  // Try by experience
+  const byExp = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
+  
+  if (byExp) {
+    if (byExp.companyId !== companyId) {
+      // Update companyId if it changed (shouldn't happen, but handle gracefully)
+      await prisma.whopInstallation.update({ 
+        where: { experienceId }, 
+        data: { companyId } 
+      })
+      console.log(`[Whoplytics] Updated installation: experienceId ${experienceId} now linked to companyId ${companyId}`)
+      return { created: false, updated: true }
+    }
+    return { created: false, updated: false }
+  }
+  
+  // Create minimal row; plan/token can be filled later via OAuth or webhook
+  await prisma.whopInstallation.create({
+    data: { 
+      companyId, 
+      experienceId, 
+      plan: "free", 
+      accessToken: process.env.WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY || "" 
+    },
+  })
+  
+  console.log(`[Whoplytics] Created new installation: companyId ${companyId} <-> experienceId ${experienceId}`)
+  return { created: true, updated: false }
 }
+
+/**
+ * Ensure companyId is biz_* format (guard function)
+ */
+export function ensureBizCompanyId(companyId: string | null | undefined): CompanyID {
+  if (!companyId) {
+    throw new Error('[Whoplytics] Missing companyId parameter')
+  }
+  if (!companyId.startsWith('biz_')) {
+    throw new Error(`[Whoplytics] Invalid companyId format: must start with 'biz_' but got '${companyId}'`)
+  }
+  return companyId as CompanyID
+}
+
 
