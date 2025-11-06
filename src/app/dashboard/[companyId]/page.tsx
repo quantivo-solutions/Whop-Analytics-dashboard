@@ -58,11 +58,14 @@ interface PageProps {
 }
 
 export default async function CompanyDashboardPage({ params, searchParams }: PageProps) {
+  const startTime = Date.now()
   const { companyId } = await params
   const resolvedSearchParams = await searchParams
   const { token } = resolvedSearchParams
 
-  console.log('[Dashboard View] Loading for companyId from URL:', companyId)
+  console.log('[Dashboard View] 🎯 START - Loading dashboard for:', companyId)
+  
+  try {
   
   // TASK 2 - Page guard: Resolve installation via getInstallationByCompany
   // INTEGRITY: Validate companyId before proceeding
@@ -184,6 +187,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
             if (!installation) {
               // Create new installation
+              console.log('[Dashboard View] 🎯 Step 2: Creating NEW installation for:', companyId)
               const { env } = await import('@/lib/env')
               
               // Try to fetch experienceId from Whop API for this company
@@ -227,29 +231,94 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                 // Continue without experienceId - it can be set later
               }
               
-              installation = await prisma.whopInstallation.create({
-                data: {
+              try {
+                console.log('[Dashboard View] 🚀 Attempting to create installation with data:', {
                   companyId,
                   userId: whopUser.userId,
-                  experienceId: experienceId || null,
-                  accessToken: env.WHOP_APP_SERVER_KEY,
+                  experienceId: experienceId || 'null',
                   plan: 'free',
-                  username: whopUserDetails.username || whopUser.username || null,
-                  email: whopUserDetails.email || null,
-                  profilePicUrl: whopUserDetails.profile_pic_url || null,
-                },
-              })
-              console.log('[Dashboard View] ✅ Created new installation:', companyId, 'experienceId:', experienceId || 'none')
-              
-              // CRITICAL: Verify installation was actually created
-              const verifyInstallation = await prisma.whopInstallation.findUnique({
-                where: { companyId },
-              })
-              if (!verifyInstallation) {
-                console.error('[Dashboard View] ❌ CRITICAL: Installation creation verification failed - installation not found in database after create')
-                throw new Error('Installation creation failed - verification returned null')
+                })
+                
+                installation = await prisma.whopInstallation.create({
+                  data: {
+                    companyId,
+                    userId: whopUser.userId,
+                    experienceId: experienceId || null,
+                    accessToken: env.WHOP_APP_SERVER_KEY,
+                    plan: 'free',
+                    username: whopUserDetails.username || whopUser.username || null,
+                    email: whopUserDetails.email || null,
+                    profilePicUrl: whopUserDetails.profile_pic_url || null,
+                  },
+                })
+                
+                console.log('[Dashboard View] ✅ NEW installation created successfully:', {
+                  id: installation.id,
+                  companyId: installation.companyId,
+                  experienceId: installation.experienceId || 'none',
+                })
+                
+                // CRITICAL: Verify installation was actually created
+                const verifyInstallation = await prisma.whopInstallation.findUnique({
+                  where: { companyId },
+                })
+                if (!verifyInstallation) {
+                  console.error('[Dashboard View] ❌ CRITICAL: Installation creation verification failed - installation not found in database after create')
+                  throw new Error('Installation creation failed - verification returned null')
+                }
+                console.log('[Dashboard View] ✅ VERIFIED installation exists in database:', verifyInstallation.companyId)
+                
+                // Log successful attempt
+                try {
+                  await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app'}/api/debug/log-install-attempt`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      companyId,
+                      userId: whopUser.userId,
+                      experienceId: experienceId || null,
+                      success: true,
+                      metadata: { source: 'dashboard_view', isNew: true }
+                    })
+                  }).catch(err => console.warn('[Dashboard View] Failed to log attempt:', err))
+                } catch (logError) {
+                  console.warn('[Dashboard View] Could not log installation attempt:', logError)
+                }
+                
+              } catch (createError: any) {
+                console.error('[Dashboard View] ❌ FAILED to create installation:', {
+                  companyId,
+                  userId: whopUser.userId,
+                  error: createError instanceof Error ? createError.message : 'Unknown',
+                  code: createError?.code,
+                  meta: createError?.meta,
+                  stack: createError instanceof Error ? createError.stack?.substring(0, 500) : undefined,
+                })
+                
+                // Log failed attempt
+                try {
+                  await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app'}/api/debug/log-install-attempt`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      companyId,
+                      userId: whopUser.userId,
+                      experienceId: experienceId || null,
+                      success: false,
+                      errorMessage: createError instanceof Error ? createError.message : 'Unknown',
+                      metadata: { 
+                        source: 'dashboard_view',
+                        code: createError?.code,
+                        meta: createError?.meta,
+                      }
+                    })
+                  }).catch(err => console.warn('[Dashboard View] Failed to log failed attempt:', err))
+                } catch (logError) {
+                  console.warn('[Dashboard View] Could not log failed installation attempt:', logError)
+                }
+                
+                throw createError
               }
-              console.log('[Dashboard View] ✅ VERIFIED installation exists in database:', verifyInstallation.companyId)
               
               // Ensure CompanyPrefs exists
               try {

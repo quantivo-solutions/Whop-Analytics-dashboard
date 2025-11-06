@@ -8,6 +8,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model InstallationAttempt {
+  id           String   @id @default(cuid())
+  companyId    String?
+  experienceId String?
+  userId       String?
+  success      Boolean  @default(false)
+  errorMessage String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([companyId])
+  @@index([createdAt])
+}
+
 model MetricsDaily {
   id            String            @id @default(cuid())
   companyId     String
