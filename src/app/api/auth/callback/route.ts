@@ -240,23 +240,24 @@ export async function GET(request: Request) {
       console.log('[OAuth] Direct login, using user company:', companyId)
     }
 
-    // CRITICAL: If no experienceId was provided, try to create one or fetch existing
-    if (!experienceId && companyId) {
-      console.log('[OAuth Callback] ⚠️ No experienceId provided, attempting to create/fetch experience for company:', companyId)
-      
+    // CRITICAL: Guarantee an experience exists/linked for company installs
+    if (companyId) {
       try {
         const { createExperienceForCompany } = await import('@/lib/create-experience')
-        const createdExperienceId = await createExperienceForCompany(companyId, access_token)
-        
-        if (createdExperienceId) {
-          experienceId = createdExperienceId
-          console.log('[OAuth Callback] ✅ Created/found experienceId:', experienceId)
-        } else {
-          console.warn('[OAuth Callback] ⚠️ Could not create/fetch experience, proceeding without experienceId')
+        // If we already have an experienceId, keep it; otherwise try to create/fetch one
+        let ensuredExperienceId = experienceId
+        if (!ensuredExperienceId) {
+          console.log('[OAuth Callback] Ensuring experience exists for company:', companyId)
+          ensuredExperienceId = await createExperienceForCompany(companyId, access_token)
         }
-      } catch (createExpError) {
-        console.warn('[OAuth Callback] ⚠️ Error creating/fetching experience:', createExpError)
-        // Continue without experienceId - not critical for installation
+
+        // If we have an experience now, make sure it is linked uniquely to this installation
+        if (ensuredExperienceId) {
+          console.log('[OAuth Callback] Experience ensured:', ensuredExperienceId)
+          experienceId = ensuredExperienceId
+        }
+      } catch (e) {
+        console.warn('[OAuth Callback] ⚠️ Could not ensure experience (non-blocking):', e)
       }
     }
     
@@ -435,7 +436,8 @@ export async function GET(request: Request) {
             where: { companyId },
             data: { 
               userId: userData.id, // Store/update user ID for webhook matching
-              experienceId: experienceId || installation.experienceId, // Keep existing if not provided or conflict
+              // If we have an experienceId now, set it; otherwise keep existing
+              experienceId: experienceId || installation.experienceId,
               accessToken: access_token,
               plan: userPlan, // Sync plan from Whop
               username: userData.username || null,
