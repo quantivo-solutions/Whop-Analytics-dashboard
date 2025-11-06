@@ -132,31 +132,71 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   let experienceIdWasUpdated = false
   
-  // Try to fetch experience name from Whop API if not already set
-  if (!experienceName && whopUser) {
+  // Fetch user profile data and experience name from Whop API if available
+  if (whopUser && whopUser.userId) {
     const { env } = await import('@/lib/env')
+    
+    // Fetch user profile data to get profilePicUrl and username
     try {
-      const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+      const userResponse = await fetch(`https://api.whop.com/api/v5/users/${whopUser.userId}`, {
         headers: {
           'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
         },
       })
       
-      if (expResponse.ok) {
-        const expData = await expResponse.json()
-        experienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        const profilePicUrl = userData.profile_picture_url || userData.profilePicUrl || userData.avatar_url || userData.avatar || null
+        const username = userData.username || userData.name || userData.display_name || installation.username || null
         
-        if (experienceName) {
-          console.log('[Experience Page] Got experience name:', experienceName)
-          // Save to database
-          await prisma.whopInstallation.update({
+        // Update installation with user profile data if missing or changed
+        const updateData: any = {}
+        if (profilePicUrl && (!installation.profilePicUrl || installation.profilePicUrl !== profilePicUrl)) {
+          updateData.profilePicUrl = profilePicUrl
+          console.log('[Experience Page] Updating profilePicUrl:', profilePicUrl)
+        }
+        if (username && (!installation.username || installation.username !== username)) {
+          updateData.username = username
+          console.log('[Experience Page] Updating username:', username)
+        }
+        
+        if (Object.keys(updateData).length > 0) {
+          installation = await prisma.whopInstallation.update({
             where: { companyId: finalCompanyId },
-            data: { experienceName } as any,
+            data: updateData,
           })
+          console.log('[Experience Page] ✅ Updated installation with user profile data')
         }
       }
-    } catch (expError) {
-      console.error('[Experience Page] Error fetching experience name:', expError)
+    } catch (userError) {
+      console.error('[Experience Page] Error fetching user profile:', userError)
+    }
+    
+    // Try to fetch experience name from Whop API if not already set
+    if (!experienceName) {
+      try {
+        const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+          headers: {
+            'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+          },
+        })
+        
+        if (expResponse.ok) {
+          const expData = await expResponse.json()
+          experienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
+          
+          if (experienceName) {
+            console.log('[Experience Page] Got experience name:', experienceName)
+            // Save to database
+            installation = await prisma.whopInstallation.update({
+              where: { companyId: finalCompanyId },
+              data: { experienceName } as any,
+            })
+          }
+        }
+      } catch (expError) {
+        console.error('[Experience Page] Error fetching experience name:', expError)
+      }
     }
   }
 
