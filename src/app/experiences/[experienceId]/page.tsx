@@ -3,29 +3,16 @@
  * Accessed via Whop app iframes with experienceId in the URL
  */
 
-import { DashboardView } from '@/components/dashboard-view'
-import { getCompanySeries, getMonthlyRevenue } from '@/lib/metrics'
-import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
-import { getCompanyPrefs, isOnboardingComplete, getInstallationByExperience, linkExperienceToCompany, ensureBizCompanyId } from '@/lib/company'
+import { linkExperienceToCompany } from '@/lib/company'
 import { getExperienceById } from '@/lib/whop-rest'
-import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
-import { ErrorDisplay } from '@/components/error-boundary'
-import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
-import { ExperienceNotFound } from '@/components/experience-not-found'
 import { redirect } from 'next/navigation'
 import { TokenCleanup } from '@/components/token-cleanup'
 import { SessionSetter } from '@/components/session-setter'
-import { verifyWhopUserToken, isWhopIframe } from '@/lib/whop-auth'
-import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
-import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
-import { InsightsPanel } from '@/components/insights/InsightsPanel'
-import { GoalProgress } from '@/components/goal-progress'
+import { verifyWhopUserToken } from '@/lib/whop-auth'
 import { WhoplyticsLogo } from '@/components/whoplytics-logo'
 import { env } from '@/lib/env'
-import { RemoveScopeBadge } from '@/components/remove-scope-badge'
-import { PlanBadge } from '@/components/plan-badge'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -434,318 +421,41 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     redirect(`/login?experienceId=${experienceId}`)
   }
   
-  console.log('[Experience Page] Valid session found, loading dashboard - elapsed:', Date.now() - startTime, 'ms')
-  
-  // Proceed to load dashboard with error handling
-  // CRITICAL: Use installation.companyId (not session.companyId) to ensure we get the correct plan
+  console.log('[Experience Page] Valid session found, preparing handoff card - elapsed:', Date.now() - startTime, 'ms')
+
   const finalCompanyId = installation.companyId
-    
-  console.log('[Experience Page] Installation details:', {
-      companyId: finalCompanyId,
-      plan: installation.plan,
-      userId: installation.userId,
-      username: installation.username
-    })
+  const sessionTokenForClient = (global as any).__whopSessionToken
+  const dashboardHref = `/dashboard/${finalCompanyId}`
 
-    // CRITICAL: Check onboarding status FIRST before fetching dashboard data
-    // Check for Pro upgrade welcome BEFORE checking onboarding
-    console.log('[Experience Page] Checking onboarding status for companyId:', finalCompanyId, 'experienceId:', experienceId)
-    
-    let prefs
-    let onboardingComplete = false
-    let showProWelcome = false
-    
-    try {
-      prefs = await getCompanyPrefs(finalCompanyId)
-      
-      // Check if user just upgraded to Pro (plan is pro/business, recently updated, onboarding completed, but welcome not shown)
-      const isPro = installation.plan === 'pro' || installation.plan === 'business'
-      const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
-      const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
-      const onboardingWasCompleted = prefs.completedAt !== null
-      const proWelcomeNotShown = prefs.proWelcomeShownAt === null
-      
-      if (isPro && wasRecentlyUpdated && onboardingWasCompleted && proWelcomeNotShown) {
-        console.log('[Experience Page] ✅ Pro upgrade detected - showing Pro welcome modal')
-        showProWelcome = true
-      }
-      
-      // Check if installation was just CREATED (not just updated)
-      // This indicates a truly fresh install, not just an experienceId update
-      const installationJustCreated = installation.createdAt && 
-        (Date.now() - new Date(installation.createdAt).getTime()) < 10 * 60 * 1000 // 10 minutes
-      const wasJustCreated = installationJustCreated && 
-        (new Date(installation.createdAt).getTime() === new Date(installation.updatedAt).getTime() || 
-         (new Date(installation.updatedAt).getTime() - new Date(installation.createdAt).getTime()) < 60000) // Created and updated within 1 min
-      
-      console.log('[Experience Page] Installation check:', {
-        createdAt: installation.createdAt,
-        updatedAt: installation.updatedAt,
-        justCreated: wasJustCreated,
-        wasCompleted: !!prefs.completedAt,
-        experienceIdMatches: installation.experienceId === experienceId,
-        isPro,
-        showProWelcome,
-      })
-      
-      // Only reset onboarding if:
-      // 1. Installation was just created (truly fresh install)
-      // 2. AND onboarding was never completed for this companyId
-      // 3. AND NOT a Pro upgrade (don't reset onboarding for Pro users)
-      if (wasJustCreated && !prefs.completedAt && !isPro) {
-        console.log('[Experience Page] Fresh installation detected - onboarding not completed yet')
-        onboardingComplete = false
-      } else {
-        // Check normal onboarding completion status
-        onboardingComplete = await isOnboardingComplete(finalCompanyId)
-      }
-      
-      console.log('[Experience Page] Onboarding status:', {
-        companyId: finalCompanyId,
-        experienceId: experienceId,
-        completedAt: prefs.completedAt,
-        isComplete: onboardingComplete,
-        hasGoalAmount: !!prefs.goalAmount,
-        wasJustCreated,
-        showProWelcome,
-      })
-    } catch (prefsError) {
-      console.error('[Experience Page] Error checking onboarding status:', prefsError)
-      // On error, assume not complete to show wizard
-      onboardingComplete = false
-      // Create minimal prefs object
-      prefs = {
-        goalAmount: null,
-        completedAt: null,
-        companyId: finalCompanyId,
-      } as any
-    }
-
-    // Show Pro welcome modal if user just upgraded
-    if (showProWelcome) {
-      console.log('[Experience Page] Showing Pro welcome modal')
-      const sessionTokenForClient = (global as any).__whopSessionToken
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-          <TokenCleanup />
-          <ProWelcomeWrapper
-            companyId={finalCompanyId}
-          />
-        </div>
-      )
-    }
-
-    // BLOCK dashboard access until onboarding is complete
-    if (!onboardingComplete) {
-      console.log('[Experience Page] Onboarding NOT complete - showing wizard')
-      const sessionTokenForClient = (global as any).__whopSessionToken
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-          <TokenCleanup />
-          <WizardWrapper
-            companyId={finalCompanyId}
-            initialPrefs={{
-              goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
-              completedAt: prefs.completedAt?.toISOString() || null,
-            }}
-          />
-        </div>
-      )
-    }
-    
-    console.log('[Experience Page] Onboarding complete - proceeding to dashboard')
-
-    // Fetch dashboard data and plan with error handling (only after onboarding check)
-    console.log('[Experience Page] Onboarding complete, fetching dashboard data for companyId:', finalCompanyId)
-           
-    let dashboardData, plan
-    try {
-      // Use installation.plan directly (most up-to-date from webhooks, already refreshed in STEP 4)
-      plan = (installation.plan || 'free') as 'free' | 'pro' | 'business'
-      
-      // Fetch dashboard data - Pro users get 90 days, Free users get 7 days
-      const { getDaysForPlan } = await import('@/lib/data-window')
-      const daysToFetch = getDaysForPlan(plan)
-      dashboardData = await getCompanySeries(finalCompanyId, daysToFetch)
-      
-      console.log('[Experience Page] Dashboard data fetched successfully, plan:', plan)
-    } catch (fetchError) {
-      console.error('[Experience Page] Failed to fetch dashboard data:', fetchError)
-      throw fetchError
-    }
-
-    // Get upgrade URL with company context for better Whop integration
-    const upgradeUrl = getUpgradeUrl(finalCompanyId)
-
-    // Calculate monthly revenue and get last sync date
-    const monthlyRevenue = await getMonthlyRevenue(finalCompanyId)
-    const lastSyncAt = dashboardData.kpis.latestDate
-    const goalAmount = prefs.goalAmount ? Number(prefs.goalAmount) : null
-
-    // Fetch experience name right before rendering to ensure it's available
-    // First check if we already have it stored in the database
-    let finalExperienceName = (installation as any)?.experienceName || experienceName
-    if (!finalExperienceName && installation) {
-      try {
-        const { env } = await import('@/lib/env')
-        console.log('[Experience Page] Attempting to fetch experience name for:', experienceId)
-        
-        // Try with app server key first
-        let expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
-          headers: {
-            'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
-          },
-        })
-        
-        // If that fails, try with user's access token from installation
-        if (!expResponse.ok && installation.accessToken && installation.accessToken !== env.WHOP_APP_SERVER_KEY) {
-          console.log('[Experience Page] App server key failed, trying with user access token...')
-          expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
-            headers: {
-              'Authorization': `Bearer ${installation.accessToken}`,
-            },
-          })
-        }
-        
-        if (expResponse.ok) {
-          const expData = await expResponse.json()
-          console.log('[Experience Page] Experience API response keys:', Object.keys(expData))
-          // Try multiple possible fields for experience name
-          finalExperienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
-          if (finalExperienceName) {
-            console.log('[Experience Page] ✅ Fetched experience name:', finalExperienceName)
-            // Save to database for future use
-            await prisma.whopInstallation.update({
-              where: { companyId: installation.companyId },
-              data: { experienceName: finalExperienceName } as any,
-            })
-            // Refresh installation to include the new experienceName
-            const refreshed = await prisma.whopInstallation.findUnique({
-              where: { companyId: installation.companyId },
-            })
-            if (refreshed) installation = refreshed
-          } else {
-            console.log('[Experience Page] ⚠️ Experience data received but no name field found. Full response:', JSON.stringify(expData, null, 2))
-          }
-        } else {
-          // If experience API fails, try fetching company name from company API
-          console.log('[Experience Page] Experience API failed, trying company API for company name...')
-          try {
-            const companyResponse = await fetch(`https://api.whop.com/api/v5/companies/${installation.companyId}`, {
-              headers: {
-                'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
-              },
-            })
-            
-            if (companyResponse.ok) {
-              const companyData = await companyResponse.json()
-              console.log('[Experience Page] Company API response keys:', Object.keys(companyData))
-              // Try company name/title fields
-              finalExperienceName = companyData.name || companyData.title || companyData.display_name || null
-              if (finalExperienceName) {
-                console.log('[Experience Page] ✅ Fetched company name as experience name:', finalExperienceName)
-                // Save to database for future use
-                await prisma.whopInstallation.update({
-                  where: { companyId: installation.companyId },
-                  data: { experienceName: finalExperienceName } as any,
-                })
-                // Refresh installation to include the new experienceName
-                const refreshed = await prisma.whopInstallation.findUnique({
-                  where: { companyId: installation.companyId },
-                })
-                if (refreshed) installation = refreshed
-              }
-            } else {
-              const errorText = await companyResponse.text().catch(() => 'Unable to read error')
-              console.log('[Experience Page] ⚠️ Company API returned:', companyResponse.status, errorText.substring(0, 200))
-            }
-          } catch (companyError) {
-            console.error('[Experience Page] Error fetching company name:', companyError)
-          }
-        }
-      } catch (expError) {
-        console.error('[Experience Page] Error fetching experience name:', expError)
-      }
-    }
-
-    // CRITICAL: Refresh installation one final time to ensure we have the latest experienceName and profilePicUrl
-    // This ensures any updates we made to the database are reflected in the UI
-    if (installation) {
-      const refreshedInstallation = await prisma.whopInstallation.findUnique({
-        where: { companyId: installation.companyId },
-      })
-      if (refreshedInstallation) {
-        installation = refreshedInstallation
-        // Update experienceName and profilePicUrl from refreshed installation
-        experienceName = (installation as any).experienceName || experienceName
-        console.log('[Experience Page] ✅ Installation refreshed before render, experienceName:', experienceName || '(not set)', 'profilePicUrl:', installation.profilePicUrl || '(not set)')
-      }
-    }
-
-    // Dashboard content with new UI
-    // SessionSetter will set cookie via API route if we have Whop auth session
-    // TokenCleanup will remove token from URL after session is confirmed
-    const sessionTokenForClient = (global as any).__whopSessionToken
-    
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-        <TokenCleanup />
-
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
-          <RemoveScopeBadge />
-          {/* Elegant Compact Header */}
-          <div className="mb-6 sm:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              {/* Left: Branding */}
-              <div className="flex items-center gap-3">
-                <WhoplyticsLogo 
-                  personalizedText={(installation as any)?.experienceName ? `${(installation as any).experienceName} Analytics` : (installation?.username ? `${installation.username}'s Analytics` : 'Your Analytics')}
-                  tagline="Business insights at a glance"
-                />
-                {/* Company/scope badge removed per request */}
-              </div>
-
-              {/* Right: Actions */}
-              <div className="flex items-center gap-2">
-                <UpgradeButtonIframe plan={plan as 'free' | 'pro' | 'business'} experienceId={experienceId} />
-                <UserProfileMenuClient
-                  companyId={finalCompanyId}
-                  username={installation.username}
-                  email={installation.email}
-                  profilePicUrl={installation.profilePicUrl}
-                  plan={plan as 'free' | 'pro' | 'business'}
-                  prefs={{
-                    goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
-                    completedAt: prefs.completedAt?.toISOString() || null,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Goal Progress Bar */}
-          <div className="mb-6">
-            <GoalProgress
-              goalAmount={goalAmount}
-              revenueThisMonth={monthlyRevenue}
-              lastSyncAt={lastSyncAt}
-              companyId={finalCompanyId}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+      <TokenCleanup />
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-2xl">
+        <Card className="p-8 text-center shadow-xl backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-700/60">
+          <CardContent className="space-y-6">
+            <WhoplyticsLogo
+              personalizedText="Whoplytics Dashboard"
+              tagline="Your growth insights live here"
             />
-          </div>
-
-          {/* Dashboard view */}
-          <DashboardView data={dashboardData} showBadge={true} plan={plan as 'free' | 'pro' | 'business'} upgradeUrl={upgradeUrl} companyId={finalCompanyId} />
-
-          {/* Insights Panel */}
-          <div className="mt-8">
-            <InsightsPanel data={dashboardData} plan={plan as 'free' | 'pro' | 'business'} goalAmount={goalAmount} />
-          </div>
-        </div>
+            <p className="text-muted-foreground">
+              Access your Whoplytics analytics dashboard to manage goals, monitor members, and unlock deeper insights for your business.
+            </p>
+            <div className="space-y-3">
+              <Link href={dashboardHref} className="inline-flex w-full sm:w-auto justify-center">
+                <Button size="lg" className="w-full sm:w-auto">
+                  Open Creator Dashboard
+                </Button>
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                This view provides a quick entry point. All analytics live in your creator dashboard.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    )
+    </div>
+  )
   } catch (error: any) {
     // CRITICAL: Never 500 on unknown IDs - return friendly 200 OK response instead
     console.error('[Whoplytics] Error loading experience dashboard:', {
