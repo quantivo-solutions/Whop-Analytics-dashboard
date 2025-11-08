@@ -1,7 +1,5 @@
 'use client'
 
-import { useCallback } from 'react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -10,7 +8,6 @@ interface ExperienceDashboardCardProps {
   experienceName?: string | null
   internalDashboardHref: string
   whopDashboardHref?: string | null
-  creatorName?: string | null
   highlights?: Array<{ icon: string; label: string }>
 }
 
@@ -19,32 +16,15 @@ export function ExperienceDashboardCard({
   experienceName,
   internalDashboardHref,
   whopDashboardHref,
-  creatorName,
   highlights = [
     { icon: '📈', label: 'Real-time revenue & member insights' },
     { icon: '🎯', label: 'Goal tracking, alerts & scheduled exports' },
     { icon: '🤝', label: 'Secure workspace for your entire team' },
   ],
 }: ExperienceDashboardCardProps) {
-  const handleClick = useCallback(() => {
-    const target =
-      (whopDashboardHref ? whopDashboardHref.replace(/\{companyId\}/g, companyId) : null) ||
-      internalDashboardHref
-
-    try {
-      if (typeof window !== 'undefined') {
-        if (window.top) {
-          window.top.location.href = target
-          return
-        }
-        window.location.href = target
-      }
-    } catch {
-      if (typeof window !== 'undefined') {
-        window.location.href = target
-      }
-    }
-  }, [internalDashboardHref, whopDashboardHref])
+  const targetHref =
+    (whopDashboardHref ? whopDashboardHref.replace(/\{companyId\}/g, companyId) : null) ||
+    internalDashboardHref
 
   return (
     <div className="relative max-w-4xl mx-auto">
@@ -64,23 +44,13 @@ export function ExperienceDashboardCard({
                 {experienceName ? `${experienceName} Dashboard` : 'Your Creator Dashboard'}
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {creatorName ? `Welcome back, ${creatorName}.` : 'Welcome back.'}
+                Welcome.
               </p>
             </div>
             <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
               Your analytics workspace lives in the creator dashboard. Track revenue momentum, member trends,
               churn risk, and goal progress with a single, secure login. Everything updates in real time.
             </p>
-            <div className="grid gap-3 text-sm text-slate-600 dark:text-slate-300">
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-600 dark:text-emerald-300 w-fit text-xs font-medium">
-                <span className="inline-flex size-2.5 rounded-full bg-emerald-500" />
-                Live metrics synced for <span className="font-semibold uppercase tracking-wide">{companyId}</span>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-1 text-blue-600 dark:text-blue-300 w-fit text-xs font-medium">
-                <span className="inline-flex size-2.5 rounded-full bg-blue-500" />
-                Access via Whop dashboard with secure SSO
-              </div>
-            </div>
           </div>
           <div className="w-full lg:w-auto space-y-6">
             <div className="grid gap-3">
@@ -95,19 +65,19 @@ export function ExperienceDashboardCard({
               ))}
             </div>
             <div className="flex flex-col items-stretch gap-2">
-              <Button
-                onClick={handleClick}
-                size="lg"
-                className="h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 shadow-lg"
+              <a
+                href={targetHref}
+                target="_top"
+                rel="noopener noreferrer"
+                className="inline-flex"
               >
-                Open Creator Dashboard
-              </Button>
-              <Link
-                href={internalDashboardHref}
-                className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-center"
-              >
-                Open inside current view →
-              </Link>
+                <Button
+                  size="lg"
+                  className="h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 shadow-lg w-full"
+                >
+                  Open Creator Dashboard
+                </Button>
+              </a>
             </div>
           </div>
         </div>
