@@ -11,8 +11,8 @@ import { redirect } from 'next/navigation'
 import { TokenCleanup } from '@/components/token-cleanup'
 import { SessionSetter } from '@/components/session-setter'
 import { verifyWhopUserToken } from '@/lib/whop-auth'
-import { WhoplyticsLogo } from '@/components/whoplytics-logo'
 import { env } from '@/lib/env'
+import { ExperienceDashboardCard } from '@/components/experience-dashboard-card'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -425,34 +425,27 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   const finalCompanyId = installation.companyId
   const sessionTokenForClient = (global as any).__whopSessionToken
-  const dashboardHref = `/dashboard/${finalCompanyId}`
+  const internalDashboardHref = `/dashboard/${finalCompanyId}`
+  const whopDashboardHref = env.NEXT_PUBLIC_WHOP_APP_ID
+    ? `https://whop.com/dashboard/${finalCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
+    : null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-      <TokenCleanup />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-2xl">
-        <Card className="p-8 text-center shadow-xl backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-700/60">
-          <CardContent className="space-y-6">
-            <WhoplyticsLogo
-              personalizedText="Whoplytics Dashboard"
-              tagline="Your growth insights live here"
-            />
-            <p className="text-muted-foreground">
-              Access your Whoplytics analytics dashboard to manage goals, monitor members, and unlock deeper insights for your business.
-            </p>
-            <div className="space-y-3">
-              <Link href={dashboardHref} className="inline-flex w-full sm:w-auto justify-center">
-                <Button size="lg" className="w-full sm:w-auto">
-                  Open Creator Dashboard
-                </Button>
-              </Link>
-              <p className="text-xs text-muted-foreground">
-                This view provides a quick entry point. All analytics live in your creator dashboard.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-slate-100 to-white dark:from-slate-950 dark:via-slate-900 dark:to-black" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,rgba(236,72,153,0.12),transparent)]" />
+      <div className="relative">
+        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+        <TokenCleanup />
+        <div className="px-6 sm:px-10 lg:px-12 py-16 sm:py-20">
+          <ExperienceDashboardCard
+            companyId={finalCompanyId}
+            experienceName={(installation as any)?.experienceName || installation.username || null}
+            internalDashboardHref={internalDashboardHref}
+            whopDashboardHref={whopDashboardHref}
+          />
+        </div>
       </div>
     </div>
   )
