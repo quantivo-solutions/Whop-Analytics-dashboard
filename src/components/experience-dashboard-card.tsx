@@ -10,6 +10,8 @@ interface ExperienceDashboardCardProps {
   experienceName?: string | null
   internalDashboardHref: string
   whopDashboardHref?: string | null
+  creatorName?: string | null
+  highlights?: Array<{ icon: string; label: string }>
 }
 
 export function ExperienceDashboardCard({
@@ -17,9 +19,17 @@ export function ExperienceDashboardCard({
   experienceName,
   internalDashboardHref,
   whopDashboardHref,
+  creatorName,
+  highlights = [
+    { icon: '📈', label: 'Real-time revenue & member insights' },
+    { icon: '🎯', label: 'Goal tracking, alerts & scheduled exports' },
+    { icon: '🤝', label: 'Secure workspace for your entire team' },
+  ],
 }: ExperienceDashboardCardProps) {
   const handleClick = useCallback(() => {
-    const target = whopDashboardHref || internalDashboardHref
+    const target =
+      (whopDashboardHref ? whopDashboardHref.replace(/\{companyId\}/g, companyId) : null) ||
+      internalDashboardHref
 
     try {
       if (typeof window !== 'undefined') {
@@ -37,50 +47,74 @@ export function ExperienceDashboardCard({
   }, [internalDashboardHref, whopDashboardHref])
 
   return (
-    <div className="relative max-w-3xl mx-auto">
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-100/60 via-white/40 to-purple-100/60 blur-3xl dark:from-blue-900/20 dark:via-slate-900/40 dark:to-purple-900/20" />
+    <div className="relative max-w-4xl mx-auto">
+      <div className="absolute inset-0 rounded-[42px] bg-gradient-to-br from-sky-200/65 via-white/55 to-indigo-200/55 blur-3xl dark:from-sky-900/25 dark:via-slate-900/45 dark:to-indigo-900/35" />
       <div className={cn(
-        'relative rounded-3xl bg-white/80 dark:bg-slate-900/80',
-        'border border-slate-200/70 dark:border-slate-700/60 shadow-2xl',
-        'p-8 sm:p-10'
+        'relative rounded-[32px] bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl',
+        'border border-white/60 dark:border-slate-700/50 shadow-[0_40px_80px_-40px_rgba(15,23,42,0.4)]',
+        'p-8 sm:p-12'
       )}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-          <div className="text-left space-y-4">
-            <div>
-              <p className="text-sm uppercase tracking-wider text-blue-500 font-semibold">Whoplytics</p>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-slate-100">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-10">
+          <div className="flex-1 text-left space-y-5">
+            <div className="space-y-2">
+              <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                WHOPLYTICS
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
                 {experienceName ? `${experienceName} Dashboard` : 'Your Creator Dashboard'}
               </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {creatorName ? `Welcome back, ${creatorName}.` : 'Welcome back.'}
+              </p>
             </div>
-            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-              Unlock your revenue, members, and growth insights in the Whoplytics creator dashboard.
-              Configure goals, export reports, and manage alerts with one secure workspace.
+            <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
+              Your analytics workspace lives in the creator dashboard. Track revenue momentum, member trends,
+              churn risk, and goal progress with a single, secure login. Everything updates in real time.
             </p>
-            <div className="grid gap-2 text-sm text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex size-2 rounded-full bg-emerald-500" />
-                Live metrics synced for <span className="font-medium text-slate-900 dark:text-slate-100">{companyId}</span>
+            <div className="grid gap-3 text-sm text-slate-600 dark:text-slate-300">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-600 dark:text-emerald-300 w-fit text-xs font-medium">
+                <span className="inline-flex size-2.5 rounded-full bg-emerald-500" />
+                Live metrics synced for <span className="font-semibold uppercase tracking-wide">{companyId}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex size-2 rounded-full bg-blue-500" />
-                Secure access through your Whop dashboard
+              <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-1 text-blue-600 dark:text-blue-300 w-fit text-xs font-medium">
+                <span className="inline-flex size-2.5 rounded-full bg-blue-500" />
+                Access via Whop dashboard with secure SSO
               </div>
             </div>
           </div>
-          <div className="flex flex-col items-center sm:items-end gap-4 w-full sm:w-auto">
-            <Button onClick={handleClick} size="lg" className="px-8 w-full sm:w-auto">
-              Open Creator Dashboard
-            </Button>
-            <Link
-              href={internalDashboardHref}
-              className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
-            >
-              Open inside current view →
-            </Link>
+          <div className="w-full lg:w-auto space-y-6">
+            <div className="grid gap-3">
+              {highlights.map((item, idx) => (
+                <div
+                  key={`${item.label}-${idx}`}
+                  className="flex items-start gap-3 rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-white/60 dark:border-slate-700/40 px-4 py-3 shadow-sm"
+                >
+                  <span className="text-lg">{item.icon}</span>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{item.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col items-stretch gap-2">
+              <Button
+                onClick={handleClick}
+                size="lg"
+                className="h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 shadow-lg"
+              >
+                Open Creator Dashboard
+              </Button>
+              <Link
+                href={internalDashboardHref}
+                className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-center"
+              >
+                Open inside current view →
+              </Link>
+            </div>
           </div>
         </div>
       </div>
     </div>
   )
 }
+
+
 

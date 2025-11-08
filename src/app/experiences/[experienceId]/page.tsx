@@ -427,7 +427,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   const sessionTokenForClient = (global as any).__whopSessionToken
   const internalDashboardHref = `/dashboard/${finalCompanyId}`
   const whopDashboardHref = env.NEXT_PUBLIC_WHOP_APP_ID
-    ? `https://whop.com/dashboard/${finalCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
+    ? `https://whop.com/dashboard/{companyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
     : null
 
   return (
