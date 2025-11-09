@@ -40,24 +40,19 @@ export function ExperienceDashboardCard({
   const handleClick = () => {
     if (!targetHref) return
 
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('whoplytics:experience-redirect', {
-        detail: { companyId, url: targetHref },
-      })
-      window.dispatchEvent(event)
+    if (typeof window === 'undefined') return
 
-      if (isWhopDomain) {
-        try {
-          if (window.top) {
-            window.top.location.href = targetHref
-            return
-          }
-        } catch {
-          /* ignore cross-origin */
-        }
-      }
-      window.location.href = targetHref
+    const event = new CustomEvent('whoplytics:experience-redirect', {
+      detail: { companyId, url: targetHref },
+    })
+    window.dispatchEvent(event)
+
+    if (isWhopDomain) {
+      const opened = window.open(targetHref, '_top')
+      if (opened) return
     }
+
+    window.location.href = targetHref
   }
 
   return (
