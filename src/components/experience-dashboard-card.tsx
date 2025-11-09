@@ -24,12 +24,16 @@ export function ExperienceDashboardCard({
   ],
 }: ExperienceDashboardCardProps) {
   const [targetHref, setTargetHref] = useState<string | null>(null)
+  const [isWhopDomain, setIsWhopDomain] = useState(false)
 
   useEffect(() => {
     if (whopDashboardHref) {
-      setTargetHref(whopDashboardHref.replace(/\{companyId\}/g, companyId))
+      const resolved = whopDashboardHref.replace(/\{companyId\}/g, companyId)
+      setTargetHref(resolved)
+      setIsWhopDomain(resolved.includes('whop.com'))
     } else {
       setTargetHref(internalDashboardHref)
+      setIsWhopDomain(false)
     }
   }, [companyId, whopDashboardHref, internalDashboardHref])
 
@@ -42,15 +46,16 @@ export function ExperienceDashboardCard({
       })
       window.dispatchEvent(event)
 
-      try {
-        if (window.top) {
-          window.top.location.href = targetHref
-          return
+      if (isWhopDomain) {
+        try {
+          if (window.top) {
+            window.top.location.href = targetHref
+            return
+          }
+        } catch {
+          /* ignore cross-origin */
         }
-      } catch {
-        // ignore cross-origin issues and fall back to same frame
       }
-
       window.location.href = targetHref
     }
   }
