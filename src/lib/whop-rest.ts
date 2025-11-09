@@ -71,21 +71,59 @@ export async function getExperienceById(experienceId: string) {
 /**
  * Get companies for a user (returns array of company objects)
  */
-export async function getCompaniesForUser(userId: string) {
+export async function getCompaniesForUser(
+  userId: string,
+  options?: { accessToken?: string }
+) {
   if (!userId) {
     throw new Error("getCompaniesForUser requires a userId")
   }
 
-  const response = await whopGET<any>(`/users/${userId}/companies`)
+  const triedTokens = new Set<string>()
+  const tokensToTry: (string | undefined | null)[] = [
+    options?.accessToken,
+    process.env.WHOP_APP_SERVER_KEY,
+    process.env.WHOP_API_KEY,
+  ]
 
-  if (!response) return []
+  let lastError: any = null
 
-  if (Array.isArray(response)) {
-    return response
+  for (const token of tokensToTry) {
+    if (!token || triedTokens.has(token)) {
+      continue
+    }
+
+    triedTokens.add(token)
+
+    try {
+      const res = await fetch(`https://api.whop.com/api/v5/users/${userId}/companies`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(`Whop API /users/${userId}/companies failed: ${res.status} ${text}`)
+      }
+
+      const json = await res.json()
+
+      if (Array.isArray(json)) {
+        return json
+      }
+
+      if (Array.isArray(json.data)) {
+        return json.data
+      }
+
+      return []
+    } catch (error) {
+      lastError = error
+    }
   }
 
-  if (Array.isArray(response.data)) {
-    return response.data
+  if (lastError) {
+    throw lastError
   }
 
   return []
