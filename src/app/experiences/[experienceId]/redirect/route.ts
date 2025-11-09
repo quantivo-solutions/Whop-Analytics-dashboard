@@ -52,9 +52,9 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { experienceId: string } }
+  context: { params: Promise<{ experienceId: string }> }
 ) {
-  const experienceId = params.experienceId
+  const { experienceId } = await context.params
 
   try {
     const companyId = await resolveCompanyId(experienceId)
