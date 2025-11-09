@@ -30,6 +30,13 @@ export async function verifyWhopUserToken(): Promise<WhopUserInfo | null> {
   try {
     const headersList = await headers()
     
+    const headerCompanyId =
+      headersList.get('x-whop-company-id') ||
+      headersList.get('x-whop-companyid') ||
+      headersList.get('x-whop-company') ||
+      headersList.get('x-whop-biz-id') ||
+      null
+    
     // Check if x-whop-user-token header exists
     const userTokenHeader = headersList.get('x-whop-user-token')
     console.log('[Whop Auth] Checking for x-whop-user-token header:', userTokenHeader ? 'present' : 'missing')
@@ -53,12 +60,18 @@ export async function verifyWhopUserToken(): Promise<WhopUserInfo | null> {
     // The verifyUserToken method returns { userId } according to docs
     // Check what properties are actually returned
     const userId = (userToken as any).userId || (userToken as any).id
+    const tokenCompanyId =
+      (userToken as any).companyId ||
+      (userToken as any).company_id ||
+      (userToken as any).company?.id ||
+      null
+    const companyId = headerCompanyId || tokenCompanyId
     
     if (userId) {
-      console.log('[Whop Auth] User verified via Whop iframe headers, userId:', userId)
+      console.log('[Whop Auth] User verified via Whop iframe headers, userId:', userId, 'companyId:', companyId || 'none')
       return {
         userId: userId as string,
-        companyId: (userToken as any).companyId || (userToken as any).company_id || undefined,
+        companyId: companyId || undefined,
         username: (userToken as any).username || undefined,
       }
     }

@@ -99,7 +99,17 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
 
   try {
     const exp = await getExperienceById(experienceId)
-    const resolved = exp?.company?.id || exp?.company_id || null
+    if (!exp) {
+      console.warn('[Experience Redirect] getExperienceById returned null for', experienceId)
+    } else {
+      console.log('[Experience Redirect] Experience payload keys:', Object.keys(exp || {}))
+    }
+    const resolved =
+      exp?.company?.id ||
+      exp?.company_id ||
+      exp?.companyId ||
+      exp?.company?.company_id ||
+      null
     if (resolved?.startsWith('biz_')) {
       await linkExperienceToCompany({ experienceId, companyId: resolved })
       return resolved

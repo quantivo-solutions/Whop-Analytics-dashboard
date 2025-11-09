@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
+import { getCompaniesForUser } from '@/lib/whop-rest'
 import { WHOP_CLIENT_ID, WHOP_CLIENT_SECRET } from '@/lib/whop-sdk'
 
 export const runtime = 'nodejs'
@@ -243,40 +244,55 @@ export async function GET(request: Request) {
     // FINAL SAFETY: Ensure companyId is biz_* if possible
     if (!companyId?.startsWith('biz_')) {
       try {
-        console.log('[OAuth] Attempting to resolve biz_ company via user companies endpoint...')
-        const companiesEndpoint = `https://api.whop.com/api/v5/users/${userData.id}/companies`
-        const tryFetch = async (token: string | null) => {
-          if (!token) return null
-          const res = await fetch(companiesEndpoint, {
-            headers: { Authorization: `Bearer ${token}` },
+        console.log('[OAuth] Attempting to resolve biz_ company via companies helper...')
+        const companies = await getCompaniesForUser(userData.id, { accessToken: access_token })
+        const bizCandidate = Array.isArray(companies)
+          ? companies.find((c: any) => {
+              if (!c) return false
+              if (typeof c === 'string') return c.startsWith('biz_')
+              if (typeof c.id === 'string' && c.id.startsWith('biz_')) return true
+              if (typeof c.company_id === 'string' && c.company_id.startsWith('biz_')) return true
+              if (typeof c.companyId === 'string' && c.companyId.startsWith('biz_')) return true
+              return false
+            })
+          : null
+        const resolvedBizId =
+          (typeof bizCandidate === 'string' && bizCandidate) ||
+          bizCandidate?.id ||
+          bizCandidate?.company_id ||
+          bizCandidate?.companyId ||
+          null
+        if (resolvedBizId?.startsWith('biz_')) {
+          console.log('[OAuth] Resolved biz company via helper:', resolvedBizId)
+          companyId = resolvedBizId
+        } else {
+          console.warn('[OAuth] Biz company not found in companies helper response', {
+            companiesCount: Array.isArray(companies) ? companies.length : 'unknown',
           })
-          if (!res.ok) {
-            const text = await res.text().catch(() => '')
-            console.warn('[OAuth] Companies endpoint returned non-OK:', res.status, text.slice(0, 120))
-            return null
-          }
-          return res.json()
-        }
-
-        let companies = await tryFetch(access_token)
-        if (!companies) {
-          const serverToken = process.env.WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY || null
-          companies = await tryFetch(serverToken)
-        }
-
-        if (companies?.data?.length) {
-          const bizCandidate =
-            companies.data.find((c: any) => typeof c.id === 'string' && c.id.startsWith('biz_')) ||
-            companies.data.find((c: any) => typeof c.company_id === 'string' && c.company_id.startsWith('biz_'))
-          if (bizCandidate) {
-            const resolvedBizId = bizCandidate.id || bizCandidate.company_id
-            console.log('[OAuth] Resolved biz company from companies endpoint:', resolvedBizId)
-            companyId = resolvedBizId
-          }
         }
       } catch (companyResolveErr) {
-        console.warn('[OAuth] Failed to resolve biz company via companies endpoint:', companyResolveErr)
+        console.warn('[OAuth] Failed to resolve biz company via companies helper:', companyResolveErr)
       }
+    }
+
+    if (!companyId?.startsWith('biz_')) {
+      const headerCompanyId =
+        request.headers.get('x-whop-company-id') ||
+        request.headers.get('x-whop-companyid') ||
+        request.headers.get('x-whop-company') ||
+        null
+      if (headerCompanyId?.startsWith('biz_')) {
+        console.log('[OAuth] Using biz company from request headers:', headerCompanyId)
+        companyId = headerCompanyId
+      }
+    }
+
+    if (!companyId?.startsWith('biz_')) {
+      console.error('[OAuth] ❌ Could not determine biz_ companyId for installation', {
+        initialCompanyId: stateCompanyId,
+        fallbackCompanyId: companyId,
+      })
+      return NextResponse.redirect(new URL(`/login?error=company_not_found`, request.url))
     }
 
     // CRITICAL: Guarantee an experience exists/linked for company installs

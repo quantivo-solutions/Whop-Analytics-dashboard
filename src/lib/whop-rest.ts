@@ -74,7 +74,7 @@ export async function getExperienceById(experienceId: string) {
 export async function getCompaniesForUser(
   userId: string,
   options?: { accessToken?: string }
-) {
+): Promise<any[]> {
   if (!userId) {
     throw new Error("getCompaniesForUser requires a userId")
   }
@@ -95,30 +95,59 @@ export async function getCompaniesForUser(
 
     triedTokens.add(token)
 
-    try {
-      const res = await fetch(`https://api.whop.com/api/v5/users/${userId}/companies`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      })
+    const candidateEndpoints = [
+      `/users/${userId}/companies`,
+      `/users/${userId}/memberships`,
+      `/me/companies`,
+    ]
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new Error(`Whop API /users/${userId}/companies failed: ${res.status} ${text}`)
+    for (const endpoint of candidateEndpoints) {
+      try {
+        const url = new URL(`https://api.whop.com/api/v5${endpoint}`)
+        if (endpoint.includes('memberships')) {
+          url.searchParams.set('include', 'company')
+        }
+
+        const res = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        })
+
+        if (!res.ok) {
+          // Try next endpoint if 404/403; otherwise throw
+          const text = await res.text().catch(() => '')
+          if (res.status === 404 || res.status === 403) {
+            lastError = new Error(`Whop API ${endpoint} failed: ${res.status} ${text}`)
+            continue
+          }
+          throw new Error(`Whop API ${endpoint} failed: ${res.status} ${text}`)
+        }
+
+        const json = await res.json()
+
+        if (!json) {
+          continue
+        }
+
+        if (Array.isArray(json)) {
+          return json
+        }
+
+        if (Array.isArray(json.data)) {
+          if (endpoint.includes('memberships')) {
+            const companies = json.data
+              .map((membership: any) => membership.company || membership.company_id || membership.companyId)
+              .filter(Boolean)
+            if (companies.length > 0) {
+              return companies
+            }
+            continue
+          }
+          return json.data
+        }
+      } catch (error) {
+        lastError = error
       }
-
-      const json = await res.json()
-
-      if (Array.isArray(json)) {
-        return json
-      }
-
-      if (Array.isArray(json.data)) {
-        return json.data
-      }
-
-      return []
-    } catch (error) {
-      lastError = error
     }
   }
 
