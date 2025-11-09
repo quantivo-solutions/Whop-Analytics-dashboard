@@ -240,6 +240,45 @@ export async function GET(request: Request) {
       console.log('[OAuth] Direct login, using user company:', companyId)
     }
 
+    // FINAL SAFETY: Ensure companyId is biz_* if possible
+    if (!companyId?.startsWith('biz_')) {
+      try {
+        console.log('[OAuth] Attempting to resolve biz_ company via user companies endpoint...')
+        const companiesEndpoint = `https://api.whop.com/api/v5/users/${userData.id}/companies`
+        const tryFetch = async (token: string | null) => {
+          if (!token) return null
+          const res = await fetch(companiesEndpoint, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (!res.ok) {
+            const text = await res.text().catch(() => '')
+            console.warn('[OAuth] Companies endpoint returned non-OK:', res.status, text.slice(0, 120))
+            return null
+          }
+          return res.json()
+        }
+
+        let companies = await tryFetch(access_token)
+        if (!companies) {
+          const serverToken = process.env.WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY || null
+          companies = await tryFetch(serverToken)
+        }
+
+        if (companies?.data?.length) {
+          const bizCandidate =
+            companies.data.find((c: any) => typeof c.id === 'string' && c.id.startsWith('biz_')) ||
+            companies.data.find((c: any) => typeof c.company_id === 'string' && c.company_id.startsWith('biz_'))
+          if (bizCandidate) {
+            const resolvedBizId = bizCandidate.id || bizCandidate.company_id
+            console.log('[OAuth] Resolved biz company from companies endpoint:', resolvedBizId)
+            companyId = resolvedBizId
+          }
+        }
+      } catch (companyResolveErr) {
+        console.warn('[OAuth] Failed to resolve biz company via companies endpoint:', companyResolveErr)
+      }
+    }
+
     // CRITICAL: Guarantee an experience exists/linked for company installs
     if (companyId) {
       try {
