@@ -438,6 +438,19 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   let chosenBizId = bizCandidates.find(Boolean) || null
 
+  if (!chosenBizId && whopUser?.userId) {
+    const existingBizInstall = await prisma.whopInstallation.findFirst({
+      where: {
+        userId: whopUser.userId,
+        companyId: { startsWith: 'biz_' },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+    if (existingBizInstall) {
+      chosenBizId = existingBizInstall.companyId
+    }
+  }
+
   if (!chosenBizId && installation.experienceId) {
     try {
       const exp = await getExperienceById(installation.experienceId)
