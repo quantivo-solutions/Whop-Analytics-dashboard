@@ -22,9 +22,7 @@ export function ExperienceDashboardCard({
     { icon: '🤝', label: 'Secure workspace for your entire team' },
   ],
 }: ExperienceDashboardCardProps) {
-  const targetHref =
-    (whopDashboardHref ? whopDashboardHref.replace(/\{companyId\}/g, companyId) : null) ||
-    internalDashboardHref
+  const targetHref = whopDashboardHref || internalDashboardHref
 
   return (
     <div className="relative max-w-4xl mx-auto">

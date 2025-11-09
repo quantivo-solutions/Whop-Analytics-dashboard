@@ -426,8 +426,22 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   const finalCompanyId = installation.companyId
   const sessionTokenForClient = (global as any).__whopSessionToken
   const internalDashboardHref = `/dashboard/${finalCompanyId}`
+
+  let redirectCompanyId = finalCompanyId
+  if (!redirectCompanyId.startsWith('biz_') && installation.experienceId) {
+    try {
+      const exp = await getExperienceById(installation.experienceId)
+      const expCompanyId = exp?.company?.id || exp?.company_id || null
+      if (expCompanyId?.startsWith('biz_')) {
+        redirectCompanyId = expCompanyId
+      }
+    } catch (resolveErr) {
+      console.warn('[Experience Page] Unable to resolve biz_ companyId for redirect:', resolveErr)
+    }
+  }
+
   const whopDashboardHref = env.NEXT_PUBLIC_WHOP_APP_ID
-    ? `https://whop.com/dashboard/{companyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
+    ? `https://whop.com/dashboard/${redirectCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
     : null
 
   return (
