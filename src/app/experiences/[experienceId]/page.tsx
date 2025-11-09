@@ -480,10 +480,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
   }
 
-  const whopDashboardHref =
-    env.NEXT_PUBLIC_WHOP_APP_ID && redirectCompanyId?.startsWith('biz_')
-      ? `https://whop.com/dashboard/${redirectCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
-      : null
+  const redirectHref = `/experiences/${experienceId}/redirect`
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -497,8 +494,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           <ExperienceDashboardCard
             companyId={finalCompanyId}
             experienceName={(installation as any)?.experienceName || installation.username || null}
-            internalDashboardHref={internalDashboardHref}
-            whopDashboardHref={whopDashboardHref}
+            redirectHref={redirectHref}
           />
         </div>
       </div>

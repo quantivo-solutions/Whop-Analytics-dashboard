@@ -2,58 +2,25 @@
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useEffect, useState } from 'react'
 
 interface ExperienceDashboardCardProps {
   companyId: string
   experienceName?: string | null
-  internalDashboardHref: string
-  whopDashboardHref?: string | null
+  redirectHref: string
   highlights?: Array<{ icon: string; label: string }>
 }
 
 export function ExperienceDashboardCard({
   companyId,
   experienceName,
-  internalDashboardHref,
-  whopDashboardHref,
+  redirectHref,
   highlights = [
     { icon: '📈', label: 'Real-time revenue & member insights' },
     { icon: '🎯', label: 'Goal tracking, alerts & scheduled exports' },
     { icon: '🤝', label: 'Secure workspace for your entire team' },
   ],
 }: ExperienceDashboardCardProps) {
-  const [targetHref, setTargetHref] = useState<string | null>(null)
-  const [isWhopDomain, setIsWhopDomain] = useState(false)
-
-  useEffect(() => {
-    if (whopDashboardHref) {
-      const resolved = whopDashboardHref.replace(/\{companyId\}/g, companyId)
-      setTargetHref(resolved)
-      setIsWhopDomain(resolved.includes('whop.com'))
-    } else {
-      setTargetHref(internalDashboardHref)
-      setIsWhopDomain(false)
-    }
-  }, [companyId, whopDashboardHref, internalDashboardHref])
-
-  const handleClick = () => {
-    if (!targetHref) return
-
-    if (typeof window === 'undefined') return
-
-    const event = new CustomEvent('whoplytics:experience-redirect', {
-      detail: { companyId, url: targetHref },
-    })
-    window.dispatchEvent(event)
-
-    if (isWhopDomain) {
-      const opened = window.open(targetHref, '_top')
-      if (opened) return
-    }
-
-    window.location.href = targetHref
-  }
+  const resolvedHref = redirectHref.replace(/\{companyId\}/g, companyId)
 
   return (
     <div className="relative max-w-4xl mx-auto">
@@ -94,15 +61,20 @@ export function ExperienceDashboardCard({
               ))}
             </div>
             <div className="flex flex-col items-stretch gap-2">
-              <Button
-                type="button"
-                onClick={handleClick}
-                size="lg"
-                className="h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 shadow-lg w-full"
-                style={{ cursor: 'pointer' }}
+              <a
+                href={resolvedHref}
+                target="_top"
+                rel="noopener noreferrer"
+                className="inline-flex"
               >
-                Open Creator Dashboard
-              </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 shadow-lg w-full"
+                >
+                  Open Creator Dashboard
+                </Button>
+              </a>
             </div>
           </div>
         </div>
