@@ -68,3 +68,27 @@ export async function getExperienceById(experienceId: string) {
   return res.json()
 }
 
+/**
+ * Get companies for a user (returns array of company objects)
+ */
+export async function getCompaniesForUser(userId: string) {
+  if (!userId) {
+    throw new Error("getCompaniesForUser requires a userId")
+  }
+
+  const response = await whopGET<any>(`/users/${userId}/companies`)
+
+  if (!response) return []
+
+  if (Array.isArray(response)) {
+    return response
+  }
+
+  if (Array.isArray(response.data)) {
+    return response.data
+  }
+
+  return []
+}
+
+

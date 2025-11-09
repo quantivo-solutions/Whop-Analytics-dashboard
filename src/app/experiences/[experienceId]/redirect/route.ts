@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { env } from '@/lib/env'
-import { getExperienceById } from '@/lib/whop-rest'
+import { getExperienceById, getCompaniesForUser } from '@/lib/whop-rest'
 import { linkExperienceToCompany } from '@/lib/company'
 import { verifyWhopUserToken } from '@/lib/whop-auth'
 
@@ -9,6 +9,19 @@ export const runtime = 'nodejs'
 
 async function resolveCompanyId(experienceId: string): Promise<string | null> {
   const whopUser = await verifyWhopUserToken().catch(() => null)
+
+  if (whopUser?.companyId?.startsWith('biz_')) {
+    try {
+      await linkExperienceToCompany({ experienceId, companyId: whopUser.companyId })
+    } catch (error) {
+      console.warn('[Experience Redirect] Failed to link via whopUser companyId:', error)
+    }
+    return whopUser.companyId
+  }
+
+  const installation = await prisma.whopInstallation.findUnique({
+    where: { experienceId },
+  }).catch(() => null)
 
   const existingBizByUser = whopUser?.userId
     ? await prisma.whopInstallation.findFirst({
@@ -21,15 +34,45 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
     : null
 
   if (existingBizByUser?.companyId?.startsWith('biz_')) {
+    if (installation && installation.companyId !== existingBizByUser.companyId) {
+      try {
+        await linkExperienceToCompany({
+          experienceId,
+          companyId: existingBizByUser.companyId,
+        })
+      } catch (error) {
+        console.warn('[Experience Redirect] Failed to sync existing biz installation:', error)
+      }
+    }
     return existingBizByUser.companyId
   }
 
-  const installation = await prisma.whopInstallation.findUnique({
-    where: { experienceId },
-  }).catch(() => null)
-
   if (installation?.companyId?.startsWith('biz_')) {
     return installation.companyId
+  }
+
+  if (whopUser?.userId) {
+    try {
+      const companies = await getCompaniesForUser(whopUser.userId)
+      const bizCandidate = companies.find((company: any) => {
+        if (!company) return false
+        if (typeof company.id === 'string' && company.id.startsWith('biz_')) {
+          return true
+        }
+        if (typeof company.company_id === 'string' && company.company_id.startsWith('biz_')) {
+          return true
+        }
+        return false
+      })
+
+      const resolvedBizId = bizCandidate?.id || bizCandidate?.company_id
+      if (resolvedBizId?.startsWith('biz_')) {
+        await linkExperienceToCompany({ experienceId, companyId: resolvedBizId })
+        return resolvedBizId
+      }
+    } catch (error) {
+      console.warn('[Experience Redirect] Failed to resolve biz company via user companies:', error)
+    }
   }
 
   try {
@@ -41,10 +84,6 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
     }
   } catch (error) {
     console.warn('[Experience Redirect] Failed to fetch experience info:', error)
-  }
-
-  if (installation?.companyId) {
-    return installation.companyId
   }
 
   return null
