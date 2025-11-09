@@ -4,15 +4,57 @@ import { env } from '@/lib/env'
 import { getExperienceById, getCompaniesForUser } from '@/lib/whop-rest'
 import { linkExperienceToCompany } from '@/lib/company'
 import { verifyWhopUserToken } from '@/lib/whop-auth'
+import { cookies } from 'next/headers'
 
 export const runtime = 'nodejs'
 
+async function parseSessionCompany(): Promise<string | null> {
+  try {
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get('whop_session')
+    if (!sessionCookie?.value) return null
+    const decoded = JSON.parse(Buffer.from(sessionCookie.value, 'base64').toString())
+    const sessionCompanyId = decoded?.companyId
+    if (typeof sessionCompanyId === 'string' && sessionCompanyId.startsWith('biz_')) {
+      console.log('[Experience Redirect] Session companyId found:', sessionCompanyId)
+      return sessionCompanyId
+    }
+  } catch (error) {
+    console.warn('[Experience Redirect] Failed to parse session cookie:', error)
+  }
+  return null
+}
+
 async function resolveCompanyId(experienceId: string): Promise<string | null> {
   const whopUser = await verifyWhopUserToken().catch(() => null)
+  const sessionCompanyId = await parseSessionCompany()
 
-  const installation = await prisma.whopInstallation.findUnique({
+  let installation = await prisma.whopInstallation.findUnique({
     where: { experienceId },
   }).catch(() => null)
+
+  if (installation) {
+    console.log('[Experience Redirect] Installation lookup', {
+      installationId: installation.id,
+      companyId: installation.companyId,
+      userId: installation.userId,
+    })
+  }
+
+  if (sessionCompanyId && installation && installation.companyId !== sessionCompanyId) {
+    try {
+      installation = await prisma.whopInstallation.update({
+        where: { id: installation.id },
+        data: { companyId: sessionCompanyId },
+      })
+      console.log('[Experience Redirect] Updated installation companyId from session', {
+        installationId: installation.id,
+        companyId: installation.companyId,
+      })
+    } catch (error) {
+      console.warn('[Experience Redirect] Failed to sync installation companyId from session:', error)
+    }
+  }
 
   if (whopUser?.companyId?.startsWith('biz_')) {
     try {
@@ -21,6 +63,15 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
       console.warn('[Experience Redirect] Failed to link via whopUser companyId:', error)
     }
     return whopUser.companyId
+  }
+
+  if (sessionCompanyId) {
+    try {
+      await linkExperienceToCompany({ experienceId, companyId: sessionCompanyId })
+    } catch (error) {
+      console.warn('[Experience Redirect] Failed to link via session companyId:', error)
+    }
+    return sessionCompanyId
   }
 
   if (installation?.companyId?.startsWith('biz_')) {
