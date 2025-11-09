@@ -3,10 +3,27 @@ import { prisma } from '@/lib/prisma'
 import { env } from '@/lib/env'
 import { getExperienceById } from '@/lib/whop-rest'
 import { linkExperienceToCompany } from '@/lib/company'
+import { verifyWhopUserToken } from '@/lib/whop-auth'
 
 export const runtime = 'nodejs'
 
 async function resolveCompanyId(experienceId: string): Promise<string | null> {
+  const whopUser = await verifyWhopUserToken().catch(() => null)
+
+  const existingBizByUser = whopUser?.userId
+    ? await prisma.whopInstallation.findFirst({
+        where: {
+          userId: whopUser.userId,
+          companyId: { startsWith: 'biz_' },
+        },
+        orderBy: { updatedAt: 'desc' },
+      })
+    : null
+
+  if (existingBizByUser?.companyId?.startsWith('biz_')) {
+    return existingBizByUser.companyId
+  }
+
   const installation = await prisma.whopInstallation.findUnique({
     where: { experienceId },
   }).catch(() => null)
