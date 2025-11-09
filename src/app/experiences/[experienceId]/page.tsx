@@ -425,61 +425,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   const finalCompanyId = installation.companyId
   const sessionTokenForClient = (global as any).__whopSessionToken
-  const internalDashboardHref = `/dashboard/${finalCompanyId}`
-
-  let redirectCompanyId = finalCompanyId
-  const bizCandidates: string[] = []
-  if (whopUser?.companyId?.startsWith('biz_')) {
-    bizCandidates.push(whopUser.companyId)
-  }
-  if (redirectCompanyId.startsWith('biz_')) {
-    bizCandidates.push(redirectCompanyId)
-  }
-
-  let chosenBizId = bizCandidates.find(Boolean) || null
-
-  if (!chosenBizId && whopUser?.userId) {
-    const existingBizInstall = await prisma.whopInstallation.findFirst({
-      where: {
-        userId: whopUser.userId,
-        companyId: { startsWith: 'biz_' },
-      },
-      orderBy: { updatedAt: 'desc' },
-    })
-    if (existingBizInstall) {
-      chosenBizId = existingBizInstall.companyId
-    }
-  }
-
-  if (!chosenBizId && installation.experienceId) {
-    try {
-      const exp = await getExperienceById(installation.experienceId)
-      const expCompanyId = exp?.company?.id || exp?.company_id || null
-      if (expCompanyId?.startsWith('biz_')) {
-        chosenBizId = expCompanyId
-      }
-    } catch (resolveErr) {
-      console.warn('[Experience Page] Unable to resolve biz_ companyId for redirect:', resolveErr)
-    }
-  }
-
-  if (chosenBizId && installation.experienceId) {
-    redirectCompanyId = chosenBizId
-    if (redirectCompanyId !== installation.companyId) {
-      try {
-        await linkExperienceToCompany({ experienceId: installation.experienceId, companyId: redirectCompanyId })
-        const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: redirectCompanyId } })
-        if (refreshed) {
-          installation = refreshed
-          experienceName = (installation as any).experienceName || experienceName
-          redirectCompanyId = installation.companyId
-        }
-      } catch (linkErr) {
-        console.warn('[Experience Page] Unable to relink experience to companyId:', linkErr)
-      }
-    }
-  }
-
   const redirectHref = `/experiences/${experienceId}/redirect`
 
   return (
