@@ -11,6 +11,30 @@ import { WHOP_CLIENT_ID, WHOP_CLIENT_SECRET } from '@/lib/whop-sdk'
 
 export const runtime = 'nodejs'
 
+async function logInstallationAttempt(params: {
+  companyId?: string | null
+  experienceId?: string | null
+  userId?: string | null
+  success: boolean
+  errorMessage?: string | null
+  metadata?: Record<string, any>
+}) {
+  try {
+    await prisma.installationAttempt.create({
+      data: {
+        companyId: params.companyId ?? null,
+        experienceId: params.experienceId ?? null,
+        userId: params.userId ?? null,
+        success: params.success,
+        errorMessage: params.errorMessage ?? null,
+        metadata: params.metadata ?? {},
+      },
+    })
+  } catch (error) {
+    console.warn('[OAuth Callback] Failed to record installation attempt:', error)
+  }
+}
+
 export async function GET(request: Request) {
   // CRITICAL: Log immediately when request arrives
   const requestUrl = request.url
@@ -20,6 +44,10 @@ export async function GET(request: Request) {
     timestamp: new Date().toISOString(),
   })
   
+  let companyIdForAttempt: string | null = null
+  let experienceIdForAttempt: string | null = null
+  let userIdForAttempt: string | null = null
+
   try {
     const { searchParams } = new URL(requestUrl)
     const code = searchParams.get('code')
@@ -134,6 +162,7 @@ export async function GET(request: Request) {
       profile_pic_url: userData.profile_pic_url || 'none',
       hasCompany: !!userData.company_id,
     })
+    userIdForAttempt = userData.id || null
     
     // Extract username from user data
     const username = userData.username || userData.email || userData.name || userData.id
@@ -141,9 +170,10 @@ export async function GET(request: Request) {
     // 🔧 CRITICAL FIX: Determine the correct company ID for company apps
     // For company apps, experienceId maps to an installation created by app.installed webhook
     // We should look up the installation by experienceId to get the correct company_id
-    let companyId: string
+    let companyId: string | null = null
     let experienceId: string | null = null
     let stateCompanyId: string | null = null
+    let stateBizCompanyId: string | null = null
     
     // First, try to decode experienceId and companyId from state
     try {
@@ -154,7 +184,15 @@ export async function GET(request: Request) {
         const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
         const stateData = JSON.parse(Buffer.from(paddedBase64, 'base64').toString())
         experienceId = stateData.experienceId || null
-        stateCompanyId = stateData.companyId || null
+        stateCompanyId = stateData.companyId || stateData.company_id || null
+        if (!stateCompanyId && typeof stateData.company === 'object') {
+          stateCompanyId = stateData.company?.id || stateData.company?.company_id || null
+        }
+        if (typeof stateCompanyId === 'string') {
+          const trimmed = stateCompanyId.trim()
+          stateBizCompanyId = trimmed.startsWith('biz_') ? trimmed : null
+          stateCompanyId = trimmed
+        }
         console.log('[OAuth] Decoded state, experienceId:', experienceId || 'none', 'companyId:', stateCompanyId || 'none')
       }
     } catch (e) {
@@ -167,8 +205,8 @@ export async function GET(request: Request) {
       console.log('[OAuth] Iframe login detected, determining company for experienceId:', experienceId)
       
       // Priority 1: Use companyId from state if Whop provided it in URL
-      if (stateCompanyId) {
-        companyId = stateCompanyId
+      if (stateBizCompanyId) {
+        companyId = stateBizCompanyId
         console.log('[OAuth] Using company ID from state (passed via URL):', companyId)
       }
       // Priority 2: Check if installation already exists
@@ -236,10 +274,14 @@ export async function GET(request: Request) {
         }
       }
     } else {
-      // Direct login (not from iframe), use user's company
-      companyId = userData.company_id || userData.id
-      console.log('[OAuth] Direct login, using user company:', companyId)
+      // Direct login (not from iframe), use user's company if we still don't have one
+      if (!companyId) {
+        companyId = userData.company_id || userData.id || null
+        console.log('[OAuth] Direct login, using user company:', companyId)
+      }
     }
+
+    experienceIdForAttempt = experienceId || null
 
     // FINAL SAFETY: Ensure companyId is biz_* if possible
     if (!companyId?.startsWith('biz_')) {
@@ -275,11 +317,14 @@ export async function GET(request: Request) {
       }
     }
 
+    const requiresBizCompany = Boolean(experienceId)
+
     if (!companyId?.startsWith('biz_')) {
       const headerCompanyId =
         request.headers.get('x-whop-company-id') ||
         request.headers.get('x-whop-companyid') ||
         request.headers.get('x-whop-company') ||
+        request.headers.get('x-whop-business-id') ||
         null
       if (headerCompanyId?.startsWith('biz_')) {
         console.log('[OAuth] Using biz company from request headers:', headerCompanyId)
@@ -287,10 +332,42 @@ export async function GET(request: Request) {
       }
     }
 
-    if (!companyId?.startsWith('biz_')) {
+    if (!companyId?.startsWith('biz_') && requiresBizCompany) {
       console.error('[OAuth] ❌ Could not determine biz_ companyId for installation', {
         initialCompanyId: stateCompanyId,
         fallbackCompanyId: companyId,
+      })
+      await logInstallationAttempt({
+        companyId: companyId ?? stateCompanyId,
+        experienceId,
+        userId: userData.id,
+        success: false,
+        errorMessage: 'missing_biz_company',
+        metadata: {
+          source: 'oauth_callback',
+          stateCompanyId,
+          experienceId,
+        },
+      })
+      return NextResponse.redirect(new URL(`/login?error=company_not_found`, request.url))
+    }
+
+    if (companyId?.startsWith('biz_')) {
+      companyId = companyId.trim()
+    } else if (!companyId) {
+      companyId = userData.company_id || userData.id || null
+    }
+    companyIdForAttempt = companyId ?? null
+
+    if (!companyId) {
+      console.error('[OAuth] ❌ Unable to resolve any companyId for installation')
+      await logInstallationAttempt({
+        companyId: companyIdForAttempt,
+        userId: userData.id,
+        experienceId: experienceId || null,
+        success: false,
+        errorMessage: 'company_missing',
+        metadata: { source: 'oauth_callback' },
       })
       return NextResponse.redirect(new URL(`/login?error=company_not_found`, request.url))
     }
@@ -373,10 +450,64 @@ export async function GET(request: Request) {
       // Continue with free plan if API call fails
     }
 
-    // Check if installation exists for this company
-    let installation = await prisma.whopInstallation.findUnique({
-      where: { companyId },
-    })
+    // Prepare to migrate legacy installations that may still be keyed by user_* company IDs
+    const legacyCompanyIds = new Set<string>()
+    if (stateCompanyId && stateCompanyId !== companyId) legacyCompanyIds.add(stateCompanyId)
+    if (userData.company_id && userData.company_id !== companyId) legacyCompanyIds.add(userData.company_id)
+    if (userData.id && userData.id !== companyId) legacyCompanyIds.add(userData.id)
+
+    let installation = null as Awaited<ReturnType<typeof prisma.whopInstallation.findUnique>> | null
+
+    if (experienceId) {
+      const existingByExperience = await prisma.whopInstallation
+        .findUnique({
+          where: { experienceId },
+        })
+        .catch(() => null)
+
+      if (existingByExperience) {
+        if (existingByExperience.companyId !== companyId) {
+          console.log(
+            `[OAuth Callback] 🔄 Migrating installation ${existingByExperience.id} from ${existingByExperience.companyId} to ${companyId}`
+          )
+          installation = await prisma.whopInstallation.update({
+            where: { id: existingByExperience.id },
+            data: { companyId },
+          })
+        } else {
+          installation = existingByExperience
+        }
+      }
+    }
+
+    if (!installation) {
+      installation = await prisma.whopInstallation
+        .findUnique({
+          where: { companyId },
+        })
+        .catch(() => null)
+    }
+
+    if (!installation && legacyCompanyIds.size > 0) {
+      for (const legacyId of legacyCompanyIds) {
+        const legacyInstallation = await prisma.whopInstallation
+          .findUnique({
+            where: { companyId: legacyId },
+          })
+          .catch(() => null)
+
+        if (legacyInstallation) {
+          console.log(
+            `[OAuth Callback] 🔄 Migrating legacy installation ${legacyInstallation.id} from ${legacyInstallation.companyId} to ${companyId}`
+          )
+          installation = await prisma.whopInstallation.update({
+            where: { id: legacyInstallation.id },
+            data: { companyId },
+          })
+          break
+        }
+      }
+    }
 
     // CRITICAL: Log installation status for debugging
     console.log(`[OAuth Callback] 📊 Installation lookup for ${companyId}:`, {
@@ -432,23 +563,6 @@ export async function GET(request: Request) {
             throw new Error(`Installation creation verification failed - installation not found in database after create`)
           }
           console.log(`[OAuth Callback] ✅ VERIFIED installation exists in database: ${verifyInstallation.companyId}`)
-          
-          // Log successful installation attempt
-          try {
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/api/debug/log-install-attempt`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                companyId,
-                userId: userData.id,
-                experienceId: experienceId || null,
-                success: true,
-                metadata: { source: 'oauth_callback', isNew: true }
-              })
-            }).catch(err => console.warn('[OAuth Callback] Failed to log attempt:', err))
-          } catch (logError) {
-            console.warn('[OAuth Callback] Could not log installation attempt:', logError)
-          }
         } catch (createError: any) {
           // Handle unique constraint violations
           if (createError.code === 'P2002') {
@@ -538,25 +652,18 @@ export async function GET(request: Request) {
       if (!installationCreated && !installation) {
         console.error(`[OAuth Callback] ❌ BLOCKING: Installation was not created - aborting OAuth flow`)
         
-        // Log failed installation attempt
-        try {
-          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/api/debug/log-install-attempt`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              companyId,
-              userId: userData?.id || null,
-              experienceId: experienceId || null,
-              success: false,
-              errorMessage: dbError.message,
-              metadata: { 
-                source: 'oauth_callback',
-                code: dbError?.code,
-                meta: dbError?.meta,
-              }
-            })
-          }).catch(() => {})
-        } catch {}
+        await logInstallationAttempt({
+          companyId,
+          userId: userData?.id || null,
+          experienceId: experienceId || null,
+          success: false,
+          errorMessage: dbError.message,
+          metadata: {
+            source: 'oauth_callback',
+            code: dbError?.code,
+            meta: dbError?.meta,
+          },
+        })
         
         return NextResponse.redirect(new URL(`/login?error=installation_failed&details=${encodeURIComponent(dbError.message)}&companyId=${companyId}`, request.url))
       }
@@ -570,6 +677,14 @@ export async function GET(request: Request) {
     // CRITICAL: Final verification - installation MUST exist before proceeding
     if (!installation) {
       console.error(`[OAuth Callback] ❌ CRITICAL: Installation is null after upsert - aborting`)
+      await logInstallationAttempt({
+        companyId,
+        userId: userData.id,
+        experienceId: experienceId || null,
+        success: false,
+        errorMessage: 'installation_missing',
+        metadata: { source: 'oauth_callback' },
+      })
       return NextResponse.redirect(new URL(`/login?error=installation_missing&companyId=${companyId}`, request.url))
     }
     
@@ -579,6 +694,17 @@ export async function GET(request: Request) {
       userId: installation.userId,
       experienceId: installation.experienceId || 'none',
       plan: installation.plan,
+    })
+
+    await logInstallationAttempt({
+      companyId,
+      userId: userData.id,
+      experienceId: installation.experienceId || experienceId || null,
+      success: true,
+      metadata: {
+        source: 'oauth_callback',
+        isNew: installationCreated,
+      },
     })
 
     // CRITICAL: Ensure CompanyPrefs exists for this installation (required for onboarding)
@@ -642,6 +768,18 @@ export async function GET(request: Request) {
       stack: error?.stack,
       code: error?.code,
       meta: error?.meta,
+    })
+    
+    await logInstallationAttempt({
+      companyId: companyIdForAttempt,
+      userId: userIdForAttempt,
+      experienceId: experienceIdForAttempt,
+      success: false,
+      errorMessage: error?.message || 'unknown_error',
+      metadata: {
+        source: 'oauth_callback_catch',
+        code: error?.code,
+      },
     })
     
     // Provide more specific error messages

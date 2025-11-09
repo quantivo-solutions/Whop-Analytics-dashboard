@@ -34,6 +34,7 @@ export async function verifyWhopUserToken(): Promise<WhopUserInfo | null> {
       headersList.get('x-whop-company-id') ||
       headersList.get('x-whop-companyid') ||
       headersList.get('x-whop-company') ||
+      headersList.get('x-whop-business-id') ||
       headersList.get('x-whop-biz-id') ||
       null
     
