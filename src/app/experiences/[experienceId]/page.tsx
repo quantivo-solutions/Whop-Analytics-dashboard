@@ -467,9 +467,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
   }
 
-  const whopDashboardHref = env.NEXT_PUBLIC_WHOP_APP_ID
-    ? `https://whop.com/dashboard/${redirectCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
-    : null
+  const whopDashboardHref =
+    env.NEXT_PUBLIC_WHOP_APP_ID && redirectCompanyId?.startsWith('biz_')
+      ? `https://whop.com/dashboard/${redirectCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
+      : null
 
   return (
     <div className="min-h-screen relative overflow-hidden">

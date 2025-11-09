@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useEffect, useState } from 'react'
 
 interface ExperienceDashboardCardProps {
   companyId: string
@@ -22,7 +23,37 @@ export function ExperienceDashboardCard({
     { icon: '🤝', label: 'Secure workspace for your entire team' },
   ],
 }: ExperienceDashboardCardProps) {
-  const targetHref = whopDashboardHref || internalDashboardHref
+  const [targetHref, setTargetHref] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (whopDashboardHref) {
+      setTargetHref(whopDashboardHref.replace(/\{companyId\}/g, companyId))
+    } else {
+      setTargetHref(internalDashboardHref)
+    }
+  }, [companyId, whopDashboardHref, internalDashboardHref])
+
+  const handleClick = () => {
+    if (!targetHref) return
+
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('whoplytics:experience-redirect', {
+        detail: { companyId, url: targetHref },
+      })
+      window.dispatchEvent(event)
+
+      try {
+        if (window.top) {
+          window.top.location.href = targetHref
+          return
+        }
+      } catch {
+        // ignore cross-origin issues and fall back to same frame
+      }
+
+      window.location.href = targetHref
+    }
+  }
 
   return (
     <div className="relative max-w-4xl mx-auto">
@@ -63,19 +94,15 @@ export function ExperienceDashboardCard({
               ))}
             </div>
             <div className="flex flex-col items-stretch gap-2">
-              <a
-                href={targetHref}
-                target="_top"
-                rel="noopener noreferrer"
-                className="inline-flex"
+              <Button
+                type="button"
+                onClick={handleClick}
+                size="lg"
+                className="h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 shadow-lg w-full"
+                style={{ cursor: 'pointer' }}
               >
-                <Button
-                  size="lg"
-                  className="h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 shadow-lg w-full"
-                >
-                  Open Creator Dashboard
-                </Button>
-              </a>
+                Open Creator Dashboard
+              </Button>
             </div>
           </div>
         </div>
