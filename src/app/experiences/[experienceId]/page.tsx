@@ -434,6 +434,19 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       const expCompanyId = exp?.company?.id || exp?.company_id || null
       if (expCompanyId?.startsWith('biz_')) {
         redirectCompanyId = expCompanyId
+        if (redirectCompanyId !== installation.companyId) {
+          try {
+            await linkExperienceToCompany({ experienceId: installation.experienceId, companyId: redirectCompanyId })
+            const refreshed = await prisma.whopInstallation.findUnique({ where: { experienceId: installation.experienceId } })
+            if (refreshed) {
+              installation = refreshed
+              experienceName = (installation as any).experienceName || experienceName
+              redirectCompanyId = installation.companyId
+            }
+          } catch (linkErr) {
+            console.warn('[Experience Page] Unable to relink experience to companyId:', linkErr)
+          }
+        }
       }
     } catch (resolveErr) {
       console.warn('[Experience Page] Unable to resolve biz_ companyId for redirect:', resolveErr)
