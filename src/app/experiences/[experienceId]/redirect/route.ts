@@ -29,7 +29,7 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
   const whopUser = await verifyWhopUserToken().catch(() => null)
   const sessionCompanyId = await parseSessionCompany()
 
-  let installation = await prisma.whopInstallation.findUnique({
+  const installation = await prisma.whopInstallation.findUnique({
     where: { experienceId },
   }).catch(() => null)
 
@@ -39,20 +39,20 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
       companyId: installation.companyId,
       userId: installation.userId,
     })
-  }
-
-  if (sessionCompanyId && installation && installation.companyId !== sessionCompanyId) {
-    try {
-      installation = await prisma.whopInstallation.update({
-        where: { id: installation.id },
-        data: { companyId: sessionCompanyId },
-      })
-      console.log('[Experience Redirect] Updated installation companyId from session', {
-        installationId: installation.id,
-        companyId: installation.companyId,
-      })
-    } catch (error) {
-      console.warn('[Experience Redirect] Failed to sync installation companyId from session:', error)
+    if (!installation.companyId?.startsWith('biz_') && sessionCompanyId) {
+      try {
+        await prisma.whopInstallation.update({
+          where: { id: installation.id },
+          data: { companyId: sessionCompanyId },
+        })
+        console.log('[Experience Redirect] Normalized installation companyId from session', {
+          installationId: installation.id,
+          companyId: sessionCompanyId,
+        })
+        return sessionCompanyId
+      } catch (error) {
+        console.warn('[Experience Redirect] Failed to normalize installation companyId from session:', error)
+      }
     }
   }
 
@@ -65,7 +65,7 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
     return whopUser.companyId
   }
 
-  if (sessionCompanyId) {
+  if (!installation && sessionCompanyId) {
     try {
       await linkExperienceToCompany({ experienceId, companyId: sessionCompanyId })
     } catch (error) {
