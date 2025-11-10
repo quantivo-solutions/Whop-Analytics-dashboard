@@ -43,210 +43,109 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   try {
     console.log('[Whoplytics] [Experience Page] START - experienceId:', experienceId)
 
-    // AUTO-CLAIM: Try to find installation by experienceId first
-    let install = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
-
-    // If no installation found, auto-claim by resolving companyId from Whop API
-    if (!install) {
-      console.log('[Whoplytics] No installation found for experienceId, attempting auto-claim...')
-      
-      try {
-        const exp = await getExperienceById(experienceId)
-        const companyId = exp?.company_id || exp?.company?.id || exp?.companyId
-        
-        if (companyId?.startsWith("biz_")) {
-          // Link experience to company (creates or updates installation)
-          const result = await linkExperienceToCompany({ experienceId, companyId })
-          console.log('[Whoplytics] Auto-claimed install', { 
-            experienceId, 
-            companyId, 
-            created: result.created, 
-            updated: result.updated 
-          })
-          
-          // Refresh installation after linking
-          install = await prisma.whopInstallation.findUnique({ where: { experienceId } })
-        } else {
-          console.log('[Whoplytics] No biz_* company found for experience', { experienceId, companyId })
-        }
-      } catch (e) {
-        console.warn('[Whoplytics] Auto-claim error', { experienceId, error: String(e) })
-      }
-    }
-
-    // Do NOT return here; continue to normal discovery/create flow below
-
-  // Proceed even if install is null; later logic will resolve or create it
-  let installation = install as any
-  let experienceName: string | null = (installation as any)?.experienceName || null
+    let installation = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
+    let experienceName: string | null = installation?.experienceName || null
   
-  // STEP 1: Check Whop iframe authentication (for session creation)
-  console.log('[Whoplytics] Step 1: Checking Whop iframe authentication...')
-  const whopUser = await verifyWhopUserToken()
-  let session = await getSession(token).catch(() => null)
-  
-  let experienceIdWasUpdated = false
-  
-  // Fetch user profile data and experience name from Whop API if available
-  if (whopUser && whopUser.userId) {
+    // STEP 1: Check Whop iframe authentication (for session creation)
+    console.log('[Whoplytics] Step 1: Checking Whop iframe authentication...')
+    const whopUser = await verifyWhopUserToken()
+    let session = await getSession(token).catch(() => null)
     
-    // Fetch user profile data to get profilePicUrl and username
-    try {
-      const userResponse = await fetch(`https://api.whop.com/api/v5/users/${whopUser.userId}`, {
-        headers: {
-          'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
-        },
-      })
-      
-      if (userResponse.ok) {
-        const userData = await userResponse.json()
-        const profilePicUrl = userData.profile_picture_url || userData.profilePicUrl || userData.avatar_url || userData.avatar || null
-        const username = userData.username || userData.name || userData.display_name || installation.username || null
-        
-        // Update installation with user profile data if missing or changed
-        const updateData: any = {}
-        if (profilePicUrl && (!installation.profilePicUrl || installation.profilePicUrl !== profilePicUrl)) {
-          updateData.profilePicUrl = profilePicUrl
-          console.log('[Experience Page] Updating profilePicUrl:', profilePicUrl)
-        }
-        if (username && (!installation.username || installation.username !== username)) {
-          updateData.username = username
-          console.log('[Experience Page] Updating username:', username)
-        }
-        
-        if (Object.keys(updateData).length > 0 && installation && installation.companyId) {
-          installation = await prisma.whopInstallation.update({
-            where: { companyId: installation.companyId },
-            data: updateData,
-          })
-          console.log('[Experience Page] ✅ Updated installation with user profile data')
-        }
-      }
-    } catch (userError) {
-      console.error('[Experience Page] Error fetching user profile:', userError)
-    }
+    let experienceIdWasUpdated = false
     
-    // Try to fetch experience name from Whop API if not already set
-    if (!experienceName) {
+    // Fetch user profile data and experience name from Whop API if available
+    if (whopUser && whopUser.userId && installation) {
+      
+      // Fetch user profile data to get profilePicUrl and username
       try {
-        const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+        const userResponse = await fetch(`https://api.whop.com/api/v5/users/${whopUser.userId}`, {
           headers: {
             'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
           },
         })
         
-        if (expResponse.ok) {
-          const expData = await expResponse.json()
-          experienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          const profilePicUrl = userData.profile_picture_url || userData.profilePicUrl || userData.avatar_url || userData.avatar || null
+          const username = userData.username || userData.name || userData.display_name || installation?.username || null
           
-          if (experienceName && installation && installation.companyId) {
-            console.log('[Experience Page] Got experience name:', experienceName)
-            // Save to database
+          // Update installation with user profile data if missing or changed
+          const updateData: any = {}
+          if (profilePicUrl && (!installation.profilePicUrl || installation.profilePicUrl !== profilePicUrl)) {
+            updateData.profilePicUrl = profilePicUrl
+            console.log('[Experience Page] Updating profilePicUrl:', profilePicUrl)
+          }
+          if (username && (!installation.username || installation.username !== username)) {
+            updateData.username = username
+            console.log('[Experience Page] Updating username:', username)
+          }
+          
+          if (installation && Object.keys(updateData).length > 0) {
             installation = await prisma.whopInstallation.update({
               where: { companyId: installation.companyId },
-              data: { experienceName } as any,
+              data: updateData,
             })
+            console.log('[Experience Page] ✅ Updated installation with user profile data')
           }
         }
-      } catch (expError) {
-        console.error('[Experience Page] Error fetching experience name:', expError)
+      } catch (userError) {
+        console.error('[Experience Page] Error fetching user profile:', userError)
+      }
+      
+      // Try to fetch experience name from Whop API if not already set
+      if (installation && !experienceName) {
+        try {
+          const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${installation.experienceId ?? experienceId}`, {
+            headers: {
+              'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
+            },
+          })
+          
+          if (expResponse.ok) {
+            const expData = await expResponse.json()
+            experienceName = expData.name || expData.title || expData.slug || expData.display_name || expData.company?.title || null
+            
+            if (experienceName && installation) {
+              console.log('[Experience Page] Got experience name:', experienceName)
+              // Save to database
+              installation = await prisma.whopInstallation.update({
+                where: { companyId: installation.companyId },
+                data: { experienceName } as any,
+              })
+            }
+          }
+        } catch (expError) {
+          console.error('[Experience Page] Error fetching experience name:', expError)
+        }
       }
     }
-  }
 
-  // Ensure we have an installation before proceeding (legacy flow)
-  if (!installation) {
-    try {
-      console.log('[Experience Page] Legacy resolve: finding installation...')
-      // 1) Try by experienceId
-      installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
-
-      const sessionCandidate = session?.companyId?.startsWith('biz_') ? session.companyId : null
-
-      if (!installation && sessionCandidate) {
-        console.log('[Experience Page] Resolving installation from session companyId:', {
-          sessionCandidate,
-          hasSession: !!session,
-          sessionUserId: session?.userId,
-        })
-
-        installation = await prisma.whopInstallation.findUnique({ where: { companyId: sessionCandidate } })
-
-        if (installation) {
-          if (installation.experienceId !== experienceId) {
-            await linkExperienceToCompany({ experienceId, companyId: sessionCandidate })
-            installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
-          }
-        } else {
-          await linkExperienceToCompany({ experienceId, companyId: sessionCandidate })
-          installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
-          if (installation) {
-            installation = await prisma.whopInstallation.update({
-              where: { companyId: installation.companyId },
-              data: {
-                userId: session?.userId || whopUser?.userId || null,
-                username: session?.username || whopUser?.username || null,
-                accessToken: installation.accessToken || env.WHOP_APP_SERVER_KEY || '',
-              },
-            })
-          }
-        }
-
-        try {
-          const { getCompanyPrefs } = await import('@/lib/company')
-          await getCompanyPrefs(sessionCandidate)
-        } catch (e) {
-          console.warn('[Experience Page] Failed to ensure CompanyPrefs for session companyId:', e)
-        }
-      }
-
-      // 2) Create minimal installation only if Whop iframe provides a biz_* companyId
-      if (!installation && whopUser?.companyId?.startsWith('biz_')) {
-        console.log('[Experience Page] Creating minimal installation for biz companyId from Whop iframe:', whopUser.companyId)
-        installation = await prisma.whopInstallation.create({
-          data: {
-            companyId: whopUser.companyId,
-            userId: whopUser.userId,
-            experienceId,
-            accessToken: env.WHOP_APP_SERVER_KEY || '',
-            plan: 'free',
-            username: whopUser.username || null,
-          },
-        })
-        try {
-          const { getCompanyPrefs } = await import('@/lib/company')
-          await getCompanyPrefs(whopUser.companyId)
-        } catch (e) {
-          console.warn('[Experience Page] Failed to ensure CompanyPrefs on create:', e)
-        }
-      }
-    } catch (legacyErr) {
-      console.error('[Experience Page] Legacy resolve error:', legacyErr)
-    }
-  }
-
-  if (!installation) {
-    console.error('[Experience Page] Unable to resolve installation after all attempts')
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
-          <Card className="p-8 text-center">
-            <CardContent className="pt-6 space-y-4">
-              <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
-              <p className="text-muted-foreground">
-                We couldn&apos;t automatically set up your analytics dashboard. Please install Whoplytics from your Whop dashboard.
-              </p>
-              <div className="pt-4">
-                <Link href="/discover">
-                  <Button variant="default">Learn More</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+    // Ensure we have an installation before proceeding (legacy flow)
+    if (!installation) {
+      console.warn('[Experience Page] No installation resolved; waiting for OAuth callback to provision it')
+      const redirectHref = `/experiences/${experienceId}/redirect`
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+            <Card className="p-8 text-center">
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+                <p className="text-muted-foreground">
+                  We&apos;re still finishing setup. Please reload once the install completes, or follow the link below to open the dashboard.
+                </p>
+                <div className="pt-4">
+                  <Link href={redirectHref}>
+                    <Button variant="default">Open Dashboard</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
-    )
-  }
+      )
+    }
+
+  // From here on, installation is guaranteed to exist
 
   // CRITICAL: Verify the installation matches the current experienceId
   // After reinstall, a new experienceId is generated, so old installations shouldn't match
