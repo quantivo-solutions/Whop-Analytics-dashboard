@@ -164,7 +164,42 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       console.log('[Experience Page] Legacy resolve: finding installation...')
       // 1) Try by experienceId
       installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
- 
+
+      const sessionCandidate = session?.companyId?.startsWith('biz_') ? session.companyId : null
+
+      if (!installation && sessionCandidate) {
+        console.log('[Experience Page] Resolving installation from session companyId:', sessionCandidate)
+        installation = await prisma.whopInstallation.findUnique({ where: { companyId: sessionCandidate } })
+
+        const { env } = await import('@/lib/env')
+        if (installation) {
+          if (installation.experienceId !== experienceId) {
+            installation = await prisma.whopInstallation.update({
+              where: { companyId: sessionCandidate },
+              data: { experienceId },
+            })
+          }
+        } else {
+          installation = await prisma.whopInstallation.create({
+            data: {
+              companyId: sessionCandidate,
+              userId: session?.userId || whopUser?.userId || null,
+              experienceId,
+              accessToken: env.WHOP_APP_SERVER_KEY || '',
+              plan: 'free',
+              username: session?.username || whopUser?.username || null,
+            },
+          })
+        }
+
+        try {
+          const { getCompanyPrefs } = await import('@/lib/company')
+          await getCompanyPrefs(sessionCandidate)
+        } catch (e) {
+          console.warn('[Experience Page] Failed to ensure CompanyPrefs for session companyId:', e)
+        }
+      }
+
       // 2) Create minimal installation only if Whop iframe provides a biz_* companyId
       if (!installation && whopUser?.companyId?.startsWith('biz_')) {
         console.log('[Experience Page] Creating minimal installation for biz companyId from Whop iframe:', whopUser.companyId)
@@ -193,7 +228,25 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   if (!installation) {
     console.error('[Experience Page] Unable to resolve installation after all attempts')
-    throw new Error('INSTALLATION_NOT_FOUND')
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+          <Card className="p-8 text-center">
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+              <p className="text-muted-foreground">
+                We couldn&apos;t automatically set up your analytics dashboard. Please install Whoplytics from your Whop dashboard.
+              </p>
+              <div className="pt-4">
+                <Link href="/discover">
+                  <Button variant="default">Learn More</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   // CRITICAL: Verify the installation matches the current experienceId
