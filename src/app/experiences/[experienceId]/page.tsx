@@ -52,6 +52,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       
       try {
         const exp = await getExperienceById(experienceId)
+        if (!exp) {
+          console.log('[Whoplytics] Experience not found in Whop (likely uninstalled), removing stale installation records')
+          await prisma.whopInstallation.deleteMany({ where: { experienceId } })
+        }
         const companyId = exp?.company_id || exp?.company?.id || exp?.companyId
         
         if (companyId?.startsWith("biz_")) {
@@ -160,53 +164,36 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       console.log('[Experience Page] Legacy resolve: finding installation...')
       // 1) Try by experienceId
       installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
-
-      // 2) Try by Whop user context
-      if (!installation && whopUser) {
-        const candidateCompanyId = whopUser.companyId || whopUser.userId
-        if (candidateCompanyId) {
-          installation = await prisma.whopInstallation.findUnique({ where: { companyId: candidateCompanyId } })
-        }
-      }
-
-      // 3) Try by userId most recent
-      if (!installation && whopUser?.userId) {
-        const userInstallations = await prisma.whopInstallation.findMany({
-          where: { userId: whopUser.userId },
-          orderBy: { updatedAt: 'desc' },
-          take: 1,
+ 
+      // 2) Create minimal installation only if Whop iframe provides a biz_* companyId
+      if (!installation && whopUser?.companyId?.startsWith('biz_')) {
+        console.log('[Experience Page] Creating minimal installation for biz companyId from Whop iframe:', whopUser.companyId)
+        const { env } = await import('@/lib/env')
+        installation = await prisma.whopInstallation.create({
+          data: {
+            companyId: whopUser.companyId,
+            userId: whopUser.userId,
+            experienceId,
+            accessToken: env.WHOP_APP_SERVER_KEY || '',
+            plan: 'free',
+            username: whopUser.username || null,
+          },
         })
-        installation = userInstallations[0] || null
-      }
-
-      // 4) Create minimal installation if still not found and we have a candidate companyId
-      if (!installation && whopUser) {
-        const companyId = whopUser.companyId || whopUser.userId
-        if (companyId) {
-          console.log('[Experience Page] Creating minimal installation for companyId:', companyId)
-          const { env } = await import('@/lib/env')
-          installation = await prisma.whopInstallation.create({
-            data: {
-              companyId,
-              userId: whopUser.userId,
-              experienceId,
-              accessToken: env.WHOP_APP_SERVER_KEY || '',
-              plan: 'free',
-              username: whopUser.username || null,
-            },
-          })
-          // Ensure prefs exist
-          try {
-            const { getCompanyPrefs } = await import('@/lib/company')
-            await getCompanyPrefs(companyId)
-          } catch (e) {
-            console.warn('[Experience Page] Failed to ensure CompanyPrefs on create:', e)
-          }
+        try {
+          const { getCompanyPrefs } = await import('@/lib/company')
+          await getCompanyPrefs(whopUser.companyId)
+        } catch (e) {
+          console.warn('[Experience Page] Failed to ensure CompanyPrefs on create:', e)
         }
       }
     } catch (legacyErr) {
       console.error('[Experience Page] Legacy resolve error:', legacyErr)
     }
+  }
+
+  if (!installation) {
+    console.error('[Experience Page] Unable to resolve installation after all attempts')
+    throw new Error('INSTALLATION_NOT_FOUND')
   }
 
   // CRITICAL: Verify the installation matches the current experienceId
@@ -424,6 +411,22 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   console.log('[Experience Page] Valid session found, preparing handoff card - elapsed:', Date.now() - startTime, 'ms')
 
   const finalCompanyId = installation.companyId
+
+  if (!session || session.companyId !== finalCompanyId) {
+    const newSession = {
+      companyId: finalCompanyId,
+      userId: session?.userId || whopUser?.userId || installation.userId || null,
+      username: session?.username || whopUser?.username || installation.username || undefined,
+      exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    }
+    const newToken = Buffer.from(JSON.stringify(newSession)).toString('base64')
+    ;(global as any).__whopSessionToken = newToken
+    session = newSession as any
+  } else if (!(global as any).__whopSessionToken) {
+    const existingToken = Buffer.from(JSON.stringify(session)).toString('base64')
+    ;(global as any).__whopSessionToken = existingToken
+  }
+
   const sessionTokenForClient = (global as any).__whopSessionToken
   const redirectHref = `/experiences/${experienceId}/redirect`
 
