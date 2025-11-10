@@ -152,7 +152,6 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
     const exp = await getExperienceById(experienceId)
     if (!exp) {
       console.warn('[Experience Redirect] getExperienceById returned null for', experienceId)
-      await prisma.whopInstallation.deleteMany({ where: { experienceId } })
     } else {
       console.log('[Experience Redirect] Experience payload keys:', Object.keys(exp || {}))
     }

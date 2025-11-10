@@ -52,10 +52,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       
       try {
         const exp = await getExperienceById(experienceId)
-        if (!exp) {
-          console.log('[Whoplytics] Experience not found in Whop (likely uninstalled), removing stale installation records')
-          await prisma.whopInstallation.deleteMany({ where: { experienceId } })
-        }
         const companyId = exp?.company_id || exp?.company?.id || exp?.companyId
         
         if (companyId?.startsWith("biz_")) {
@@ -93,7 +89,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   // Fetch user profile data and experience name from Whop API if available
   if (whopUser && whopUser.userId) {
-    const { env } = await import('@/lib/env')
     
     // Fetch user profile data to get profilePicUrl and username
     try {
@@ -169,28 +164,32 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       const sessionCandidate = session?.companyId?.startsWith('biz_') ? session.companyId : null
 
       if (!installation && sessionCandidate) {
-        console.log('[Experience Page] Resolving installation from session companyId:', sessionCandidate)
+        console.log('[Experience Page] Resolving installation from session companyId:', {
+          sessionCandidate,
+          hasSession: !!session,
+          sessionUserId: session?.userId,
+        })
+
         installation = await prisma.whopInstallation.findUnique({ where: { companyId: sessionCandidate } })
 
-        const { env } = await import('@/lib/env')
         if (installation) {
           if (installation.experienceId !== experienceId) {
-            installation = await prisma.whopInstallation.update({
-              where: { companyId: sessionCandidate },
-              data: { experienceId },
-            })
+            await linkExperienceToCompany({ experienceId, companyId: sessionCandidate })
+            installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
           }
         } else {
-          installation = await prisma.whopInstallation.create({
-            data: {
-              companyId: sessionCandidate,
-              userId: session?.userId || whopUser?.userId || null,
-              experienceId,
-              accessToken: env.WHOP_APP_SERVER_KEY || '',
-              plan: 'free',
-              username: session?.username || whopUser?.username || null,
-            },
-          })
+          await linkExperienceToCompany({ experienceId, companyId: sessionCandidate })
+          installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
+          if (installation) {
+            installation = await prisma.whopInstallation.update({
+              where: { companyId: installation.companyId },
+              data: {
+                userId: session?.userId || whopUser?.userId || null,
+                username: session?.username || whopUser?.username || null,
+                accessToken: installation.accessToken || env.WHOP_APP_SERVER_KEY || '',
+              },
+            })
+          }
         }
 
         try {
@@ -204,7 +203,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       // 2) Create minimal installation only if Whop iframe provides a biz_* companyId
       if (!installation && whopUser?.companyId?.startsWith('biz_')) {
         console.log('[Experience Page] Creating minimal installation for biz companyId from Whop iframe:', whopUser.companyId)
-        const { env } = await import('@/lib/env')
         installation = await prisma.whopInstallation.create({
           data: {
             companyId: whopUser.companyId,
