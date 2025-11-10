@@ -87,6 +87,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   // STEP 1: Check Whop iframe authentication (for session creation)
   console.log('[Whoplytics] Step 1: Checking Whop iframe authentication...')
   const whopUser = await verifyWhopUserToken()
+  let session = await getSession(token).catch(() => null)
   
   let experienceIdWasUpdated = false
   
@@ -389,8 +390,6 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   // STEP 5: Check for session and create one if we have Whop auth
   console.log('[Experience Page] Installation found and matches experienceId, checking session...')
-  
-  let session = await getSession(token).catch(() => null)
   
   // If we have Whop user auth but no session, create session token for immediate use
   // We can't set cookies in Server Components, so we'll use the token directly
