@@ -26,35 +26,12 @@ async function parseSessionCompany(): Promise<string | null> {
 }
 
 async function resolveCompanyId(experienceId: string): Promise<string | null> {
-  const whopUser = await verifyWhopUserToken().catch(() => null)
-  const sessionCompanyId = await parseSessionCompany()
-
   const installation = await prisma.whopInstallation.findUnique({
     where: { experienceId },
   }).catch(() => null)
 
-  if (installation) {
-    console.log('[Experience Redirect] Installation lookup', {
-      installationId: installation.id,
-      companyId: installation.companyId,
-      userId: installation.userId,
-    })
-    if (!installation.companyId?.startsWith('biz_') && sessionCompanyId) {
-      try {
-        await prisma.whopInstallation.update({
-          where: { id: installation.id },
-          data: { companyId: sessionCompanyId },
-        })
-        console.log('[Experience Redirect] Normalized installation companyId from session', {
-          installationId: installation.id,
-          companyId: sessionCompanyId,
-        })
-        return sessionCompanyId
-      } catch (error) {
-        console.warn('[Experience Redirect] Failed to normalize installation companyId from session:', error)
-      }
-    }
-  }
+  const whopUser = await verifyWhopUserToken().catch(() => null)
+  const sessionCompanyId = await parseSessionCompany()
 
   if (whopUser?.companyId?.startsWith('biz_')) {
     try {
@@ -65,17 +42,17 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
     return whopUser.companyId
   }
 
-  if (!installation && sessionCompanyId) {
-    try {
-      await linkExperienceToCompany({ experienceId, companyId: sessionCompanyId })
-    } catch (error) {
-      console.warn('[Experience Redirect] Failed to link via session companyId:', error)
-    }
-    return sessionCompanyId
-  }
-
   if (installation?.companyId?.startsWith('biz_')) {
     return installation.companyId
+  }
+
+  if (!installation) {
+    console.warn('[Experience Redirect] No installation found; redirecting back to experience page', {
+      experienceId,
+      whopUserCompany: whopUser?.companyId || null,
+      sessionCompanyId,
+    })
+    return null
   }
 
   if (whopUser?.userId) {
