@@ -55,7 +55,16 @@ export async function generateWhopOAuthUrl(opts: OAuthOptions) {
     }
   }
 
-  const origin = opts.origin || env.NEXT_PUBLIC_APP_URL
+  const origin =
+    opts.origin ||
+    env.NEXT_PUBLIC_APP_URL ||
+    getHeader(headers, 'x-forwarded-proto') && getHeader(headers, 'host')
+      ? `${getHeader(headers, 'x-forwarded-proto')}://${getHeader(headers, 'host')}`
+      : undefined
+
+  if (!origin) {
+    throw new Error('Unable to determine OAuth origin for Whop redirect')
+  }
   const redirectUri = `${origin}/api/auth/callback`
 
   const stateData = {
