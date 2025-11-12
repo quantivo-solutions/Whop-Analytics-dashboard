@@ -121,24 +121,25 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
     // Ensure we have an installation before proceeding (legacy flow)
     if (!installation) {
-      console.warn('[Experience Page] No installation resolved; waiting for OAuth callback to provision it')
-      const redirectHref = `/experiences/${experienceId}/redirect`
+      console.warn('[Experience Page] No installation resolved; sending user to Whop install flow')
+      const installUrl = env.NEXT_PUBLIC_WHOP_APP_ID
+        ? `https://whop.com/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}/install/`
+        : 'https://whop.com/apps'
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
-            <Card className="p-8 text-center">
-              <CardContent className="pt-6 space-y-4">
-                <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
-                <p className="text-muted-foreground">
-                  We&apos;re still finishing setup. Please reload once the install completes, or follow the link below to open the dashboard.
-                </p>
-                <div className="pt-4">
-                  <Link href={redirectHref}>
-                    <Button variant="default">Open Dashboard</Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          <div className="text-center space-y-4">
+            <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+            <p className="text-muted-foreground">
+              We couldn&apos;t locate your installation yet. Click below to complete the install in Whop, then reload this page.
+            </p>
+            <a
+              href={installUrl}
+              target="_top"
+              rel="noopener noreferrer"
+              className="inline-flex"
+            >
+              <Button variant="default">Install Whoplytics on Whop</Button>
+            </a>
           </div>
         </div>
       )
