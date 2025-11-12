@@ -16,6 +16,7 @@ import { ExperienceDashboardCard } from '@/components/experience-dashboard-card'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { generateWhopOAuthUrl } from '@/lib/whop-oauth'
 import { headers } from 'next/headers'
 
 export const runtime = 'nodejs'
@@ -128,42 +129,37 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     if (!installation) {
       const autoBizCandidate = refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null)
 
-      if (autoBizCandidate) {
-        try {
-          console.log('[Experience Page] Auto-linking installation using biz candidate:', autoBizCandidate)
-          await linkExperienceToCompany({ experienceId, companyId: autoBizCandidate })
-          installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
-          if (installation) {
-            experienceName = installation.experienceName || experienceName
-          }
-        } catch (autoLinkErr) {
-          console.warn('[Experience Page] Auto-link via biz candidate failed:', autoLinkErr)
-        }
-      }
-    }
-
-    if (!installation) {
-      console.warn('[Experience Page] No installation resolved; waiting for OAuth callback to provision it')
-      const redirectHref = `/experiences/${experienceId}/redirect`
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
-            <Card className="p-8 text-center">
-              <CardContent className="pt-6 space-y-4">
-                <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
-                <p className="text-muted-foreground">
-                  We&apos;re still finishing setup. Please reload once the install completes, or follow the link below to open the dashboard.
-                </p>
-                <div className="pt-4">
-                  <Link href={redirectHref}>
-                    <Button variant="default">Open Dashboard</Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+      try {
+        console.log('[Experience Page] No installation found - starting OAuth flow')
+        const { url } = await generateWhopOAuthUrl({
+          experienceId,
+          companyIdCandidate: autoBizCandidate,
+          headers: headersList,
+        })
+        redirect(url)
+      } catch (oauthError) {
+        console.error('[Experience Page] Failed to start OAuth flow:', oauthError)
+        const fallbackHref = `/experiences/${experienceId}/redirect`
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+              <Card className="p-8 text-center">
+                <CardContent className="pt-6 space-y-4">
+                  <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+                  <p className="text-muted-foreground">
+                    We couldn&apos;t launch the install flow automatically. Click below to open the dashboard once setup completes.
+                  </p>
+                  <div className="pt-4">
+                    <Link href={fallbackHref}>
+                      <Button variant="default">Open Dashboard</Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
-      )
+        )
+      }
     }
 
   // From here on, installation is guaranteed to exist

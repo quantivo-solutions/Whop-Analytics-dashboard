@@ -286,6 +286,35 @@ export async function GET(request: Request) {
     const requiresBizCompany = Boolean(experienceId)
 
     if (!companyId?.startsWith('biz_')) {
+      try {
+        console.log('[OAuth] Attempting to resolve biz_ company via companies helper...')
+        const companies = await getCompaniesForUser(userData.id, { accessToken: access_token })
+        const bizCandidate = Array.isArray(companies)
+          ? companies.find((c: any) => {
+              if (!c) return false
+              if (typeof c === 'string') return c.startsWith('biz_')
+              if (typeof c.id === 'string' && c.id.startsWith('biz_')) return true
+              if (typeof c.company_id === 'string' && c.company_id.startsWith('biz_')) return true
+              if (typeof c.companyId === 'string' && c.companyId.startsWith('biz_')) return true
+              return false
+            })
+          : null
+        const resolvedBizId =
+          (typeof bizCandidate === 'string' && bizCandidate) ||
+          bizCandidate?.id ||
+          bizCandidate?.company_id ||
+          bizCandidate?.companyId ||
+          null
+        if (resolvedBizId?.startsWith('biz_')) {
+          console.log('[OAuth] Resolved biz company via helper:', resolvedBizId)
+          companyId = resolvedBizId
+        }
+      } catch (companyResolveErr) {
+        console.warn('[OAuth] Failed to resolve biz company via companies helper:', companyResolveErr)
+      }
+    }
+
+    if (!companyId?.startsWith('biz_')) {
       const headerCompanyId =
         request.headers.get('x-whop-company-id') ||
         request.headers.get('x-whop-companyid') ||
