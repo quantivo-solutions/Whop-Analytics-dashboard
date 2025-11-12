@@ -283,40 +283,6 @@ export async function GET(request: Request) {
 
     experienceIdForAttempt = experienceId || null
 
-    // FINAL SAFETY: Ensure companyId is biz_* if possible
-    if (!companyId?.startsWith('biz_')) {
-      try {
-        console.log('[OAuth] Attempting to resolve biz_ company via companies helper...')
-        const companies = await getCompaniesForUser(userData.id, { accessToken: access_token })
-        const bizCandidate = Array.isArray(companies)
-          ? companies.find((c: any) => {
-              if (!c) return false
-              if (typeof c === 'string') return c.startsWith('biz_')
-              if (typeof c.id === 'string' && c.id.startsWith('biz_')) return true
-              if (typeof c.company_id === 'string' && c.company_id.startsWith('biz_')) return true
-              if (typeof c.companyId === 'string' && c.companyId.startsWith('biz_')) return true
-              return false
-            })
-          : null
-        const resolvedBizId =
-          (typeof bizCandidate === 'string' && bizCandidate) ||
-          bizCandidate?.id ||
-          bizCandidate?.company_id ||
-          bizCandidate?.companyId ||
-          null
-        if (resolvedBizId?.startsWith('biz_')) {
-          console.log('[OAuth] Resolved biz company via helper:', resolvedBizId)
-          companyId = resolvedBizId
-        } else {
-          console.warn('[OAuth] Biz company not found in companies helper response', {
-            companiesCount: Array.isArray(companies) ? companies.length : 'unknown',
-          })
-        }
-      } catch (companyResolveErr) {
-        console.warn('[OAuth] Failed to resolve biz company via companies helper:', companyResolveErr)
-      }
-    }
-
     const requiresBizCompany = Boolean(experienceId)
 
     if (!companyId?.startsWith('biz_')) {
@@ -352,17 +318,10 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL(`/login?error=company_not_found`, request.url))
     }
 
-    if (companyId?.startsWith('biz_')) {
-      companyId = companyId.trim()
-    } else if (!companyId) {
-      companyId = userData.company_id || userData.id || null
-    }
-    companyIdForAttempt = companyId ?? null
-
-    if (!companyId) {
+    if (!companyId?.startsWith('biz_')) {
       console.error('[OAuth] ❌ Unable to resolve any companyId for installation')
       await logInstallationAttempt({
-        companyId: companyIdForAttempt,
+        companyId: null,
         userId: userData.id,
         experienceId: experienceId || null,
         success: false,
@@ -371,6 +330,9 @@ export async function GET(request: Request) {
       })
       return NextResponse.redirect(new URL(`/login?error=company_not_found`, request.url))
     }
+
+    companyId = companyId.trim()
+    companyIdForAttempt = companyId
 
     // CRITICAL: Guarantee an experience exists/linked for company installs
     if (companyId) {
