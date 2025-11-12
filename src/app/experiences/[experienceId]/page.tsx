@@ -129,17 +129,26 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     if (!installation) {
       const autoBizCandidate = refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null)
 
-      try {
-        console.log('[Experience Page] No installation found - starting OAuth flow')
-        const { url } = await generateWhopOAuthUrl({
+      if (autoBizCandidate) {
+        try {
+          console.log('[Experience Page] Auto-linking installation using biz candidate:', autoBizCandidate)
+          await linkExperienceToCompany({ experienceId, companyId: autoBizCandidate })
+          installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
+          if (installation) {
+            experienceName = installation.experienceName || experienceName
+          }
+        } catch (autoLinkErr) {
+          console.warn('[Experience Page] Auto-link via biz candidate failed:', autoLinkErr)
+        }
+      }
+
+      if (!installation) {
+        const { url: installUrl } = await generateWhopOAuthUrl({
           experienceId,
           companyIdCandidate: autoBizCandidate,
           headers: headersList,
         })
-        redirect(url)
-      } catch (oauthError) {
-        console.error('[Experience Page] Failed to start OAuth flow:', oauthError)
-        const fallbackHref = `/experiences/${experienceId}/redirect`
+
         return (
           <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
@@ -147,12 +156,12 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 <CardContent className="pt-6 space-y-4">
                   <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
                   <p className="text-muted-foreground">
-                    We couldn&apos;t launch the install flow automatically. Click below to open the dashboard once setup completes.
+                    We couldn&apos;t finish the install automatically. Click below to complete setup in Whop, then reload this page.
                   </p>
                   <div className="pt-4">
-                    <Link href={fallbackHref}>
-                      <Button variant="default">Open Dashboard</Button>
-                    </Link>
+                    <a href={installUrl} target="_top" rel="noopener noreferrer" className="inline-flex">
+                      <Button variant="default">Install Whoplytics on Whop</Button>
+                    </a>
                   </div>
                 </CardContent>
               </Card>
