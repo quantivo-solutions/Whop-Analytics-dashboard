@@ -53,7 +53,10 @@ export async function getExperienceById(experienceId: string) {
     throw new Error("Missing WHOP_APP_SERVER_KEY/WHOP_API_KEY - required for Whop API calls")
   }
 
-  const res = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+  const url = new URL(`https://api.whop.com/api/v5/experiences/${experienceId}`)
+  url.searchParams.set('include', 'company')
+
+  const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   })

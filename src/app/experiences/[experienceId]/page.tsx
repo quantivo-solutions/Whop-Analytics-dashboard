@@ -133,7 +133,13 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       if (!resolvedCompanyId) {
         try {
           const experience = await getExperienceById(experienceId)
-          resolvedCompanyId = experience?.company?.id || experience?.company_id || null
+          resolvedCompanyId = experience?.company?.id || experience?.company_id || experience?.companyId || null
+          console.log('[Experience Page] Resolved company from Whop API:', {
+            experienceId,
+            resolvedCompanyId,
+            experienceCompany: experience?.company,
+            experienceKeys: Object.keys(experience || {}),
+          })
         } catch (resolveErr) {
           console.warn('[Experience Page] Unable to resolve company from Whop API:', resolveErr)
         }
@@ -153,6 +159,12 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
 
       if (!installation) {
+        console.warn('[Experience Page] Installation still missing after auto-link attempts', {
+          experienceId,
+          resolvedCompanyId,
+          referer,
+          whopUser,
+        })
         const fallbackHref = `/experiences/${experienceId}/redirect`
         return (
           <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
