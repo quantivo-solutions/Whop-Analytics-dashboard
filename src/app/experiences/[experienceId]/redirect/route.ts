@@ -57,9 +57,9 @@ async function resolveCompanyId(experienceId: string): Promise<ResolveResult> {
       whopUserCompany: whopUser?.companyId || null,
       sessionCompanyId,
     })
-    if (sessionCompanyId?.startsWith('biz_') && env.NEXT_PUBLIC_WHOP_APP_ID) {
-      const installUrl = `https://whop.com/dashboard/${sessionCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
-      console.log('[Experience Redirect] Forwarding to Whop dashboard for installation:', installUrl)
+    if (env.NEXT_PUBLIC_WHOP_APP_ID) {
+      const installUrl = `https://whop.com/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}/install/`
+      console.log('[Experience Redirect] Forwarding to Whop install flow:', installUrl)
       return { companyId: null, installUrl }
     }
     return { companyId: null }
@@ -180,7 +180,9 @@ export async function GET(
     const resolveResult = await resolveCompanyId(experienceId)
 
     if (resolveResult.installUrl) {
-      return NextResponse.redirect(resolveResult.installUrl, { status: 302 })
+      const response = NextResponse.redirect(resolveResult.installUrl, { status: 302 })
+      response.cookies.delete('whop_session')
+      return response
     }
 
     const companyId = resolveResult.companyId
