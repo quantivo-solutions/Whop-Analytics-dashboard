@@ -20,6 +20,7 @@ export const WHOPLYTICS_DEMO_MODE = process.env.WHOPLYTICS_DEMO_MODE || '0'
 // Public environment variables (safe to expose to client)
 export const NEXT_PUBLIC_WHOP_APP_ID = process.env.NEXT_PUBLIC_WHOP_APP_ID || ''
 export const NEXT_PUBLIC_WHOP_AGENT_USER_ID = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID || ''
+export const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || ''
 
 // Convenience object export for easier imports
 export const env = {
@@ -34,6 +35,7 @@ export const env = {
   REPORT_EMAIL,
   NEXT_PUBLIC_WHOP_APP_ID,
   NEXT_PUBLIC_WHOP_AGENT_USER_ID,
+  NEXT_PUBLIC_APP_URL,
   WHOPLYTICS_DEMO_MODE,
 }
 
