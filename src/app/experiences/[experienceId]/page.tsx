@@ -45,8 +45,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
     let installation = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
     let experienceName: string | null = installation?.experienceName || null
-  
-    // STEP 1: Check Whop iframe authentication (for session creation)
+
     console.log('[Whoplytics] Step 1: Checking Whop iframe authentication...')
     const whopUser = await verifyWhopUserToken()
     let session = await getSession(token).catch(() => null)
@@ -290,7 +289,22 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   // If we have Whop user auth but no session, create session token for immediate use
   // We can't set cookies in Server Components, so we'll use the token directly
-  if (!session && whopUser && whopUser.userId) {
+    if (!session || session.companyId !== installation.companyId) {
+      const newSession = {
+        companyId: installation.companyId,
+        userId: installation.userId || whopUser?.userId || null,
+        username: whopUser?.username || installation.username || undefined,
+        exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      }
+      const newToken = Buffer.from(JSON.stringify(newSession)).toString('base64')
+      ;(global as any).__whopSessionToken = newToken
+      session = newSession as any
+    } else if (!(global as any).__whopSessionToken && session) {
+      const existingToken = Buffer.from(JSON.stringify(session)).toString('base64')
+      ;(global as any).__whopSessionToken = existingToken
+    }
+
+    if (!session && whopUser && whopUser.userId) {
     console.log('[Experience Page] ✅ Whop user authenticated via iframe headers, creating session token...')
     
     // Verify user matches installation
