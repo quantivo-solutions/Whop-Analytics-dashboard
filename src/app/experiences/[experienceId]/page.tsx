@@ -16,7 +16,6 @@ import { ExperienceDashboardCard } from '@/components/experience-dashboard-card'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { generateWhopOAuthUrl } from '@/lib/whop-oauth'
 import { headers } from 'next/headers'
 
 export const runtime = 'nodejs'
@@ -129,26 +128,32 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     if (!installation) {
       const autoBizCandidate = refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null)
 
-      if (autoBizCandidate) {
+      let resolvedCompanyId = autoBizCandidate
+
+      if (!resolvedCompanyId) {
         try {
-          console.log('[Experience Page] Auto-linking installation using biz candidate:', autoBizCandidate)
-          await linkExperienceToCompany({ experienceId, companyId: autoBizCandidate })
+          const experience = await getExperienceById(experienceId)
+          resolvedCompanyId = experience?.company?.id || experience?.company_id || null
+        } catch (resolveErr) {
+          console.warn('[Experience Page] Unable to resolve company from Whop API:', resolveErr)
+        }
+      }
+
+      if (resolvedCompanyId?.startsWith('biz_')) {
+        try {
+          console.log('[Experience Page] Auto-linking installation using resolved biz:', resolvedCompanyId)
+          await linkExperienceToCompany({ experienceId, companyId: resolvedCompanyId })
           installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
           if (installation) {
             experienceName = installation.experienceName || experienceName
           }
         } catch (autoLinkErr) {
-          console.warn('[Experience Page] Auto-link via biz candidate failed:', autoLinkErr)
+          console.warn('[Experience Page] Auto-link failed:', autoLinkErr)
         }
       }
 
       if (!installation) {
-        const { url: installUrl } = await generateWhopOAuthUrl({
-          experienceId,
-          companyIdCandidate: autoBizCandidate,
-          headers: headersList,
-        })
-
+        const fallbackHref = `/experiences/${experienceId}/redirect`
         return (
           <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
@@ -156,12 +161,12 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 <CardContent className="pt-6 space-y-4">
                   <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
                   <p className="text-muted-foreground">
-                    We couldn&apos;t finish the install automatically. Click below to complete setup in Whop, then reload this page.
+                    We couldn&apos;t automatically finish setup yet. Click below to open the dashboard once the install completes, or refresh after a moment.
                   </p>
                   <div className="pt-4">
-                    <a href={installUrl} target="_top" rel="noopener noreferrer" className="inline-flex">
-                      <Button variant="default">Install Whoplytics on Whop</Button>
-                    </a>
+                    <Link href={fallbackHref}>
+                      <Button variant="default">Open Dashboard</Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
