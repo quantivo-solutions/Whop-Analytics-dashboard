@@ -25,7 +25,12 @@ async function parseSessionCompany(): Promise<string | null> {
   return null
 }
 
-async function resolveCompanyId(experienceId: string): Promise<string | null> {
+type ResolveResult = {
+  companyId: string | null
+  installUrl?: string | null
+}
+
+async function resolveCompanyId(experienceId: string): Promise<ResolveResult> {
   const installation = await prisma.whopInstallation.findUnique({
     where: { experienceId },
   }).catch(() => null)
@@ -39,11 +44,11 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
     } catch (error) {
       console.warn('[Experience Redirect] Failed to link via whopUser companyId:', error)
     }
-    return whopUser.companyId
+    return { companyId: whopUser.companyId }
   }
 
   if (installation?.companyId?.startsWith('biz_')) {
-    return installation.companyId
+    return { companyId: installation.companyId }
   }
 
   if (!installation) {
@@ -52,7 +57,23 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
       whopUserCompany: whopUser?.companyId || null,
       sessionCompanyId,
     })
-    return null
+    if (sessionCompanyId?.startsWith('biz_') && env.NEXT_PUBLIC_WHOP_APP_ID) {
+      const installUrl = `https://whop.com/dashboard/${sessionCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
+      console.log('[Experience Redirect] Forwarding to Whop dashboard for installation:', installUrl)
+      return { companyId: null, installUrl }
+    }
+    return { companyId: null }
+  }
+
+  if (sessionCompanyId && installation && installation.companyId !== sessionCompanyId) {
+    try {
+      await linkExperienceToCompany({
+        experienceId,
+        companyId: sessionCompanyId,
+      })
+    } catch (error) {
+      console.warn('[Experience Redirect] Failed to sync existing biz installation:', error)
+    }
   }
 
   if (whopUser?.userId) {
@@ -71,7 +92,7 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
       const resolvedBizId = bizCandidate?.id || bizCandidate?.company_id
       if (resolvedBizId?.startsWith('biz_')) {
         await linkExperienceToCompany({ experienceId, companyId: resolvedBizId })
-        return resolvedBizId
+        return { companyId: resolvedBizId }
       }
     } catch (error) {
       console.warn('[Experience Redirect] Failed to resolve via whopUser companies:', error)
@@ -99,7 +120,7 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
         console.warn('[Experience Redirect] Failed to sync existing biz installation:', error)
       }
     }
-    return existingBizByUser.companyId
+    return { companyId: existingBizByUser.companyId }
   }
 
   if (installation?.userId) {
@@ -118,7 +139,7 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
       const resolvedBizId = bizCandidate?.id || bizCandidate?.company_id
       if (resolvedBizId?.startsWith('biz_')) {
         await linkExperienceToCompany({ experienceId, companyId: resolvedBizId })
-        return resolvedBizId
+        return { companyId: resolvedBizId }
       }
     } catch (error) {
       console.warn('[Experience Redirect] Failed to resolve via installation user companies:', error)
@@ -140,13 +161,13 @@ async function resolveCompanyId(experienceId: string): Promise<string | null> {
       null
     if (resolved?.startsWith('biz_')) {
       await linkExperienceToCompany({ experienceId, companyId: resolved })
-      return resolved
+      return { companyId: resolved }
     }
   } catch (error) {
     console.warn('[Experience Redirect] Failed to fetch experience info:', error)
   }
 
-  return null
+  return { companyId: null }
 }
 
 export async function GET(
@@ -156,7 +177,13 @@ export async function GET(
   const { experienceId } = await context.params
 
   try {
-    const companyId = await resolveCompanyId(experienceId)
+    const resolveResult = await resolveCompanyId(experienceId)
+
+    if (resolveResult.installUrl) {
+      return NextResponse.redirect(resolveResult.installUrl, { status: 302 })
+    }
+
+    const companyId = resolveResult.companyId
 
     if (companyId?.startsWith('biz_') && env.NEXT_PUBLIC_WHOP_APP_ID) {
       const target = `https://whop.com/dashboard/${companyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
