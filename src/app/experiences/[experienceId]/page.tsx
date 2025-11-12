@@ -49,6 +49,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     const refererBizMatch = referer.match(/dashboard\/(biz_[A-Za-z0-9]+)/)
     const refererBizId = refererBizMatch?.[1] || null
 
+    const whopHeadersDebug: Record<string, string | null> = {}
+    for (const [key, value] of headersList.entries()) {
+      if (key.startsWith('x-whop') && key !== 'x-whop-user-token') {
+        whopHeadersDebug[key] = value
+      }
+    }
+    console.log('[Experience Page] Whop headers snapshot:', whopHeadersDebug)
+
     let installation = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
     let experienceName: string | null = installation?.experienceName || null
 
@@ -209,6 +217,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           resolvedCompanyId,
           referer,
           whopUser,
+          whopHeadersDebug,
         })
         const fallbackHref = `/experiences/${experienceId}/redirect`
         return (
