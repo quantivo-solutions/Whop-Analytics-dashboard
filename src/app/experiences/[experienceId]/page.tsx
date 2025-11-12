@@ -126,8 +126,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
 
     if (!installation) {
-      const autoBizCandidate = refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null) ||
-        (session?.companyId?.startsWith('biz_') ? session.companyId : null)
+      const autoBizCandidate = refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null)
 
       if (autoBizCandidate) {
         try {
