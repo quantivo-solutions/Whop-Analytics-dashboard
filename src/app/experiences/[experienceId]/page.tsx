@@ -16,6 +16,7 @@ import { ExperienceDashboardCard } from '@/components/experience-dashboard-card'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { headers } from 'next/headers'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -42,6 +43,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   try {
     console.log('[Whoplytics] [Experience Page] START - experienceId:', experienceId)
+
+    const headersList = await headers()
+    const referer = headersList.get('referer') || ''
+    const refererBizMatch = referer.match(/dashboard\/(biz_[A-Za-z0-9]+)/)
+    const refererBizId = refererBizMatch?.[1] || null
 
     let installation = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
     let experienceName: string | null = installation?.experienceName || null
@@ -119,27 +125,43 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
     }
 
-    // Ensure we have an installation before proceeding (legacy flow)
     if (!installation) {
-      console.warn('[Experience Page] No installation resolved; sending user to Whop install flow')
-      const installUrl = env.NEXT_PUBLIC_WHOP_APP_ID
-        ? `https://whop.com/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}/install/`
-        : 'https://whop.com/apps'
+      const autoBizCandidate = refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null) ||
+        (session?.companyId?.startsWith('biz_') ? session.companyId : null)
+
+      if (autoBizCandidate) {
+        try {
+          console.log('[Experience Page] Auto-linking installation using biz candidate:', autoBizCandidate)
+          await linkExperienceToCompany({ experienceId, companyId: autoBizCandidate })
+          installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
+          if (installation) {
+            experienceName = installation.experienceName || experienceName
+          }
+        } catch (autoLinkErr) {
+          console.warn('[Experience Page] Auto-link via biz candidate failed:', autoLinkErr)
+        }
+      }
+    }
+
+    if (!installation) {
+      console.warn('[Experience Page] No installation resolved; waiting for OAuth callback to provision it')
+      const redirectHref = `/experiences/${experienceId}/redirect`
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
-            <p className="text-muted-foreground">
-              We couldn&apos;t locate your installation yet. Click below to complete the install in Whop, then reload this page.
-            </p>
-            <a
-              href={installUrl}
-              target="_top"
-              rel="noopener noreferrer"
-              className="inline-flex"
-            >
-              <Button variant="default">Install Whoplytics on Whop</Button>
-            </a>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+            <Card className="p-8 text-center">
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+                <p className="text-muted-foreground">
+                  We&apos;re still finishing setup. Please reload once the install completes, or follow the link below to open the dashboard.
+                </p>
+                <div className="pt-4">
+                  <Link href={redirectHref}>
+                    <Button variant="default">Open Dashboard</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       )
@@ -379,14 +401,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   if (!session || session.companyId !== finalCompanyId) {
     const newSession = {
       companyId: finalCompanyId,
-      userId: session?.userId || whopUser?.userId || installation.userId || null,
-      username: session?.username || whopUser?.username || installation.username || undefined,
+      userId: installation.userId || whopUser?.userId || session?.userId || null,
+      username: installation.username || whopUser?.username || session?.username || undefined,
       exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
     }
     const newToken = Buffer.from(JSON.stringify(newSession)).toString('base64')
     ;(global as any).__whopSessionToken = newToken
     session = newSession as any
-  } else if (!(global as any).__whopSessionToken) {
+  } else if (session && !(global as any).__whopSessionToken) {
     const existingToken = Buffer.from(JSON.stringify(session)).toString('base64')
     ;(global as any).__whopSessionToken = existingToken
   }
