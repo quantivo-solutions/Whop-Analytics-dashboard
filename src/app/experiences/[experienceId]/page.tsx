@@ -4,7 +4,7 @@
  */
 
 import { linkExperienceToCompany } from '@/lib/company'
-import { getExperienceById } from '@/lib/whop-rest'
+import { getCompaniesForUser, getExperienceById } from '@/lib/whop-rest'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
@@ -142,6 +142,51 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           })
         } catch (resolveErr) {
           console.warn('[Experience Page] Unable to resolve company from Whop API:', resolveErr)
+        }
+      }
+
+      if (!resolvedCompanyId && whopUser?.userId) {
+        try {
+          const companyCandidates = await getCompaniesForUser(whopUser.userId)
+          console.log('[Experience Page] Company candidates for user:', {
+            userId: whopUser.userId,
+            count: companyCandidates?.length,
+            sample: companyCandidates?.slice?.(0, 2)?.map((item: any) => ({
+              keys: Object.keys(item || {}),
+              companyId: item?.id || item?.company_id || item?.companyId || item?.company?.id,
+              experienceId: item?.experience_id || item?.experienceId || item?.experience?.id,
+            })),
+          })
+
+          if (Array.isArray(companyCandidates)) {
+            const matching = companyCandidates.find((item: any) => {
+              const experienceFromItem = item?.experience?.id || item?.experience_id || item?.experienceId
+              const experienceMatches = experienceFromItem === experienceId
+              const companyFromItem = item?.company?.id || item?.company_id || item?.companyId || item?.id
+              const companyLooksValid = typeof companyFromItem === 'string' && companyFromItem.startsWith?.('biz_')
+              return experienceMatches && companyLooksValid
+            })
+
+            const firstBiz = companyCandidates.find((item: any) => {
+              const companyFromItem = item?.company?.id || item?.company_id || item?.companyId || item?.id
+              return typeof companyFromItem === 'string' && companyFromItem.startsWith?.('biz_')
+            })
+
+            const candidate = matching || firstBiz
+            if (candidate) {
+              const candidateCompanyId = candidate?.company?.id || candidate?.company_id || candidate?.companyId || candidate?.id
+              if (candidateCompanyId?.startsWith('biz_')) {
+                resolvedCompanyId = candidateCompanyId
+                console.log('[Experience Page] Resolved company from user companies:', {
+                  candidateType: matching ? 'matching-experience' : 'first-biz',
+                  candidateCompanyId,
+                  experienceId,
+                })
+              }
+            }
+          }
+        } catch (companiesErr) {
+          console.warn('[Experience Page] Failed to resolve company via user companies:', companiesErr)
         }
       }
 
