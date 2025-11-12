@@ -7,6 +7,7 @@ interface OAuthOptions {
   origin?: string
   experienceId?: string | null
   companyIdCandidate?: string | null
+  queryCompanyId?: string | null
   headers?: Headers | Record<string, string | null>
 }
 
@@ -24,7 +25,7 @@ export async function generateWhopOAuthUrl(opts: OAuthOptions) {
   const headers = opts.headers
 
   const referrer = getHeader(headers, 'referer') || ''
-  const qpCompanyId = null
+  const qpCompanyId = opts.queryCompanyId
   const headerCompanyId =
     getHeader(headers, 'x-whop-company-id') ||
     getHeader(headers, 'x-whop-companyid') ||
