@@ -173,8 +173,85 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
 
     if (!installation) {
+      // PRIORITY: Check session cookie for companyId (most reliable source)
+      if (session?.companyId?.startsWith('biz_')) {
+        console.log('[Experience Page] Checking for installation by session companyId:', session.companyId)
+        const bySessionCompanyId = await prisma.whopInstallation.findUnique({
+          where: { companyId: session.companyId },
+        }).catch(() => null)
+        
+        if (bySessionCompanyId) {
+          installation = bySessionCompanyId
+          console.log('[Experience Page] ✅ Found installation by session companyId:', installation.companyId)
+          
+          // Update experienceId if different
+          if (installation.experienceId !== experienceId) {
+            try {
+              installation = await prisma.whopInstallation.update({
+                where: { companyId: installation.companyId },
+                data: { experienceId },
+              })
+              console.log('[Experience Page] ✅ Updated installation experienceId from session lookup')
+            } catch (updateErr) {
+              console.warn('[Experience Page] Failed to update experienceId from session lookup:', updateErr)
+            }
+          }
+        } else {
+          // Session has companyId but no installation exists - create it!
+          console.log('[Experience Page] Session has companyId but no installation found - creating new installation:', session.companyId)
+          try {
+            installation = await prisma.whopInstallation.create({
+              data: {
+                companyId: session.companyId,
+                userId: whopUser?.userId || session.userId || null,
+                experienceId: experienceId,
+                accessToken: env.WHOP_APP_SERVER_KEY,
+                plan: 'free',
+                username: whopUser?.username || session.username || null,
+              },
+            })
+            console.log('[Experience Page] ✅ Created installation from session companyId:', {
+              id: installation.id,
+              companyId: installation.companyId,
+              experienceId: installation.experienceId,
+            })
+            
+            // Ensure CompanyPrefs exists
+            try {
+              const { getCompanyPrefs } = await import('@/lib/company')
+              await getCompanyPrefs(session.companyId)
+              console.log('[Experience Page] ✅ Ensured CompanyPrefs exists for new installation')
+            } catch (prefsError) {
+              console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
+            }
+          } catch (createErr: any) {
+            // Handle unique constraint violations
+            if (createErr.code === 'P2002' && createErr.meta?.target?.includes('experienceId')) {
+              console.warn('[Experience Page] ExperienceId conflict, retrying without experienceId...')
+              try {
+                installation = await prisma.whopInstallation.create({
+                  data: {
+                    companyId: session.companyId,
+                    userId: whopUser?.userId || session.userId || null,
+                    experienceId: null,
+                    accessToken: env.WHOP_APP_SERVER_KEY,
+                    plan: 'free',
+                    username: whopUser?.username || session.username || null,
+                  },
+                })
+                console.log('[Experience Page] ✅ Created installation without experienceId due to conflict')
+              } catch (retryErr) {
+                console.error('[Experience Page] Retry failed:', retryErr)
+              }
+            } else {
+              console.error('[Experience Page] Failed to create installation from session:', createErr)
+            }
+          }
+        }
+      }
+      
       // Also check by companyId from referer (in case dashboard created it but userId lookup failed)
-      if (refererBizId) {
+      if (!installation && refererBizId) {
         console.log('[Experience Page] Checking for installation by companyId from referer:', refererBizId)
         const byCompanyId = await prisma.whopInstallation.findUnique({
           where: { companyId: refererBizId },
@@ -199,7 +276,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         }
       }
       
-      const autoBizCandidate = refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null)
+      const autoBizCandidate = session?.companyId?.startsWith('biz_') ? session.companyId : (refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null))
 
       let resolvedCompanyId = autoBizCandidate
 
