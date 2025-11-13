@@ -72,9 +72,16 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         orderBy: { updatedAt: 'desc' },
       })
       
+      console.log('[Experience Page] User installations found:', userInstallations.length, userInstallations.map(i => ({ id: i.id, companyId: i.companyId, experienceId: i.experienceId })))
+      
       if (userInstallations.length > 0) {
         installation = userInstallations[0]
-        console.log('[Experience Page] ✅ Found installation by userId:', installation.companyId, 'plan:', installation.plan)
+        console.log('[Experience Page] ✅ Found installation by userId:', {
+          installationId: installation.id,
+          companyId: installation.companyId,
+          experienceId: installation.experienceId,
+          plan: installation.plan,
+        })
         
         // Update experienceId if it's different (user may have reinstalled)
         if (installation.experienceId !== experienceId) {
@@ -89,6 +96,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             console.warn('[Experience Page] Failed to update experienceId:', updateErr)
           }
         }
+      } else {
+        console.log('[Experience Page] ⚠️ No installations found for userId:', whopUser.userId)
       }
     }
     
@@ -164,6 +173,32 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     }
 
     if (!installation) {
+      // Also check by companyId from referer (in case dashboard created it but userId lookup failed)
+      if (refererBizId) {
+        console.log('[Experience Page] Checking for installation by companyId from referer:', refererBizId)
+        const byCompanyId = await prisma.whopInstallation.findUnique({
+          where: { companyId: refererBizId },
+        }).catch(() => null)
+        
+        if (byCompanyId) {
+          installation = byCompanyId
+          console.log('[Experience Page] ✅ Found installation by companyId from referer:', installation.companyId)
+          
+          // Update experienceId if different
+          if (installation.experienceId !== experienceId) {
+            try {
+              installation = await prisma.whopInstallation.update({
+                where: { companyId: installation.companyId },
+                data: { experienceId },
+              })
+              console.log('[Experience Page] ✅ Updated installation experienceId from referer lookup')
+            } catch (updateErr) {
+              console.warn('[Experience Page] Failed to update experienceId from referer lookup:', updateErr)
+            }
+          }
+        }
+      }
+      
       const autoBizCandidate = refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null)
 
       let resolvedCompanyId = autoBizCandidate
@@ -618,7 +653,13 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   }
 
   const sessionTokenForClient = (global as any).__whopSessionToken
-  const redirectHref = `/experiences/${experienceId}/redirect`
+  
+  // Construct dashboard URL directly (same as redirect route does)
+  const dashboardUrl = env.NEXT_PUBLIC_WHOP_APP_ID
+    ? `https://whop.com/dashboard/${finalCompanyId}/apps/${env.NEXT_PUBLIC_WHOP_APP_ID}`
+    : `/dashboard/${finalCompanyId}`
+  
+  console.log('[Experience Page] Showing welcome page with dashboard URL:', dashboardUrl)
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -632,7 +673,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           <ExperienceDashboardCard
             companyId={finalCompanyId}
             experienceName={(installation as any)?.experienceName || installation.username || null}
-            redirectHref={redirectHref}
+            redirectHref={dashboardUrl}
           />
         </div>
       </div>
