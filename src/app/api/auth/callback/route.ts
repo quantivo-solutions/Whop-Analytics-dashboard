@@ -226,7 +226,7 @@ export async function GET(request: Request) {
         
         try {
           // Try using the user's access token first (they have access to their experiences)
-          let expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+          let expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}?include=company`, {
             headers: {
               'Authorization': `Bearer ${access_token}`,
             },
@@ -236,7 +236,7 @@ export async function GET(request: Request) {
           if (!expResponse.ok) {
             console.log('[OAuth] User token failed, trying app server key...')
             const { env } = await import('@/lib/env')
-            expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}`, {
+            expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}?include=company`, {
               headers: {
                 'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}`,
               },
@@ -284,6 +284,42 @@ export async function GET(request: Request) {
     experienceIdForAttempt = experienceId || null
 
     const requiresBizCompany = Boolean(experienceId)
+
+    if (!companyId?.startsWith('biz_')) {
+      try {
+        console.log('[OAuth] Attempting to resolve biz_ company via memberships API...')
+        // Try memberships API first - it should return companies the user has access to
+        const membershipsResponse = await fetch('https://api.whop.com/api/v5/me/memberships?include=company', {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+          },
+        })
+        
+        if (membershipsResponse.ok) {
+          const membershipsData = await membershipsResponse.json()
+          const memberships = membershipsData.data || membershipsData || []
+          console.log('[OAuth] Found', memberships.length, 'memberships for company resolution')
+          
+          // Look for a company in memberships
+          for (const membership of memberships) {
+            const candidateCompanyId = 
+              membership.company?.id ||
+              membership.company_id ||
+              membership.companyId ||
+              membership.company?.company_id ||
+              null
+            
+            if (candidateCompanyId?.startsWith('biz_')) {
+              console.log('[OAuth] Resolved biz company from memberships:', candidateCompanyId)
+              companyId = candidateCompanyId
+              break
+            }
+          }
+        }
+      } catch (membershipsErr) {
+        console.warn('[OAuth] Failed to resolve company via memberships:', membershipsErr)
+      }
+    }
 
     if (!companyId?.startsWith('biz_')) {
       try {

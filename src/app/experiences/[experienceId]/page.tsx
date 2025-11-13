@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { headers } from 'next/headers'
+import { generateWhopOAuthUrl } from '@/lib/whop-oauth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -213,33 +214,47 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
 
       if (!installation) {
-        console.warn('[Experience Page] Installation still missing after auto-link attempts', {
+        console.warn('[Experience Page] Installation still missing after auto-link attempts, triggering OAuth flow', {
           experienceId,
           resolvedCompanyId,
           referer,
           whopUser,
           whopHeadersDebug,
         })
-        const fallbackHref = `/experiences/${experienceId}/redirect`
-        return (
-          <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
-              <Card className="p-8 text-center">
-                <CardContent className="pt-6 space-y-4">
-                  <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
-                  <p className="text-muted-foreground">
-                    We couldn&apos;t automatically finish setup yet. Click below to open the dashboard once the install completes, or refresh after a moment.
-                  </p>
-                  <div className="pt-4">
-                    <Link href={fallbackHref}>
-                      <Button variant="default">Open Dashboard</Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
+        
+        // Trigger OAuth flow - the callback will create the installation using user's access token
+        try {
+          const { url } = await generateWhopOAuthUrl({
+            experienceId,
+            companyIdCandidate: resolvedCompanyId,
+            headers: headersList,
+          })
+          console.log('[Experience Page] Redirecting to OAuth flow:', url)
+          redirect(url)
+        } catch (oauthError) {
+          console.error('[Experience Page] Failed to generate OAuth URL:', oauthError)
+          // Fallback to setup card if OAuth generation fails
+          const fallbackHref = `/experiences/${experienceId}/redirect`
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+              <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+                <Card className="p-8 text-center">
+                  <CardContent className="pt-6 space-y-4">
+                    <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+                    <p className="text-muted-foreground">
+                      We couldn&apos;t automatically finish setup yet. Click below to open the dashboard once the install completes, or refresh after a moment.
+                    </p>
+                    <div className="pt-4">
+                      <Link href={fallbackHref}>
+                        <Button variant="default">Open Dashboard</Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </div>
-        )
+          )
+        }
       }
     }
 
