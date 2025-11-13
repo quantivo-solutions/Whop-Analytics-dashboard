@@ -381,7 +381,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             console.log('[Experience Page] ✅ Installation found after linkExperienceToCompany')
           } else {
             // linkExperienceToCompany didn't create it, create it directly
-            console.log('[Experience Page] linkExperienceToCompany didn't create installation, creating directly...')
+            console.log('[Experience Page] linkExperienceToCompany did not create installation, creating directly')
             if (whopUser?.userId) {
               installation = await prisma.whopInstallation.create({
                 data: {
