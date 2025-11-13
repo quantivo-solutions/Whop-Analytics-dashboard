@@ -61,45 +61,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     const whopUser = await verifyWhopUserToken()
     let session = await getSession(token).catch(() => null)
     
-    // PRIORITY: Check for installation by experienceId first
+    // Check for installation by experienceId
     let installation = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
-    
-    // If not found by experienceId, check by userId (same as dashboard view)
-    if (!installation && whopUser?.userId) {
-      console.log('[Experience Page] No installation by experienceId, checking by userId:', whopUser.userId)
-      const userInstallations = await prisma.whopInstallation.findMany({
-        where: { userId: whopUser.userId },
-        orderBy: { updatedAt: 'desc' },
-      })
-      
-      console.log('[Experience Page] User installations found:', userInstallations.length, userInstallations.map(i => ({ id: i.id, companyId: i.companyId, experienceId: i.experienceId })))
-      
-      if (userInstallations.length > 0) {
-        installation = userInstallations[0]
-        console.log('[Experience Page] ✅ Found installation by userId:', {
-          installationId: installation.id,
-          companyId: installation.companyId,
-          experienceId: installation.experienceId,
-          plan: installation.plan,
-        })
-        
-        // Update experienceId if it's different (user may have reinstalled)
-        if (installation.experienceId !== experienceId) {
-          console.log('[Experience Page] Updating installation experienceId from', installation.experienceId, 'to', experienceId)
-          try {
-            installation = await prisma.whopInstallation.update({
-              where: { companyId: installation.companyId },
-              data: { experienceId },
-            })
-            console.log('[Experience Page] ✅ Updated installation experienceId')
-          } catch (updateErr) {
-            console.warn('[Experience Page] Failed to update experienceId:', updateErr)
-          }
-        }
-      } else {
-        console.log('[Experience Page] ⚠️ No installations found for userId:', whopUser.userId)
-      }
-    }
     
     let experienceName: string | null = installation?.experienceName || null
     
@@ -172,407 +135,99 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
     }
 
-    if (!installation) {
-      // PRIORITY: Check session cookie for companyId (most reliable source)
-      if (session?.companyId?.startsWith('biz_')) {
-        console.log('[Experience Page] Checking for installation by session companyId:', session.companyId)
-        const bySessionCompanyId = await prisma.whopInstallation.findUnique({
-          where: { companyId: session.companyId },
-        }).catch(() => null)
+    // If no installation found, create it by fetching companyId from experience API
+    if (!installation && whopUser?.userId) {
+      console.log('[Experience Page] No installation found, fetching companyId from experience API...')
+      
+      try {
+        // Try with iframe token first, then server key
+        const userTokenHeader = headersList.get('x-whop-user-token')
+        let experience = null
         
-        if (bySessionCompanyId) {
-          installation = bySessionCompanyId
-          console.log('[Experience Page] ✅ Found installation by session companyId:', installation.companyId)
-          
-          // Update experienceId if different
-          if (installation.experienceId !== experienceId) {
-            try {
-              installation = await prisma.whopInstallation.update({
-                where: { companyId: installation.companyId },
-                data: { experienceId },
-              })
-              console.log('[Experience Page] ✅ Updated installation experienceId from session lookup')
-            } catch (updateErr) {
-              console.warn('[Experience Page] Failed to update experienceId from session lookup:', updateErr)
-            }
-          }
-        } else {
-          // Session has companyId but no installation exists - create it!
-          console.log('[Experience Page] Session has companyId but no installation found - creating new installation:', session.companyId)
+        if (userTokenHeader) {
           try {
-            installation = await prisma.whopInstallation.create({
-              data: {
-                companyId: session.companyId,
-                userId: whopUser?.userId || session.userId || null,
-                experienceId: experienceId,
-                accessToken: env.WHOP_APP_SERVER_KEY,
-                plan: 'free',
-                username: whopUser?.username || session.username || null,
-              },
-            })
-            console.log('[Experience Page] ✅ Created installation from session companyId:', {
-              id: installation.id,
-              companyId: installation.companyId,
-              experienceId: installation.experienceId,
-            })
-            
-            // Ensure CompanyPrefs exists
-            try {
-              const { getCompanyPrefs } = await import('@/lib/company')
-              await getCompanyPrefs(session.companyId)
-              console.log('[Experience Page] ✅ Ensured CompanyPrefs exists for new installation')
-            } catch (prefsError) {
-              console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
-            }
-          } catch (createErr: any) {
-            // Handle unique constraint violations
-            if (createErr.code === 'P2002' && createErr.meta?.target?.includes('experienceId')) {
-              console.warn('[Experience Page] ExperienceId conflict, retrying without experienceId...')
-              try {
-                installation = await prisma.whopInstallation.create({
-                  data: {
-                    companyId: session.companyId,
-                    userId: whopUser?.userId || session.userId || null,
-                    experienceId: null,
-                    accessToken: env.WHOP_APP_SERVER_KEY,
-                    plan: 'free',
-                    username: whopUser?.username || session.username || null,
-                  },
-                })
-                console.log('[Experience Page] ✅ Created installation without experienceId due to conflict')
-              } catch (retryErr) {
-                console.error('[Experience Page] Retry failed:', retryErr)
-              }
-            } else {
-              console.error('[Experience Page] Failed to create installation from session:', createErr)
-            }
-          }
-        }
-      }
-      
-      // Also check by companyId from referer (in case dashboard created it but userId lookup failed)
-      if (!installation && refererBizId) {
-        console.log('[Experience Page] Checking for installation by companyId from referer:', refererBizId)
-        const byCompanyId = await prisma.whopInstallation.findUnique({
-          where: { companyId: refererBizId },
-        }).catch(() => null)
-        
-        if (byCompanyId) {
-          installation = byCompanyId
-          console.log('[Experience Page] ✅ Found installation by companyId from referer:', installation.companyId)
-          
-          // Update experienceId if different
-          if (installation.experienceId !== experienceId) {
-            try {
-              installation = await prisma.whopInstallation.update({
-                where: { companyId: installation.companyId },
-                data: { experienceId },
-              })
-              console.log('[Experience Page] ✅ Updated installation experienceId from referer lookup')
-            } catch (updateErr) {
-              console.warn('[Experience Page] Failed to update experienceId from referer lookup:', updateErr)
-            }
-          }
-        }
-      }
-      
-      const autoBizCandidate = session?.companyId?.startsWith('biz_') ? session.companyId : (refererBizId || (whopUser?.companyId?.startsWith('biz_') ? whopUser.companyId : null))
-
-      let resolvedCompanyId = autoBizCandidate
-
-      if (!resolvedCompanyId) {
-        try {
-          // Try with iframe token first (user's token has access to their experiences)
-          const userTokenHeader = headersList.get('x-whop-user-token')
-          let experience = null
-          
-          if (userTokenHeader) {
-            console.log('[Experience Page] Attempting to fetch experience using iframe token...')
-            try {
-              const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}?include=company`, {
-                headers: {
-                  'Authorization': `Bearer ${userTokenHeader}`,
-                },
-                cache: 'no-store',
-              })
-              
-              if (expResponse.ok) {
-                experience = await expResponse.json()
-                console.log('[Experience Page] ✅ Got experience data using iframe token')
-              } else {
-                console.log('[Experience Page] Iframe token failed, trying server key...')
-              }
-            } catch (iframeErr) {
-              console.warn('[Experience Page] Iframe token fetch failed:', iframeErr)
-            }
-          }
-          
-          // Fallback to server key if iframe token didn't work
-          if (!experience) {
-            experience = await getExperienceById(experienceId)
-          }
-          
-          resolvedCompanyId = experience?.company?.id || experience?.company_id || experience?.companyId || null
-          console.log('[Experience Page] Resolved company from Whop API:', {
-            experienceId,
-            resolvedCompanyId,
-            experienceCompany: experience?.company,
-            experienceKeys: Object.keys(experience || {}),
-            usedIframeToken: !!userTokenHeader,
-            fullExperience: experience ? JSON.stringify(experience, null, 2).substring(0, 500) : 'null',
-          })
-        } catch (resolveErr) {
-          console.warn('[Experience Page] Unable to resolve company from Whop API:', resolveErr)
-        }
-      }
-
-      if (!resolvedCompanyId && whopUser?.userId) {
-        try {
-          const companyCandidates = await getCompaniesForUser(whopUser.userId)
-          console.log('[Experience Page] Company candidates for user:', {
-            userId: whopUser.userId,
-            count: companyCandidates?.length,
-            sample: companyCandidates?.slice?.(0, 2)?.map((item: any) => ({
-              keys: Object.keys(item || {}),
-              companyId: item?.id || item?.company_id || item?.companyId || item?.company?.id,
-              experienceId: item?.experience_id || item?.experienceId || item?.experience?.id,
-            })),
-          })
-
-          if (Array.isArray(companyCandidates)) {
-            const matching = companyCandidates.find((item: any) => {
-              const experienceFromItem = item?.experience?.id || item?.experience_id || item?.experienceId
-              const experienceMatches = experienceFromItem === experienceId
-              const companyFromItem = item?.company?.id || item?.company_id || item?.companyId || item?.id
-              const companyLooksValid = typeof companyFromItem === 'string' && companyFromItem.startsWith?.('biz_')
-              return experienceMatches && companyLooksValid
-            })
-
-            const firstBiz = companyCandidates.find((item: any) => {
-              const companyFromItem = item?.company?.id || item?.company_id || item?.companyId || item?.id
-              return typeof companyFromItem === 'string' && companyFromItem.startsWith?.('biz_')
-            })
-
-            const candidate = matching || firstBiz
-            if (candidate) {
-              const candidateCompanyId = candidate?.company?.id || candidate?.company_id || candidate?.companyId || candidate?.id
-              if (candidateCompanyId?.startsWith('biz_')) {
-                resolvedCompanyId = candidateCompanyId
-                console.log('[Experience Page] Resolved company from user companies:', {
-                  candidateType: matching ? 'matching-experience' : 'first-biz',
-                  candidateCompanyId,
-                  experienceId,
-                })
-              }
-            }
-          }
-        } catch (companiesErr) {
-          console.warn('[Experience Page] Failed to resolve company via user companies:', companiesErr)
-        }
-      }
-
-      if (resolvedCompanyId?.startsWith('biz_')) {
-        try {
-          console.log('[Experience Page] Auto-linking installation using resolved biz:', resolvedCompanyId)
-          await linkExperienceToCompany({ experienceId, companyId: resolvedCompanyId })
-          installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
-          if (installation) {
-            experienceName = installation.experienceName || experienceName
-            console.log('[Experience Page] ✅ Installation found after linkExperienceToCompany')
-          } else {
-            // linkExperienceToCompany didn't create it, create it directly
-            console.log('[Experience Page] linkExperienceToCompany did not create installation, creating directly')
-            if (whopUser?.userId) {
-              installation = await prisma.whopInstallation.create({
-                data: {
-                  companyId: resolvedCompanyId,
-                  userId: whopUser.userId,
-                  experienceId: experienceId,
-                  accessToken: env.WHOP_APP_SERVER_KEY,
-                  plan: 'free',
-                  username: whopUser.username || null,
-                },
-              })
-              console.log('[Experience Page] ✅ Created installation directly after linkExperienceToCompany failed')
-              
-              // Ensure CompanyPrefs exists
-              try {
-                const { getCompanyPrefs } = await import('@/lib/company')
-                await getCompanyPrefs(resolvedCompanyId)
-              } catch (prefsError) {
-                console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
-              }
-            }
-          }
-        } catch (autoLinkErr) {
-          console.warn('[Experience Page] Auto-link failed:', autoLinkErr)
-          // If linkExperienceToCompany failed, try creating directly
-          if (!installation && whopUser?.userId && resolvedCompanyId?.startsWith('biz_')) {
-            try {
-              installation = await prisma.whopInstallation.create({
-                data: {
-                  companyId: resolvedCompanyId,
-                  userId: whopUser.userId,
-                  experienceId: experienceId,
-                  accessToken: env.WHOP_APP_SERVER_KEY,
-                  plan: 'free',
-                  username: whopUser.username || null,
-                },
-              })
-              console.log('[Experience Page] ✅ Created installation after linkExperienceToCompany error')
-            } catch (createErr: any) {
-              if (createErr.code === 'P2002' && createErr.meta?.target?.includes('experienceId')) {
-                // Try without experienceId
-                try {
-                  installation = await prisma.whopInstallation.create({
-                    data: {
-                      companyId: resolvedCompanyId,
-                      userId: whopUser.userId,
-                      experienceId: null,
-                      accessToken: env.WHOP_APP_SERVER_KEY,
-                      plan: 'free',
-                      username: whopUser.username || null,
-                    },
-                  })
-                  console.log('[Experience Page] ✅ Created installation without experienceId due to conflict')
-                } catch (retryErr) {
-                  console.error('[Experience Page] Retry failed:', retryErr)
-                }
-              } else {
-                console.error('[Experience Page] Failed to create installation after auto-link error:', createErr)
-              }
-            }
-          }
-        }
-      }
-
-      if (!installation && whopUser?.userId) {
-        // Last resort: Try to get company from user's memberships using iframe token
-        try {
-          const userTokenHeader = headersList.get('x-whop-user-token')
-          if (userTokenHeader) {
-            console.log('[Experience Page] Attempting to fetch company from user memberships using iframe token...')
-            const membershipsResponse = await fetch('https://api.whop.com/api/v5/me/memberships?include=company', {
-              headers: {
-                'Authorization': `Bearer ${userTokenHeader}`,
-              },
+            const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}?include=company`, {
+              headers: { 'Authorization': `Bearer ${userTokenHeader}` },
               cache: 'no-store',
             })
-            
-            if (membershipsResponse.ok) {
-              const membershipsData = await membershipsResponse.json()
-              const memberships = membershipsData.data || membershipsData || []
-              console.log('[Experience Page] Found', memberships.length, 'memberships from iframe token')
-              
-              // Get first biz_ company from memberships
-              for (const membership of memberships) {
-                const candidateCompanyId = 
-                  membership.company?.id ||
-                  membership.company_id ||
-                  membership.companyId ||
-                  null
-                
-                if (candidateCompanyId?.startsWith('biz_')) {
-                  console.log('[Experience Page] Resolved company from iframe token memberships:', candidateCompanyId)
-                  resolvedCompanyId = candidateCompanyId
-                  break
-                }
-              }
+            if (expResponse.ok) {
+              experience = await expResponse.json()
+              console.log('[Experience Page] ✅ Got experience data using iframe token')
             }
+          } catch (err) {
+            console.warn('[Experience Page] Iframe token fetch failed, trying server key...')
           }
-        } catch (membershipsErr) {
-          console.warn('[Experience Page] Failed to get company from iframe token memberships:', membershipsErr)
         }
         
-        // If we got a company ID, create installation (same pattern as dashboard view)
-        if (resolvedCompanyId?.startsWith('biz_')) {
+        // Fallback to server key
+        if (!experience) {
+          experience = await getExperienceById(experienceId)
+        }
+        
+        const companyId = experience?.company?.id || experience?.company_id || experience?.companyId || null
+        
+        if (companyId?.startsWith('biz_')) {
+          console.log('[Experience Page] Creating installation with companyId:', companyId)
+          installation = await prisma.whopInstallation.create({
+            data: {
+              companyId,
+              userId: whopUser.userId,
+              experienceId,
+              accessToken: env.WHOP_APP_SERVER_KEY,
+              plan: 'free',
+              username: whopUser.username || null,
+            },
+          })
+          console.log('[Experience Page] ✅ Created installation:', {
+            id: installation.id,
+            companyId: installation.companyId,
+            experienceId: installation.experienceId,
+          })
+          
+          // Ensure CompanyPrefs exists
           try {
-            console.log('[Experience Page] Creating installation with resolved company (dashboard pattern):', resolvedCompanyId)
-            
-            // Create installation directly like dashboard view does
-            installation = await prisma.whopInstallation.create({
-              data: {
-                companyId: resolvedCompanyId,
-                userId: whopUser.userId,
-                experienceId: experienceId,
-                accessToken: env.WHOP_APP_SERVER_KEY,
-                plan: 'free',
-                username: whopUser.username || null,
-              },
-            })
-            
-            console.log('[Experience Page] ✅ NEW installation created successfully:', {
-              id: installation.id,
-              companyId: installation.companyId,
-              experienceId: installation.experienceId || 'none',
-            })
-            
-            // Ensure CompanyPrefs exists (same as dashboard view)
-            try {
-              const { getCompanyPrefs } = await import('@/lib/company')
-              await getCompanyPrefs(resolvedCompanyId)
-              console.log('[Experience Page] ✅ Ensured CompanyPrefs exists for new installation')
-            } catch (prefsError) {
-              console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
-            }
-          } catch (createErr: any) {
-            // Handle unique constraint violations (same as dashboard view)
-            if (createErr.code === 'P2002' && createErr.meta?.target?.includes('experienceId')) {
-              console.warn('[Experience Page] ExperienceId conflict, retrying without experienceId...')
-              try {
-                installation = await prisma.whopInstallation.create({
-                  data: {
-                    companyId: resolvedCompanyId,
-                    userId: whopUser.userId,
-                    experienceId: null, // Don't set if conflict
-                    accessToken: env.WHOP_APP_SERVER_KEY,
-                    plan: 'free',
-                    username: whopUser.username || null,
-                  },
-                })
-                console.log('[Experience Page] ✅ Created installation without experienceId due to conflict')
-              } catch (retryErr) {
-                console.error('[Experience Page] Retry failed:', retryErr)
-                throw retryErr
-              }
-            } else {
-              console.error('[Experience Page] Failed to create installation:', createErr)
-              throw createErr
-            }
+            const { getCompanyPrefs } = await import('@/lib/company')
+            await getCompanyPrefs(companyId)
+          } catch (prefsError) {
+            console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
           }
+        } else {
+          console.warn('[Experience Page] Could not resolve companyId from experience API')
+        }
+      } catch (createErr: any) {
+        console.error('[Experience Page] Failed to create installation:', createErr)
+        // Handle unique constraint violations
+        if (createErr.code === 'P2002' && createErr.meta?.target?.includes('experienceId')) {
+          console.warn('[Experience Page] ExperienceId conflict - installation may already exist')
+          // Try to find it again
+          installation = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
         }
       }
-
-      if (!installation) {
-        console.warn('[Experience Page] Installation still missing after all attempts, showing setup card', {
-          experienceId,
-          resolvedCompanyId,
-          referer,
-          whopUser,
-        })
-        
-        // Show setup card instead of triggering OAuth (which requires redirect_uri configuration)
-        const fallbackHref = `/experiences/${experienceId}/redirect`
-        return (
-          <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
-              <Card className="p-8 text-center">
-                <CardContent className="pt-6 space-y-4">
-                  <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
-                  <p className="text-muted-foreground">
-                    We couldn&apos;t automatically finish setup yet. Please refresh the page or contact support if this persists.
-                  </p>
-                  <div className="pt-4">
-                    <Link href={fallbackHref}>
-                      <Button variant="default">Open Dashboard</Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+    }
+    
+    // If still no installation, show setup card
+    if (!installation) {
+      console.warn('[Experience Page] Installation not found and could not be created')
+      const fallbackHref = `/experiences/${experienceId}/redirect`
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+            <Card className="p-8 text-center">
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+                <p className="text-muted-foreground">
+                  We could not automatically finish setup. Please refresh the page or contact support if this persists.
+                </p>
+                <div className="pt-4">
+                  <Link href={fallbackHref}>
+                    <Button variant="default">Open Dashboard</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        )
-      }
+        </div>
+      )
     }
 
   // From here on, installation is guaranteed to exist
