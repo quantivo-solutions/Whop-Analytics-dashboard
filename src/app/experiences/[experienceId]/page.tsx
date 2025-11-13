@@ -282,14 +282,44 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
       if (!resolvedCompanyId) {
         try {
-          const experience = await getExperienceById(experienceId)
+          // Try with iframe token first (user's token has access to their experiences)
+          const userTokenHeader = headersList.get('x-whop-user-token')
+          let experience = null
+          
+          if (userTokenHeader) {
+            console.log('[Experience Page] Attempting to fetch experience using iframe token...')
+            try {
+              const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}?include=company`, {
+                headers: {
+                  'Authorization': `Bearer ${userTokenHeader}`,
+                },
+                cache: 'no-store',
+              })
+              
+              if (expResponse.ok) {
+                experience = await expResponse.json()
+                console.log('[Experience Page] ✅ Got experience data using iframe token')
+              } else {
+                console.log('[Experience Page] Iframe token failed, trying server key...')
+              }
+            } catch (iframeErr) {
+              console.warn('[Experience Page] Iframe token fetch failed:', iframeErr)
+            }
+          }
+          
+          // Fallback to server key if iframe token didn't work
+          if (!experience) {
+            experience = await getExperienceById(experienceId)
+          }
+          
           resolvedCompanyId = experience?.company?.id || experience?.company_id || experience?.companyId || null
           console.log('[Experience Page] Resolved company from Whop API:', {
             experienceId,
             resolvedCompanyId,
             experienceCompany: experience?.company,
             experienceKeys: Object.keys(experience || {}),
-            fullExperience: JSON.stringify(experience, null, 2).substring(0, 500),
+            usedIframeToken: !!userTokenHeader,
+            fullExperience: experience ? JSON.stringify(experience, null, 2).substring(0, 500) : 'null',
           })
         } catch (resolveErr) {
           console.warn('[Experience Page] Unable to resolve company from Whop API:', resolveErr)
@@ -348,9 +378,71 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
           if (installation) {
             experienceName = installation.experienceName || experienceName
+            console.log('[Experience Page] ✅ Installation found after linkExperienceToCompany')
+          } else {
+            // linkExperienceToCompany didn't create it, create it directly
+            console.log('[Experience Page] linkExperienceToCompany didn't create installation, creating directly...')
+            if (whopUser?.userId) {
+              installation = await prisma.whopInstallation.create({
+                data: {
+                  companyId: resolvedCompanyId,
+                  userId: whopUser.userId,
+                  experienceId: experienceId,
+                  accessToken: env.WHOP_APP_SERVER_KEY,
+                  plan: 'free',
+                  username: whopUser.username || null,
+                },
+              })
+              console.log('[Experience Page] ✅ Created installation directly after linkExperienceToCompany failed')
+              
+              // Ensure CompanyPrefs exists
+              try {
+                const { getCompanyPrefs } = await import('@/lib/company')
+                await getCompanyPrefs(resolvedCompanyId)
+              } catch (prefsError) {
+                console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
+              }
+            }
           }
         } catch (autoLinkErr) {
           console.warn('[Experience Page] Auto-link failed:', autoLinkErr)
+          // If linkExperienceToCompany failed, try creating directly
+          if (!installation && whopUser?.userId && resolvedCompanyId?.startsWith('biz_')) {
+            try {
+              installation = await prisma.whopInstallation.create({
+                data: {
+                  companyId: resolvedCompanyId,
+                  userId: whopUser.userId,
+                  experienceId: experienceId,
+                  accessToken: env.WHOP_APP_SERVER_KEY,
+                  plan: 'free',
+                  username: whopUser.username || null,
+                },
+              })
+              console.log('[Experience Page] ✅ Created installation after linkExperienceToCompany error')
+            } catch (createErr: any) {
+              if (createErr.code === 'P2002' && createErr.meta?.target?.includes('experienceId')) {
+                // Try without experienceId
+                try {
+                  installation = await prisma.whopInstallation.create({
+                    data: {
+                      companyId: resolvedCompanyId,
+                      userId: whopUser.userId,
+                      experienceId: null,
+                      accessToken: env.WHOP_APP_SERVER_KEY,
+                      plan: 'free',
+                      username: whopUser.username || null,
+                    },
+                  })
+                  console.log('[Experience Page] ✅ Created installation without experienceId due to conflict')
+                } catch (retryErr) {
+                  console.error('[Experience Page] Retry failed:', retryErr)
+                }
+              } else {
+                console.error('[Experience Page] Failed to create installation after auto-link error:', createErr)
+              }
+            }
+          }
         }
       }
 
