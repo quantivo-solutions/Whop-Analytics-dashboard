@@ -17,7 +17,6 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { headers } from 'next/headers'
-import { generateWhopOAuthUrl } from '@/lib/whop-oauth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -222,15 +221,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           whopHeadersDebug,
         })
         
-        // Trigger OAuth flow - the callback will create the installation using user's access token
-        // NOTE: redirect() throws a special Next.js error that should NOT be caught
-        const { url } = await generateWhopOAuthUrl({
-          experienceId,
-          companyIdCandidate: resolvedCompanyId,
-          headers: headersList,
-        })
-        console.log('[Experience Page] Redirecting to OAuth flow:', url)
-        redirect(url) // This will throw NEXT_REDIRECT - that's expected and handled by Next.js
+        // Redirect to OAuth init endpoint which will handle the redirect properly
+        const oauthInitUrl = `/api/auth/init?experienceId=${encodeURIComponent(experienceId)}`
+        console.log('[Experience Page] Redirecting to OAuth init:', oauthInitUrl)
+        redirect(oauthInitUrl) // This will throw NEXT_REDIRECT - that's expected and handled by Next.js
       }
     }
 
