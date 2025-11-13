@@ -502,6 +502,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     </div>
   )
   } catch (error: any) {
+    // CRITICAL: Re-throw NEXT_REDIRECT errors - Next.js needs to handle these
+    if (error?.digest?.startsWith('NEXT_REDIRECT') || error?.message === 'NEXT_REDIRECT') {
+      throw error
+    }
+    
     // CRITICAL: Never 500 on unknown IDs - return friendly 200 OK response instead
     console.error('[Whoplytics] Error loading experience dashboard:', {
       experienceId,
