@@ -212,19 +212,88 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         }
       }
 
+      if (!installation && whopUser?.userId) {
+        // Last resort: Try to get company from user's memberships using iframe token
+        try {
+          const userTokenHeader = headersList.get('x-whop-user-token')
+          if (userTokenHeader) {
+            console.log('[Experience Page] Attempting to fetch company from user memberships using iframe token...')
+            const membershipsResponse = await fetch('https://api.whop.com/api/v5/me/memberships?include=company', {
+              headers: {
+                'Authorization': `Bearer ${userTokenHeader}`,
+              },
+              cache: 'no-store',
+            })
+            
+            if (membershipsResponse.ok) {
+              const membershipsData = await membershipsResponse.json()
+              const memberships = membershipsData.data || membershipsData || []
+              console.log('[Experience Page] Found', memberships.length, 'memberships from iframe token')
+              
+              // Get first biz_ company from memberships
+              for (const membership of memberships) {
+                const candidateCompanyId = 
+                  membership.company?.id ||
+                  membership.company_id ||
+                  membership.companyId ||
+                  null
+                
+                if (candidateCompanyId?.startsWith('biz_')) {
+                  console.log('[Experience Page] Resolved company from iframe token memberships:', candidateCompanyId)
+                  resolvedCompanyId = candidateCompanyId
+                  break
+                }
+              }
+            }
+          }
+        } catch (membershipsErr) {
+          console.warn('[Experience Page] Failed to get company from iframe token memberships:', membershipsErr)
+        }
+        
+        // If we got a company ID, create installation
+        if (resolvedCompanyId?.startsWith('biz_')) {
+          try {
+            console.log('[Experience Page] Creating installation with resolved company:', resolvedCompanyId)
+            await linkExperienceToCompany({ experienceId, companyId: resolvedCompanyId })
+            installation = await prisma.whopInstallation.findUnique({ where: { experienceId } })
+            if (installation) {
+              console.log('[Experience Page] ✅ Installation created successfully')
+            }
+          } catch (createErr) {
+            console.error('[Experience Page] Failed to create installation:', createErr)
+          }
+        }
+      }
+
       if (!installation) {
-        console.warn('[Experience Page] Installation still missing after auto-link attempts, triggering OAuth flow', {
+        console.warn('[Experience Page] Installation still missing after all attempts, showing setup card', {
           experienceId,
           resolvedCompanyId,
           referer,
           whopUser,
-          whopHeadersDebug,
         })
         
-        // Redirect to OAuth init endpoint which will handle the redirect properly
-        const oauthInitUrl = `/api/auth/init?experienceId=${encodeURIComponent(experienceId)}`
-        console.log('[Experience Page] Redirecting to OAuth init:', oauthInitUrl)
-        redirect(oauthInitUrl) // This will throw NEXT_REDIRECT - that's expected and handled by Next.js
+        // Show setup card instead of triggering OAuth (which requires redirect_uri configuration)
+        const fallbackHref = `/experiences/${experienceId}/redirect`
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+              <Card className="p-8 text-center">
+                <CardContent className="pt-6 space-y-4">
+                  <h2 className="text-2xl font-bold">Whoplytics Setup Required</h2>
+                  <p className="text-muted-foreground">
+                    We couldn&apos;t automatically finish setup yet. Please refresh the page or contact support if this persists.
+                  </p>
+                  <div className="pt-4">
+                    <Link href={fallbackHref}>
+                      <Button variant="default">Open Dashboard</Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )
       }
     }
 
