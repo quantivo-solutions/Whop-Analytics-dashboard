@@ -147,6 +147,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             resolvedCompanyId,
             experienceCompany: experience?.company,
             experienceKeys: Object.keys(experience || {}),
+            fullExperience: JSON.stringify(experience, null, 2).substring(0, 500),
           })
         } catch (resolveErr) {
           console.warn('[Experience Page] Unable to resolve company from Whop API:', resolveErr)
