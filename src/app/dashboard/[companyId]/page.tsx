@@ -445,22 +445,22 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             ;(global as any).__whopSessionToken = sessionToken
             console.log('[Dashboard View] ✅ Session token created')
           }
-    } else {
+        }
+      } else {
+        // No Whop auth - check for existing session
+        console.log('[Dashboard View] No Whop auth, checking session...')
+        if (!session) {
+          console.log('[Dashboard View] No session found - redirecting to login')
+          redirect(`/login?companyId=${companyId}`)
+        }
 
-    // No Whop auth - check for existing session
-    console.log('[Dashboard View] No Whop auth, checking session...')
-    if (!session) {
-      console.log('[Dashboard View] No session found - redirecting to login')
-      redirect(`/login?companyId=${companyId}`)
-    }
-
-    // If we have session, get installation
-    if (session) {
-      installation = await prisma.whopInstallation.findUnique({
-        where: { companyId: session.companyId },
-      })
-    }
-  }
+        // If we have session, get installation
+        if (session) {
+          installation = await prisma.whopInstallation.findUnique({
+            where: { companyId: session.companyId },
+          })
+        }
+      }
 
   // STEP 3: Verify user has access to this company
   // For Dashboard View, we should check admin access
