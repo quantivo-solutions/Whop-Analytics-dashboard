@@ -54,7 +54,7 @@ export async function getExperienceById(experienceId: string) {
   }
 
   const url = new URL(`https://api.whop.com/api/v5/experiences/${experienceId}`)
-  url.searchParams.set('include', 'company')
+  url.searchParams.set('include', 'company,workspace,app_installation,app')
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },

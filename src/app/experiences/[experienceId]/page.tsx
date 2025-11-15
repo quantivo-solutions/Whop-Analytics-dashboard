@@ -36,7 +36,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   const startTime = Date.now()
   const { experienceId } = await params
   const resolvedSearchParams = await searchParams
-  const { token } = resolvedSearchParams
+  const { token, ...otherSearchParams } = resolvedSearchParams as Record<string, string | undefined>
+  if (Object.keys(otherSearchParams).length > 0) {
+    console.log('[Experience Page] Search params snapshot:', otherSearchParams)
+  }
 
   // Install trace logging
   console.log("[Whoplytics] experience-enter", { experienceId })
@@ -160,31 +163,84 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         let resolvedCompanyId: string | null = whopUserCompanyId
         
         if (!resolvedCompanyId) {
-          // Try with iframe token first, then server key
           const userTokenHeader = headersList.get('x-whop-user-token')
-          let experience = null
+          let experience: any = null
+          let experienceSource: 'iframe' | 'server' | null = null
           
           if (userTokenHeader) {
             try {
-              const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}?include=company`, {
-                headers: { 'Authorization': `Bearer ${userTokenHeader}` },
-                cache: 'no-store',
-              })
+              const expResponse = await fetch(
+                `https://api.whop.com/api/v5/experiences/${experienceId}?include=company,workspace,app_installation,app`,
+                {
+                  headers: { 'Authorization': `Bearer ${userTokenHeader}` },
+                  cache: 'no-store',
+                }
+              )
               if (expResponse.ok) {
                 experience = await expResponse.json()
+                experienceSource = 'iframe'
                 console.log('[Experience Page] ✅ Got experience data using iframe token')
+              } else {
+                console.warn('[Experience Page] Iframe experience fetch failed with status:', expResponse.status)
               }
             } catch (err) {
-              console.warn('[Experience Page] Iframe token fetch failed, trying server key...')
+              console.warn('[Experience Page] Iframe token fetch threw error, trying server key...:', err)
             }
           }
           
-          // Fallback to server key
           if (!experience) {
-            experience = await getExperienceById(experienceId)
+            try {
+              experience = await getExperienceById(experienceId)
+              experienceSource = 'server'
+              if (experience) {
+                console.log('[Experience Page] ✅ Got experience data using server key')
+              }
+            } catch (expErr) {
+              console.warn('[Experience Page] Server experience fetch failed:', expErr)
+            }
           }
           
-          resolvedCompanyId = experience?.company?.id || experience?.company_id || experience?.companyId || null
+          if (experience) {
+            console.log('[Experience Page] Experience payload keys:', Object.keys(experience))
+            const experienceCompanyCandidates = [
+              experience?.company?.id,
+              experience?.company?.company_id,
+              experience?.companyId,
+              experience?.company_id,
+              experience?.workspace?.id,
+              experience?.workspace_id,
+              experience?.app_installation?.company?.id,
+              experience?.app_installation?.company_id,
+              experience?.app_installation?.company?.company_id,
+              experience?.app_installation?.workspace?.id,
+            ].filter(Boolean) as string[]
+            
+            const expCompanyMatch = experienceCompanyCandidates.find(
+              (value) => typeof value === 'string' && value.startsWith('biz_')
+            )
+            
+            if (expCompanyMatch) {
+              resolvedCompanyId = expCompanyMatch
+              console.log(
+                '[Experience Page] Resolved companyId from experience payload:',
+                resolvedCompanyId,
+                'source:',
+                experienceSource
+              )
+            } else if (experienceCompanyCandidates.length > 0) {
+              console.log('[Experience Page] Experience payload company candidates (non-biz):', experienceCompanyCandidates)
+            }
+          }
+        }
+
+        if (!resolvedCompanyId) {
+          const searchParamBiz = Object.values(otherSearchParams).find(
+            (value) => typeof value === 'string' && value.startsWith('biz_')
+          )
+          if (searchParamBiz) {
+            resolvedCompanyId = searchParamBiz
+            console.log('[Experience Page] Using companyId from search params:', resolvedCompanyId)
+          }
         }
 
         // Fall back to referer biz id (if Whop dashboard passed it)
