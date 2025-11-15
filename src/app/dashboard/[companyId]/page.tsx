@@ -142,36 +142,38 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         // Continue without user details - not critical
       }
 
-          // PRIORITY: Find installation by userId first (like Experience View does)
-          // This ensures we use the same installation that Experience View uses
-          console.log('[Dashboard View] Looking up installations for userId:', whopUser.userId)
-          const userInstallations = await prisma.whopInstallation.findMany({
-            where: { userId: whopUser.userId },
-            orderBy: { updatedAt: 'desc' },
+          // STEP A: Look up installation by the requested companyId first
+          installation = await prisma.whopInstallation.findUnique({
+            where: { companyId },
           })
+          if (installation) {
+            console.log('[Dashboard View] ✅ Found installation by URL companyId:', companyId)
+          }
 
-          if (userInstallations.length > 0) {
-            // Use the most recently updated installation (same logic as Experience View)
-            // This ensures both views use the same installation and therefore same CompanyPrefs
-            installation = userInstallations[0]
-            console.log('[Dashboard View] ✅ Found installation by userId:', installation.companyId, 'plan:', installation.plan)
-            
-            // If URL companyId is different, we'll use installation.companyId for data/prefs
-            // but keep URL for navigation (don't redirect, just log the mismatch)
-            if (installation.companyId !== companyId) {
-              console.log('[Dashboard View] ⚠️ URL companyId differs from installation.companyId:', {
-                urlCompanyId: companyId,
-                installationCompanyId: installation.companyId
-              })
-              console.log('[Dashboard View] Will use installation.companyId for CompanyPrefs/data to sync with Experience View')
-            }
-          } else {
-            // No installation found - check if one exists for URL companyId
-            installation = await prisma.whopInstallation.findUnique({
-              where: { companyId },
+          // STEP B: If not found, fall back to any installation owned by this user (legacy behavior)
+          if (!installation) {
+            console.log('[Dashboard View] No installation for companyId', companyId, '- checking user installations...')
+            const userInstallations = await prisma.whopInstallation.findMany({
+              where: { userId: whopUser.userId },
+              orderBy: { updatedAt: 'desc' },
             })
 
-            if (!installation) {
+            if (userInstallations.length > 0) {
+              installation = userInstallations[0]
+              console.log('[Dashboard View] ✅ Found installation by userId fallback:', installation.companyId, 'plan:', installation.plan)
+              if (installation.companyId !== companyId) {
+                console.log('[Dashboard View] ⚠️ URL companyId differs from fallback installation companyId:', {
+                  urlCompanyId: companyId,
+                  installationCompanyId: installation.companyId,
+                })
+                console.log('[Dashboard View] ⚠️ Consider reinstalling to relink this company automatically')
+              }
+            }
+          }
+
+          // STEP C: If still no installation, create a new one for this company
+          if (!installation) {
+            // No installation found - create one for this specific company
               // Create new installation
               console.log('[Dashboard View] 🎯 Step 2: Creating NEW installation for:', companyId)
               const { env } = await import('@/lib/env')
@@ -768,6 +770,12 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
 
+  const companyDisplayName =
+    installation?.experienceName ||
+    installation?.username ||
+    installation?.companyId ||
+    'Your Dashboard'
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Set session cookie if needed */}
@@ -780,7 +788,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
               <WhoplyticsLogo 
-                personalizedText={installation?.username ? `${installation.username}'s Dashboard` : 'Your Dashboard'}
+                personalizedText={companyDisplayName}
                 tagline="Business insights at a glance"
               />
               {/* Company/scope badge removed per request */}
