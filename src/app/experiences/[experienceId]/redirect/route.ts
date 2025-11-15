@@ -8,12 +8,28 @@ import { cookies } from 'next/headers'
 
 export const runtime = 'nodejs'
 
-async function parseSessionCompany(): Promise<string | null> {
+async function parseSessionCompany(expectedExperienceId: string): Promise<string | null> {
   try {
     const cookieStore = await cookies()
     const sessionCookie = cookieStore.get('whop_session')
     if (!sessionCookie?.value) return null
     const decoded = JSON.parse(Buffer.from(sessionCookie.value, 'base64').toString())
+    const sessionExperienceId = decoded?.experienceId
+
+    if (sessionExperienceId && sessionExperienceId !== expectedExperienceId) {
+      console.log('[Experience Redirect] Ignoring session companyId - experience mismatch', {
+        sessionCompanyId: decoded?.companyId,
+        sessionExperienceId,
+        expectedExperienceId,
+      })
+      return null
+    }
+
+    if (!sessionExperienceId) {
+      console.log('[Experience Redirect] Session token missing experienceId, ignoring companyId fallback')
+      return null
+    }
+
     const sessionCompanyId = decoded?.companyId
     if (typeof sessionCompanyId === 'string' && sessionCompanyId.startsWith('biz_')) {
       console.log('[Experience Redirect] Session companyId found:', sessionCompanyId)
@@ -36,7 +52,7 @@ async function resolveCompanyId(experienceId: string): Promise<ResolveResult> {
   }).catch(() => null)
 
   const whopUser = await verifyWhopUserToken().catch(() => null)
-  const sessionCompanyId = await parseSessionCompany()
+  const sessionCompanyId = await parseSessionCompany(experienceId)
 
   if (whopUser?.companyId?.startsWith('biz_')) {
     try {

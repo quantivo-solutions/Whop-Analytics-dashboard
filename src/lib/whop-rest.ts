@@ -82,16 +82,23 @@ export async function getCompaniesForUser(
     throw new Error("getCompaniesForUser requires a userId")
   }
 
+  type TokenCandidate = {
+    token?: string | null
+    allowSelfEndpoints: boolean
+    label: string
+  }
+
   const triedTokens = new Set<string>()
-  const tokensToTry: (string | undefined | null)[] = [
-    options?.accessToken,
-    process.env.WHOP_APP_SERVER_KEY,
-    process.env.WHOP_API_KEY,
+  const tokensToTry: TokenCandidate[] = [
+    { token: options?.accessToken, allowSelfEndpoints: true, label: 'iframe-user-token' },
+    { token: process.env.WHOP_APP_SERVER_KEY, allowSelfEndpoints: false, label: 'server-key' },
+    { token: process.env.WHOP_API_KEY, allowSelfEndpoints: false, label: 'api-key' },
   ]
 
   let lastError: any = null
 
-  for (const token of tokensToTry) {
+  for (const candidate of tokensToTry) {
+    const token = candidate.token
     if (!token || triedTokens.has(token)) {
       continue
     }
@@ -101,7 +108,7 @@ export async function getCompaniesForUser(
     const candidateEndpoints = [
       `/users/${userId}/companies`,
       `/users/${userId}/memberships`,
-      `/me/companies`,
+      ...(candidate.allowSelfEndpoints ? [`/me/companies`] : []),
     ]
 
     for (const endpoint of candidateEndpoints) {
@@ -120,7 +127,9 @@ export async function getCompaniesForUser(
           // Try next endpoint if 404/403; otherwise throw
           const text = await res.text().catch(() => '')
           if (res.status === 404 || res.status === 403) {
-            lastError = new Error(`Whop API ${endpoint} failed: ${res.status} ${text}`)
+            lastError = new Error(
+              `Whop API ${endpoint} failed: ${res.status} ${text || ''} (token=${candidate.label})`
+            )
             continue
           }
           throw new Error(`Whop API ${endpoint} failed: ${res.status} ${text}`)
