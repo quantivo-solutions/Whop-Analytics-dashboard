@@ -4,7 +4,7 @@
  */
 
 import { linkExperienceToCompany } from '@/lib/company'
-import { getCompaniesForUser, getExperienceById } from '@/lib/whop-rest'
+import { getCompaniesForUser } from '@/lib/whop-rest'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { headers } from 'next/headers'
+import { whopSdk } from '@/lib/whop-sdk'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -163,83 +164,33 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         let resolvedCompanyId: string | null = whopUserCompanyId
         
         if (!resolvedCompanyId) {
-          const userTokenHeader = headersList.get('x-whop-user-token')
-          let experience: any = null
-          let experienceSource: 'iframe' | 'server' | null = null
-          
-          if (userTokenHeader) {
-            try {
-              const expResponse = await fetch(
-                `https://api.whop.com/api/v5/experiences/${experienceId}?include=company,workspace,app_installation,app`,
-                {
-                  headers: { 'Authorization': `Bearer ${userTokenHeader}` },
-                  cache: 'no-store',
-                }
+          try {
+            const experience = await whopSdk.experiences.getExperience({ experienceId })
+            if (experience) {
+              console.log('[Experience Page] ✅ Got experience data using Whop SDK')
+              const experienceCompanyCandidates = [
+                experience?.company?.id,
+                (experience as any)?.company_id,
+                (experience as any)?.companyId,
+                (experience as any)?.workspace?.company?.id,
+                (experience as any)?.workspace?.id,
+              ].filter(Boolean) as string[]
+
+              const expCompanyMatch = experienceCompanyCandidates.find(
+                (value) => typeof value === 'string' && value.startsWith('biz_')
               )
-              if (expResponse.ok) {
-                experience = await expResponse.json()
-                experienceSource = 'iframe'
-                console.log('[Experience Page] ✅ Got experience data using iframe token')
-              } else {
-                console.warn('[Experience Page] Iframe experience fetch failed with status:', expResponse.status)
+
+              if (expCompanyMatch) {
+                resolvedCompanyId = expCompanyMatch
+                console.log('[Experience Page] Resolved companyId from Whop SDK experience payload:', resolvedCompanyId)
+              } else if (experienceCompanyCandidates.length > 0) {
+                console.log('[Experience Page] SDK experience payload company candidates (non-biz):', experienceCompanyCandidates)
               }
-            } catch (err) {
-              console.warn('[Experience Page] Iframe token fetch threw error, trying server key...:', err)
+            } else {
+              console.warn('[Experience Page] Whop SDK returned null for experience', experienceId)
             }
-          }
-          
-          if (!experience) {
-            try {
-              experience = await getExperienceById(experienceId)
-              experienceSource = 'server'
-              if (experience) {
-                console.log('[Experience Page] ✅ Got experience data using server key')
-              } else {
-                console.warn('[Experience Page] Server experience fetch returned null for', experienceId)
-              }
-            } catch (expErr) {
-              console.warn('[Experience Page] Server experience fetch failed:', expErr)
-            }
-          }
-          
-          if (experience) {
-            console.log('[Experience Page] Experience payload keys:', Object.keys(experience))
-            const experienceCompanyCandidates = [
-              experience?.company?.id,
-              experience?.company?.company_id,
-              experience?.companyId,
-              experience?.company_id,
-              experience?.workspace?.id,
-              experience?.workspace_id,
-              experience?.app_installation?.company?.id,
-              experience?.app_installation?.company_id,
-              experience?.app_installation?.company?.company_id,
-              experience?.app_installation?.workspace?.id,
-            ].filter(Boolean) as string[]
-            
-            const expCompanyMatch = experienceCompanyCandidates.find(
-              (value) => typeof value === 'string' && value.startsWith('biz_')
-            )
-            
-            if (expCompanyMatch) {
-              resolvedCompanyId = expCompanyMatch
-              console.log(
-                '[Experience Page] Resolved companyId from experience payload:',
-                resolvedCompanyId,
-                'source:',
-                experienceSource
-              )
-            } else if (experienceCompanyCandidates.length > 0) {
-              console.log('[Experience Page] Experience payload company candidates (non-biz):', experienceCompanyCandidates)
-              console.log('[Experience Page] Experience payload snapshot:', {
-                company: experience?.company,
-                workspace: experience?.workspace,
-                app_installation: experience?.app_installation,
-                app: experience?.app,
-              })
-            }
-          } else {
-            console.warn('[Experience Page] No experience payload available from API')
+          } catch (sdkErr) {
+            console.warn('[Experience Page] Whop SDK experience fetch failed:', sdkErr)
           }
         }
 
@@ -360,9 +311,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     if (!installation) {
       console.warn('[Experience Page] Installation not found and could not be created')
       if (!token) {
-        const oauthInitUrl = `/api/auth/init?experienceId=${experienceId}`
-        console.log('[Experience Page] No session token present - redirecting to OAuth init flow:', oauthInitUrl)
-        redirect(oauthInitUrl)
+        const loginUrl = `/login?experienceId=${experienceId}&reason=install_missing`
+        console.log('[Experience Page] No session token present - redirecting user to login for OAuth:', loginUrl)
+        redirect(loginUrl)
       }
       const fallbackHref = `/experiences/${experienceId}/redirect`
       return (
