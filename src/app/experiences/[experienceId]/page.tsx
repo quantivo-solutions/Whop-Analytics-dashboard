@@ -142,8 +142,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       try {
         const whopUserCompanyId =
           whopUser.companyId && whopUser.companyId.startsWith('biz_') ? whopUser.companyId : null
-        let resolvedCompanyId: string | null =
-          session?.companyId?.startsWith('biz_') ? session.companyId : whopUserCompanyId
+        const sessionCompanyId =
+          session?.companyId && session.companyId.startsWith('biz_') ? session.companyId : null
+        let resolvedCompanyId: string | null = whopUserCompanyId
         
         if (!resolvedCompanyId) {
           // Try with iframe token first, then server key
@@ -230,6 +231,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           } catch (companiesError) {
             console.warn('[Experience Page] Failed to resolve via getCompaniesForUser:', companiesError)
           }
+        }
+
+        if (!resolvedCompanyId && sessionCompanyId) {
+          resolvedCompanyId = sessionCompanyId
+          console.log('[Experience Page] Using session companyId as last resort:', resolvedCompanyId)
         }
         
         if (resolvedCompanyId?.startsWith('biz_')) {
