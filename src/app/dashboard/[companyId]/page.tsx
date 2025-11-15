@@ -537,32 +537,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // STEP 4: Do not auto-switch plans across installations.
   // Plan is managed by webhooks per installation.
 
-  // STEP 4.5: If no data for finalCompanyId, check if user has data under their userId-based companyId
-  // This handles migration from user-based to company-based companyIds
-  let dataCompanyId = finalCompanyId
-  const dataCount = await prisma.metricsDaily.count({
-    where: { companyId: finalCompanyId },
-  })
-  
-  if (dataCount === 0 && whopUser && whopUser.userId) {
-    console.log('[Dashboard View] No data for companyId:', finalCompanyId)
-    console.log('[Dashboard View] Checking if user has data under userId-based companyId...')
-    
-    const userIdBasedCompanyId = whopUser.userId
-    const userIdDataCount = await prisma.metricsDaily.count({
-      where: { companyId: userIdBasedCompanyId },
-    })
-    
-    if (userIdDataCount > 0) {
-      console.log('[Dashboard View] ⚠️ Found data under userId-based companyId:', userIdBasedCompanyId, `(${userIdDataCount} records)`)
-      console.log('[Dashboard View] ⚠️ Data needs to be migrated or companyId needs to be updated')
-      console.log('[Dashboard View] ⚠️ For now, will use userId-based companyId for data fetching')
-
-      // Use userId-based companyId for data fetching (temporary workaround)
-      dataCompanyId = userIdBasedCompanyId
-    }
-  }
-
   // STEP 5: Refresh installation to get latest plan (webhook may have updated it)
   console.log('[Dashboard View] Refreshing installation to get latest plan...')
   if (installation) {
@@ -677,8 +651,8 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     // Pro users get 90 days extended history, Free users get 7 days
     const { getDaysForPlan } = await import('@/lib/data-window')
     const daysToFetch = getDaysForPlan(plan)
-    console.log('[Dashboard View] Fetching data for companyId:', dataCompanyId, '(prefs companyId:', finalCompanyId, ', URL:', companyId, ', days:', daysToFetch, ')')
-    dashboardData = await getCompanySeries(dataCompanyId, daysToFetch)
+    console.log('[Dashboard View] Fetching data for companyId:', finalCompanyId, '(URL:', companyId, ', days:', daysToFetch, ')')
+    dashboardData = await getCompanySeries(finalCompanyId, daysToFetch)
     console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', plan)
     console.log('[Dashboard View] Dashboard data companyId:', dashboardData.companyId, 'hasData:', dashboardData.hasData)
     console.log('[Dashboard View] Dashboard data series length:', dashboardData.series.length)
