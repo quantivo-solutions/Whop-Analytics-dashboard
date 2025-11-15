@@ -135,42 +135,49 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
     }
 
-    // If no installation found, create it by fetching companyId from experience API
+    // If no installation found, create it using best available companyId
     if (!installation && whopUser?.userId) {
-      console.log('[Experience Page] No installation found, fetching companyId from experience API...')
+      console.log('[Experience Page] No installation found, resolving companyId...')
       
       try {
-        // Try with iframe token first, then server key
-        const userTokenHeader = headersList.get('x-whop-user-token')
-        let experience = null
+        let resolvedCompanyId: string | null =
+          session?.companyId?.startsWith('biz_') ? session.companyId : null
         
-        if (userTokenHeader) {
-          try {
-            const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}?include=company`, {
-              headers: { 'Authorization': `Bearer ${userTokenHeader}` },
-              cache: 'no-store',
-            })
-            if (expResponse.ok) {
-              experience = await expResponse.json()
-              console.log('[Experience Page] ✅ Got experience data using iframe token')
+        if (!resolvedCompanyId) {
+          // Try with iframe token first, then server key
+          const userTokenHeader = headersList.get('x-whop-user-token')
+          let experience = null
+          
+          if (userTokenHeader) {
+            try {
+              const expResponse = await fetch(`https://api.whop.com/api/v5/experiences/${experienceId}?include=company`, {
+                headers: { 'Authorization': `Bearer ${userTokenHeader}` },
+                cache: 'no-store',
+              })
+              if (expResponse.ok) {
+                experience = await expResponse.json()
+                console.log('[Experience Page] ✅ Got experience data using iframe token')
+              }
+            } catch (err) {
+              console.warn('[Experience Page] Iframe token fetch failed, trying server key...')
             }
-          } catch (err) {
-            console.warn('[Experience Page] Iframe token fetch failed, trying server key...')
           }
+          
+          // Fallback to server key
+          if (!experience) {
+            experience = await getExperienceById(experienceId)
+          }
+          
+          resolvedCompanyId = experience?.company?.id || experience?.company_id || experience?.companyId || null
+        } else {
+          console.log('[Experience Page] Using session companyId for installation:', resolvedCompanyId)
         }
         
-        // Fallback to server key
-        if (!experience) {
-          experience = await getExperienceById(experienceId)
-        }
-        
-        const companyId = experience?.company?.id || experience?.company_id || experience?.companyId || null
-        
-        if (companyId?.startsWith('biz_')) {
-          console.log('[Experience Page] Creating installation with companyId:', companyId)
+        if (resolvedCompanyId?.startsWith('biz_')) {
+          console.log('[Experience Page] Creating installation with companyId:', resolvedCompanyId)
           installation = await prisma.whopInstallation.create({
             data: {
-              companyId,
+              companyId: resolvedCompanyId,
               userId: whopUser.userId,
               experienceId,
               accessToken: env.WHOP_APP_SERVER_KEY,
@@ -187,12 +194,12 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           // Ensure CompanyPrefs exists
           try {
             const { getCompanyPrefs } = await import('@/lib/company')
-            await getCompanyPrefs(companyId)
+            await getCompanyPrefs(resolvedCompanyId)
           } catch (prefsError) {
             console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
           }
         } else {
-          console.warn('[Experience Page] Could not resolve companyId from experience API')
+          console.warn('[Experience Page] Could not resolve companyId from session or experience API')
         }
       } catch (createErr: any) {
         console.error('[Experience Page] Failed to create installation:', createErr)
