@@ -144,6 +144,19 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           whopUser.companyId && whopUser.companyId.startsWith('biz_') ? whopUser.companyId : null
         const sessionCompanyId =
           session?.companyId && session.companyId.startsWith('biz_') ? session.companyId : null
+        const sessionExperienceId = session?.experienceId || null
+
+        if (sessionCompanyId && sessionExperienceId && sessionExperienceId !== experienceId) {
+          console.log('[Experience Page] Ignoring session companyId - experience mismatch', {
+            sessionCompanyId,
+            sessionExperienceId,
+            currentExperienceId: experienceId,
+          })
+        }
+
+        const sessionCompanyCandidate =
+          sessionCompanyId && sessionExperienceId === experienceId ? sessionCompanyId : null
+
         let resolvedCompanyId: string | null = whopUserCompanyId
         
         if (!resolvedCompanyId) {
@@ -233,8 +246,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           }
         }
 
-        if (!resolvedCompanyId && sessionCompanyId) {
-          resolvedCompanyId = sessionCompanyId
+        if (!resolvedCompanyId && sessionCompanyCandidate) {
+          resolvedCompanyId = sessionCompanyCandidate
           console.log('[Experience Page] Using session companyId as last resort:', resolvedCompanyId)
         }
         
@@ -453,6 +466,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         userId: installation.userId || whopUser?.userId || null,
         username: whopUser?.username || installation.username || undefined,
         exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        experienceId,
       }
       const newToken = Buffer.from(JSON.stringify(newSession)).toString('base64')
       ;(global as any).__whopSessionToken = newToken
@@ -473,20 +487,17 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     
     if (userMatchesInstallation) {
       // Create session token directly (we'll set cookie via API route on client side)
-      const sessionToken = Buffer.from(JSON.stringify({
+      const sessionPayload = {
         companyId: installation.companyId,
         userId: whopUser.userId,
         username: whopUser.username || installation.username,
         exp: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
-      })).toString('base64')
+        experienceId,
+      }
+      const sessionToken = Buffer.from(JSON.stringify(sessionPayload)).toString('base64')
       
       // Use the token as session data for this request
-      session = {
-        companyId: installation.companyId,
-        userId: whopUser.userId,
-        username: whopUser.username || installation.username || undefined,
-        exp: Date.now() + (30 * 24 * 60 * 60 * 1000),
-      }
+      session = sessionPayload as any
       
       console.log('[Experience Page] ✅ Session token created - user auto-logged in')
       
@@ -539,6 +550,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       userId: installation.userId || whopUser?.userId || session?.userId || null,
       username: installation.username || whopUser?.username || session?.username || undefined,
       exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      experienceId,
     }
     const newToken = Buffer.from(JSON.stringify(newSession)).toString('base64')
     ;(global as any).__whopSessionToken = newToken

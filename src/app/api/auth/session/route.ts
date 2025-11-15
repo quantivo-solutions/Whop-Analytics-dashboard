@@ -12,7 +12,7 @@ export const runtime = 'nodejs'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    let { companyId, userId, username, sessionToken } = body
+    let { companyId, userId, username, sessionToken, experienceId } = body
 
     // If sessionToken is provided, decode it to get the data
     // Otherwise, create new token from provided data
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
         companyId = decoded.companyId
         userId = decoded.userId
         username = decoded.username
+        experienceId = decoded.experienceId || null
       } catch (decodeError) {
         return NextResponse.json(
           { error: 'Invalid session token' },
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
         userId,
         username: username || null,
         exp: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+        experienceId: experienceId || null,
       })).toString('base64')
     }
 
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
       path: '/',
     })
 
-    console.log('[Session API] Session cookie created for companyId:', companyId)
+    console.log('[Session API] Session cookie created for companyId:', companyId, 'experienceId:', experienceId || 'n/a')
 
     return NextResponse.json({ 
       success: true,

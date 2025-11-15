@@ -10,6 +10,7 @@ export interface Session {
   userId: string
   username?: string
   exp: number
+  experienceId?: string | null
 }
 
 /**
