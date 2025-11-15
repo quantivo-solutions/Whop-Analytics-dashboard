@@ -61,14 +61,32 @@ export async function verifyWhopUserToken(): Promise<WhopUserInfo | null> {
     // The verifyUserToken method returns { userId } according to docs
     // Check what properties are actually returned
     const userId = (userToken as any).userId || (userToken as any).id
-    const tokenCompanyId =
-      (userToken as any).companyId ||
-      (userToken as any).company_id ||
-      (userToken as any).company?.id ||
-      null
-    const companyId = headerCompanyId || tokenCompanyId
+    if (userToken && typeof userToken === 'object') {
+      const tokenKeys = Object.keys(userToken as any)
+      console.log('[Whop Auth] User token keys:', tokenKeys)
+    }
+    const companyCandidates = [
+      headerCompanyId,
+      (userToken as any).companyId,
+      (userToken as any).company_id,
+      (userToken as any).company?.id,
+      (userToken as any).company?.company_id,
+      (userToken as any).workspace?.company?.id,
+      (userToken as any).workspace?.company_id,
+      (userToken as any).workspace?.id,
+      (userToken as any).workspace_id,
+      (userToken as any).business?.id,
+      (userToken as any).business_id,
+      (userToken as any).biz_id,
+    ]
+    const companyId = companyCandidates.find(
+      (value) => typeof value === 'string' && value.startsWith('biz_')
+    )
     
     if (userId) {
+      if (!companyId && companyCandidates.some(Boolean)) {
+        console.log('[Whop Auth] Company candidates (non-biz):', companyCandidates.filter(Boolean))
+      }
       console.log('[Whop Auth] User verified via Whop iframe headers, userId:', userId, 'companyId:', companyId || 'none')
       return {
         userId: userId as string,

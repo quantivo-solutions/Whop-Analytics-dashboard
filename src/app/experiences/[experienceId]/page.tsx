@@ -194,6 +194,8 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               experienceSource = 'server'
               if (experience) {
                 console.log('[Experience Page] ✅ Got experience data using server key')
+              } else {
+                console.warn('[Experience Page] Server experience fetch returned null for', experienceId)
               }
             } catch (expErr) {
               console.warn('[Experience Page] Server experience fetch failed:', expErr)
@@ -229,7 +231,15 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               )
             } else if (experienceCompanyCandidates.length > 0) {
               console.log('[Experience Page] Experience payload company candidates (non-biz):', experienceCompanyCandidates)
+              console.log('[Experience Page] Experience payload snapshot:', {
+                company: experience?.company,
+                workspace: experience?.workspace,
+                app_installation: experience?.app_installation,
+                app: experience?.app,
+              })
             }
+          } else {
+            console.warn('[Experience Page] No experience payload available from API')
           }
         }
 
@@ -349,6 +359,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     // If still no installation, show setup card
     if (!installation) {
       console.warn('[Experience Page] Installation not found and could not be created')
+      if (!token) {
+        const oauthInitUrl = `/api/auth/init?experienceId=${experienceId}`
+        console.log('[Experience Page] No session token present - redirecting to OAuth init flow:', oauthInitUrl)
+        redirect(oauthInitUrl)
+      }
       const fallbackHref = `/experiences/${experienceId}/redirect`
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
