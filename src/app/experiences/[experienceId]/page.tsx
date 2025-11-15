@@ -143,6 +143,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     if (!installation && whopUser?.userId) {
       console.log('[Experience Page] No installation found, resolving companyId...')
       
+      let resolvedCompanyId: string | null = null
       try {
         const whopUserCompanyId =
           whopUser.companyId && whopUser.companyId.startsWith('biz_') ? whopUser.companyId : null
@@ -161,7 +162,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         const sessionCompanyCandidate =
           sessionCompanyId && sessionExperienceId === experienceId ? sessionCompanyId : null
 
-        let resolvedCompanyId: string | null = whopUserCompanyId
+        resolvedCompanyId = whopUserCompanyId
         
         if (!resolvedCompanyId) {
           try {
@@ -299,10 +300,34 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       } catch (createErr: any) {
         console.error('[Experience Page] Failed to create installation:', createErr)
         // Handle unique constraint violations
-        if (createErr.code === 'P2002' && createErr.meta?.target?.includes('experienceId')) {
-          console.warn('[Experience Page] ExperienceId conflict - installation may already exist')
-          // Try to find it again
-          installation = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
+        if (createErr.code === 'P2002') {
+          if (createErr.meta?.target?.includes('companyId') && resolvedCompanyId) {
+            console.warn('[Experience Page] CompanyId conflict - updating existing installation instead')
+            installation = await prisma.whopInstallation.update({
+              where: { companyId: resolvedCompanyId },
+              data: {
+                experienceId,
+                userId: whopUser.userId,
+                accessToken: env.WHOP_APP_SERVER_KEY,
+                plan: 'free',
+                username: whopUser.username || null,
+              },
+            }).catch((err) => {
+              console.error('[Experience Page] Failed to update existing installation after conflict:', err)
+              return null
+            })
+            if (installation) {
+              try {
+                const { getCompanyPrefs } = await import('@/lib/company')
+                await getCompanyPrefs(resolvedCompanyId)
+              } catch (prefsError) {
+                console.error('[Experience Page] Error ensuring CompanyPrefs after conflict update:', prefsError)
+              }
+            }
+          } else if (createErr.meta?.target?.includes('experienceId')) {
+            console.warn('[Experience Page] ExperienceId conflict - installation may already exist')
+            installation = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
+          }
         }
       }
     }
