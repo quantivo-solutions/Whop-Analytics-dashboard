@@ -140,8 +140,10 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       console.log('[Experience Page] No installation found, resolving companyId...')
       
       try {
+        const whopUserCompanyId =
+          whopUser.companyId && whopUser.companyId.startsWith('biz_') ? whopUser.companyId : null
         let resolvedCompanyId: string | null =
-          session?.companyId?.startsWith('biz_') ? session.companyId : null
+          session?.companyId?.startsWith('biz_') ? session.companyId : whopUserCompanyId
         
         if (!resolvedCompanyId) {
           // Try with iframe token first, then server key
@@ -169,8 +171,65 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           }
           
           resolvedCompanyId = experience?.company?.id || experience?.company_id || experience?.companyId || null
-        } else {
-          console.log('[Experience Page] Using session companyId for installation:', resolvedCompanyId)
+        }
+
+        // Fall back to referer biz id (if Whop dashboard passed it)
+        if (!resolvedCompanyId && refererBizId?.startsWith('biz_')) {
+          resolvedCompanyId = refererBizId
+          console.log('[Experience Page] Using referer-derived companyId:', resolvedCompanyId)
+        }
+
+        // Fall back to any existing installations for this user
+        if (!resolvedCompanyId) {
+          const recentInstallation = await prisma.whopInstallation.findFirst({
+            where: {
+              userId: whopUser.userId,
+              companyId: { startsWith: 'biz_' },
+            },
+            orderBy: { updatedAt: 'desc' },
+          })
+          if (recentInstallation?.companyId?.startsWith('biz_')) {
+            resolvedCompanyId = recentInstallation.companyId
+            console.log('[Experience Page] Using prior installation companyId:', resolvedCompanyId)
+          }
+        }
+
+        // Fall back to Whop REST user companies
+        if (!resolvedCompanyId) {
+          try {
+            const userTokenHeader = headersList.get('x-whop-user-token') || undefined
+            const companies = await getCompaniesForUser(whopUser.userId, {
+              accessToken: userTokenHeader || undefined,
+            })
+
+            const companyIds = companies
+              .map((company: any) => {
+                if (!company) return null
+                const candidates = [
+                  company.id,
+                  company.company_id,
+                  company.companyId,
+                  company.company?.id,
+                  company.company?.company_id,
+                  company.company?.companyId,
+                ]
+                return candidates.find(
+                  (value) => typeof value === 'string' && value.startsWith('biz_')
+                )
+              })
+              .filter(Boolean) as string[]
+
+            const refererMatch = refererBizId
+              ? companyIds.find((id) => id === refererBizId)
+              : null
+
+            resolvedCompanyId = refererMatch || companyIds[0] || null
+            if (resolvedCompanyId) {
+              console.log('[Experience Page] Resolved companyId via getCompaniesForUser:', resolvedCompanyId)
+            }
+          } catch (companiesError) {
+            console.warn('[Experience Page] Failed to resolve via getCompaniesForUser:', companiesError)
+          }
         }
         
         if (resolvedCompanyId?.startsWith('biz_')) {
