@@ -170,4 +170,38 @@ export async function getCompaniesForUser(
   return []
 }
 
+/**
+ * Get company by ID (returns company name and details)
+ */
+export async function getCompanyById(companyId: string): Promise<{ name?: string; id: string } | null> {
+  const token = process.env.WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY
+
+  if (!token) {
+    throw new Error("Missing WHOP_APP_SERVER_KEY/WHOP_API_KEY - required for Whop API calls")
+  }
+
+  try {
+    const res = await fetch(`https://api.whop.com/api/v5/companies/${companyId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+
+    if (res.status === 404) return null
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "")
+      throw new Error(`Whop getCompany ${companyId} failed: ${res.status} ${text}`)
+    }
+
+    const data = await res.json()
+    return {
+      id: data.id || companyId,
+      name: data.name || data.company_name || data.title || undefined,
+    }
+  } catch (error) {
+    console.error(`[Whop REST] Error fetching company ${companyId}:`, error)
+    return null
+  }
+}
+
 

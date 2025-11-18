@@ -27,6 +27,7 @@ import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { GoalProgress } from '@/components/goal-progress'
 import { WhoplyticsLogo } from '@/components/whoplytics-logo'
 import { getCompanyPrefs, isOnboardingComplete, getInstallationByCompany, CompanyID } from '@/lib/company'
+import { getCompanyById } from '@/lib/whop-rest'
 import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
@@ -698,7 +699,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             plan = 'free'
             console.log('[Dashboard View] ✅ Downgraded to free (confirmed no active membership)')
             const { setCompanyPrefs } = await import('@/lib/company')
-            await setCompanyPrefs(installation.companyId, { completedAt: null })
+            await setCompanyPrefs(finalCompanyId, { completedAt: null })
             console.log('[Dashboard View] ✅ Reset onboarding due to downgrade')
           }
         }
@@ -766,10 +767,21 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
 
+  // Fetch company name from Whop API
+  let companyName: string | undefined
+  try {
+    const companyData = await getCompanyById(finalCompanyId)
+    companyName = companyData?.name
+    console.log('[Dashboard View] Fetched company name:', companyName || 'not found')
+  } catch (error) {
+    console.warn('[Dashboard View] Failed to fetch company name:', error)
+  }
+
+  // Determine display name: prefer company name, fallback to experience name, username, or generic
   const companyDisplayName =
+    companyName ||
     installation?.experienceName ||
     installation?.username ||
-    installation?.companyId ||
     'Your Dashboard'
 
   return (
