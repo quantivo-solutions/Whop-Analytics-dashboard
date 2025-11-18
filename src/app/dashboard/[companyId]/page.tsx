@@ -333,9 +333,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               } catch (prefsError) {
                 console.error('[Dashboard View] Error ensuring CompanyPrefs:', prefsError)
               }
-            } else {
-              console.log('[Dashboard View] ✅ Found installation by URL companyId:', companyId)
-            }
           }
           
           // Installation exists - always update user data and fetch experienceId if missing
