@@ -125,6 +125,28 @@ export async function setCompanyPrefs(
 }
 
 /**
+ * Fetch and update company name for an installation
+ * This ensures the company name is always available for display
+ */
+export async function updateInstallationCompanyName(companyId: CompanyID): Promise<void> {
+  try {
+    const { getCompanyById } = await import('@/lib/whop-rest')
+    const companyData = await getCompanyById(companyId)
+    
+    if (companyData?.name) {
+      await prisma.whopInstallation.updateMany({
+        where: { companyId },
+        data: { experienceName: companyData.name },
+      })
+      console.log(`[Company] Updated company name for ${companyId}: ${companyData.name}`)
+    }
+  } catch (error) {
+    console.warn(`[Company] Failed to update company name for ${companyId}:`, error)
+    // Don't throw - this is not critical
+  }
+}
+
+/**
  * Link experience to company (upsert installation mapping)
  * This auto-claims installations when Whop opens /experiences/[experienceId]
  * 

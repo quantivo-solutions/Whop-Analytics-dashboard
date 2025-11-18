@@ -287,6 +287,14 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             experienceId: installation.experienceId,
           })
           
+          // Fetch and store company name
+          try {
+            const { updateInstallationCompanyName } = await import('@/lib/company')
+            await updateInstallationCompanyName(resolvedCompanyId)
+          } catch (nameError) {
+            console.warn('[Experience Page] Failed to fetch company name:', nameError)
+          }
+          
           // Ensure CompanyPrefs exists
           try {
             const { getCompanyPrefs } = await import('@/lib/company')
@@ -317,6 +325,19 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               return null
             })
             if (installation) {
+              // Fetch and store company name if missing
+              if (!installation.experienceName) {
+                try {
+                  const { updateInstallationCompanyName } = await import('@/lib/company')
+                  await updateInstallationCompanyName(resolvedCompanyId)
+                  // Refresh installation to get updated name
+                  installation = await prisma.whopInstallation.findUnique({
+                    where: { companyId: resolvedCompanyId },
+                  })
+                } catch (nameError) {
+                  console.warn('[Experience Page] Failed to fetch company name:', nameError)
+                }
+              }
               try {
                 const { getCompanyPrefs } = await import('@/lib/company')
                 await getCompanyPrefs(resolvedCompanyId)

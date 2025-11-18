@@ -295,6 +295,15 @@ async function handleAppInstalled(data: any) {
     })
 
     console.log(`[WHOP] ✅ Installed companyId=${company_id}, plan=free (isNew: ${isNewInstallation}), experienceId=${experience_id || 'none'}, userId=${user_id || 'none'}`)
+    
+    // Fetch and store company name
+    try {
+      const { updateInstallationCompanyName } = await import('@/lib/company')
+      await updateInstallationCompanyName(company_id)
+    } catch (nameError) {
+      console.warn(`[WHOP] Failed to fetch company name:`, nameError)
+      // Non-critical, continue
+    }
   } catch (error: any) {
     // Handle unique constraint violations (e.g., duplicate experienceId)
     console.error(`[WHOP] ❌ Error during installation upsert:`, {

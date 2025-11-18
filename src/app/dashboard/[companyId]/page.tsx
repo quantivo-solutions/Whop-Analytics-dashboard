@@ -27,7 +27,6 @@ import { getPlanForCompany, getUpgradeUrl } from '@/lib/plan'
 import { GoalProgress } from '@/components/goal-progress'
 import { WhoplyticsLogo } from '@/components/whoplytics-logo'
 import { getCompanyPrefs, isOnboardingComplete, getInstallationByCompany, CompanyID } from '@/lib/company'
-import { getCompanyById } from '@/lib/whop-rest'
 import { PlanBadge } from '@/components/plan-badge'
 import { UpgradeButtonIframe } from '@/components/upgrade-button-iframe'
 import { UserProfileMenuClient } from '@/components/user-profile-menu-client'
@@ -324,6 +323,14 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                 }
                 
                 throw createError
+              }
+              
+              // Fetch and store company name
+              try {
+                const { updateInstallationCompanyName } = await import('@/lib/company')
+                await updateInstallationCompanyName(companyId)
+              } catch (nameError) {
+                console.warn('[Dashboard View] Failed to fetch company name:', nameError)
               }
               
               // Ensure CompanyPrefs exists
@@ -767,19 +774,22 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
 
-  // Fetch company name from Whop API
-  let companyName: string | undefined
-  try {
-    const companyData = await getCompanyById(finalCompanyId)
-    companyName = companyData?.name
-    console.log('[Dashboard View] Fetched company name:', companyName || 'not found')
-  } catch (error) {
-    console.warn('[Dashboard View] Failed to fetch company name:', error)
+  // Ensure company name is stored in installation (fetch if missing)
+  if (installation && !installation.experienceName) {
+    try {
+      const { updateInstallationCompanyName } = await import('@/lib/company')
+      await updateInstallationCompanyName(finalCompanyId)
+      // Refresh installation to get updated name
+      installation = await prisma.whopInstallation.findUnique({
+        where: { companyId: finalCompanyId },
+      })
+    } catch (nameError) {
+      console.warn('[Dashboard View] Failed to update company name:', nameError)
+    }
   }
 
-  // Determine display name: prefer company name, fallback to experience name, username, or generic
+  // Determine display name: prefer stored company name from installation, fallback to fetching fresh, then username
   const companyDisplayName =
-    companyName ||
     installation?.experienceName ||
     installation?.username ||
     'Your Dashboard'
