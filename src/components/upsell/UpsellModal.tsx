@@ -106,11 +106,11 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
       console.log('[UpsellModal] ===== PURCHASE RESULT =====')
       console.log('[UpsellModal] Full result:', JSON.stringify(result, null, 2))
       console.log('[UpsellModal] Result status:', result.status)
-      console.log('[UpsellModal] Result data:', result.data)
       
       if (result.status === 'ok') {
+        console.log('[UpsellModal] Result data:', result.data)
         toast.success('Successfully upgraded to Pro! 🎉')
-        console.log('[UpsellModal] Receipt ID:', result.data?.receiptId)
+        console.log('[UpsellModal] Receipt ID:', result.data.receiptId)
         
         // Try to sync plan immediately (webhook might be delayed)
         try {
