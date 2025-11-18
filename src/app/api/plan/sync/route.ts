@@ -20,8 +20,8 @@ export async function POST(request: Request) {
   try {
     console.log('[Plan Sync] ===== SYNC REQUEST =====')
     
-    // Get session to find companyId
-    const session = await getSession(request)
+    // Get session to find companyId (reads from cookies)
+    const session = await getSession()
     
     if (!session?.companyId) {
       console.error('[Plan Sync] No companyId in session')
