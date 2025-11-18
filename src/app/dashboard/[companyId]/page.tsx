@@ -445,7 +445,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             ;(global as any).__whopSessionToken = sessionToken
             console.log('[Dashboard View] ✅ Session token created')
           }
-        }
       } else {
         // No Whop auth - check for existing session
         console.log('[Dashboard View] No Whop auth, checking session...')
