@@ -53,22 +53,38 @@ export async function getExperienceById(experienceId: string) {
     throw new Error("Missing WHOP_APP_SERVER_KEY/WHOP_API_KEY - required for Whop API calls")
   }
 
+  console.log(`[Whop REST] 🔍 Fetching experience ${experienceId} from Whop API...`)
+  
   const url = new URL(`https://api.whop.com/api/v5/experiences/${experienceId}`)
   url.searchParams.set('include', 'company,workspace,app_installation,app')
+
+  console.log(`[Whop REST] 📡 Experience request URL: ${url.toString()}`)
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   })
 
-  if (res.status === 404) return null
+  console.log(`[Whop REST] 📥 Experience response status: ${res.status} ${res.statusText}`)
+
+  if (res.status === 404) {
+    console.warn(`[Whop REST] ⚠️ Experience ${experienceId} not found (404)`)
+    return null
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "")
+    console.error(`[Whop REST] ❌ Experience API error: ${res.status} ${text}`)
     throw new Error(`Whop getExperience ${experienceId} failed: ${res.status} ${text}`)
   }
 
-  return res.json()
+  const data = await res.json()
+  console.log(`[Whop REST] 📦 Experience data received, keys:`, Object.keys(data))
+  if (data.company) {
+    console.log(`[Whop REST] 📦 Company data in experience:`, JSON.stringify(data.company, null, 2))
+  }
+  
+  return data
 }
 
 /**

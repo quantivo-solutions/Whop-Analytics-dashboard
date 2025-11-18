@@ -136,6 +136,12 @@ export async function updateInstallationCompanyName(companyId: CompanyID): Promi
     where: { companyId },
   })
   
+  console.log(`[Company] 📋 Installation fetched:`, {
+    exists: !!installation,
+    experienceId: installation?.experienceId || 'none',
+    companyId: installation?.companyId || 'none',
+  })
+  
   let companyName: string | undefined = undefined
   
   // Strategy 1: Try to get company name from experience endpoint (if experienceId exists)
