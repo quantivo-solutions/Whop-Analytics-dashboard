@@ -112,6 +112,25 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
         toast.success('Successfully upgraded to Pro! 🎉')
         console.log('[UpsellModal] Receipt ID:', result.data?.receiptId)
         
+        // Try to sync plan immediately (webhook might be delayed)
+        try {
+          console.log('[UpsellModal] Attempting to sync plan...')
+          const syncResponse = await fetch('/api/plan/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          
+          if (syncResponse.ok) {
+            const syncData = await syncResponse.json()
+            console.log('[UpsellModal] Plan sync response:', syncData)
+          } else {
+            console.warn('[UpsellModal] Plan sync failed:', await syncResponse.text())
+          }
+        } catch (syncError) {
+          console.warn('[UpsellModal] Plan sync error (non-critical):', syncError)
+          // Don't fail the purchase if sync fails - webhook will handle it
+        }
+        
         // Close modal and reload page to show updated plan
         onClose()
         setTimeout(() => {

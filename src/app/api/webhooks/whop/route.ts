@@ -119,6 +119,7 @@ export async function POST(request: Request) {
 
     console.log(`📥 Whop webhook action: ${action}`)
     console.log(`📦 Webhook data keys:`, Object.keys(data || {}))
+    console.log(`📦 Full webhook body:`, JSON.stringify(body, null, 2))
 
     // Map Whop's action names to our handlers
     switch (action) {
@@ -156,6 +157,19 @@ export async function POST(request: Request) {
       
       default:
         console.log(`ℹ️  Unhandled webhook action: ${action}`)
+        console.log(`ℹ️  Full webhook body for unhandled action:`, JSON.stringify(body, null, 2))
+        
+        // Check if this might be a membership event with different naming
+        if (action && (action.includes('membership') || action.includes('purchase') || action.includes('payment'))) {
+          console.log(`[WHOP] ⚠️  Potential membership event with unrecognized action: ${action}`)
+          console.log(`[WHOP] ⚠️  Attempting to handle as membership.activated...`)
+          try {
+            await handleMembershipActivated(data)
+            console.log(`[WHOP] ✅ Successfully handled unrecognized membership event`)
+          } catch (err) {
+            console.error(`[WHOP] ❌ Failed to handle unrecognized membership event:`, err)
+          }
+        }
     }
 
     return NextResponse.json({ ok: true, action })
