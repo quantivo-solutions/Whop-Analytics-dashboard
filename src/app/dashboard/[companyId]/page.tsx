@@ -520,20 +520,20 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
   console.log('[Dashboard View] ✅ Access granted, loading dashboard data...')
 
-  // CRITICAL: Use installation.companyId (not URL companyId) for consistency with Experience View
-  // This ensures both views use the same companyId for CompanyPrefs
-  const finalCompanyId = installation ? installation.companyId : companyId
+  // CRITICAL: Always use URL companyId for prefs/data to ensure isolation
+  // Installation lookup is only for access control and plan info
+  // Each dashboard URL should have its own isolated prefs
+  const finalCompanyId = companyId
   
-  console.log('[Dashboard View] Using companyId from installation:', finalCompanyId, '(URL companyId:', companyId, ')')
+  console.log('[Dashboard View] Using URL companyId for prefs/data:', finalCompanyId)
   
-  // If URL companyId doesn't match installation companyId, we should redirect or use installation's
+  // If URL companyId doesn't match installation companyId, log warning but use URL for data
   if (installation && installation.companyId !== companyId) {
     console.log('[Dashboard View] ⚠️ URL companyId mismatch:', {
       urlCompanyId: companyId,
       installationCompanyId: installation.companyId
     })
-    // For now, we'll use installation.companyId for data/prefs but keep URL for navigation
-    // This ensures CompanyPrefs are synced between views
+    console.log('[Dashboard View] ⚠️ Using URL companyId for prefs/data to ensure isolation')
   }
 
   // STEP 4: Do not auto-switch plans across installations.
@@ -552,7 +552,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   }
 
   // CRITICAL: Check onboarding status FIRST before fetching dashboard data
-  // Use finalCompanyId (installation.companyId) for consistency with Experience View
+  // Always use URL companyId for prefs to ensure each dashboard is isolated
   console.log('[Dashboard View] Checking onboarding status for companyId:', finalCompanyId)
   
   let prefs
@@ -566,7 +566,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       if (updatedAgoMs < 5000) {
         try {
           const { setCompanyPrefs } = await import('@/lib/company')
-          await setCompanyPrefs(installation.companyId, { completedAt: null })
+          await setCompanyPrefs(finalCompanyId, { completedAt: null })
           console.log('[Dashboard View] ✅ [SAFETY] Reset onboarding due to recent installation update (', updatedAgoMs, 'ms )')
         } catch (sErr) {
           console.error('[Dashboard View] Error in safety onboarding reset:', sErr)
@@ -574,7 +574,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       }
     }
 
-    prefs = await getCompanyPrefs(finalCompanyId) // Use installation.companyId, not URL companyId
+    prefs = await getCompanyPrefs(finalCompanyId) // Always use URL companyId for isolation
     
     // Check if user just upgraded to Pro (plan is pro/business, recently updated, onboarding completed, but welcome not shown)
     const isPro = installation && (installation.plan === 'pro' || installation.plan === 'business')
@@ -627,8 +627,8 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-        <WizardWrapper
-          companyId={finalCompanyId} // Use installation.companyId
+          <WizardWrapper
+            companyId={finalCompanyId} // Use URL companyId for isolation
           initialPrefs={{
             goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
             completedAt: prefs.completedAt?.toISOString() || null,
@@ -759,7 +759,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     )
   }
 
-  // Get upgrade URL with company context (use finalCompanyId for consistency)
+  // Get upgrade URL with company context (use URL companyId)
   const upgradeUrl = getUpgradeUrl(finalCompanyId)
 
   // Calculate monthly revenue and get last sync date
@@ -800,7 +800,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               {plan === 'free' && <UpgradeButtonIframe plan={plan} />}
               {installation && (
                 <UserProfileMenuClient
-                  companyId={finalCompanyId} // Use installation.companyId for consistency
+                  companyId={finalCompanyId} // Use URL companyId for isolation
                   username={installation.username}
                   email={installation.email}
                   profilePicUrl={installation.profilePicUrl}
