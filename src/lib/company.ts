@@ -129,19 +129,35 @@ export async function setCompanyPrefs(
  * This ensures the company name is always available for display
  */
 export async function updateInstallationCompanyName(companyId: CompanyID): Promise<void> {
+  console.log(`[Company] 🔍 Fetching company name for ${companyId}...`)
   try {
     const { getCompanyById } = await import('@/lib/whop-rest')
     const companyData = await getCompanyById(companyId)
     
-    if (companyData?.name) {
-      await prisma.whopInstallation.updateMany({
+    console.log(`[Company] 📦 Company data received:`, JSON.stringify(companyData, null, 2))
+    
+    if (!companyData) {
+      console.warn(`[Company] ⚠️ No company data returned for ${companyId}`)
+      return
+    }
+    
+    if (companyData.name) {
+      const updated = await prisma.whopInstallation.update({
         where: { companyId },
         data: { experienceName: companyData.name },
       })
-      console.log(`[Company] Updated company name for ${companyId}: ${companyData.name}`)
+      console.log(`[Company] ✅ Updated company name for ${companyId}: "${companyData.name}"`)
+      console.log(`[Company] ✅ Installation updated:`, { id: updated.id, experienceName: updated.experienceName })
+    } else {
+      console.warn(`[Company] ⚠️ Company data exists but no name field found. Data keys:`, Object.keys(companyData))
+      console.warn(`[Company] ⚠️ Full company data:`, JSON.stringify(companyData, null, 2))
     }
   } catch (error) {
-    console.warn(`[Company] Failed to update company name for ${companyId}:`, error)
+    console.error(`[Company] ❌ Failed to update company name for ${companyId}:`, error)
+    if (error instanceof Error) {
+      console.error(`[Company] ❌ Error message:`, error.message)
+      console.error(`[Company] ❌ Error stack:`, error.stack)
+    }
     // Don't throw - this is not critical
   }
 }

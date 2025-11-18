@@ -180,26 +180,48 @@ export async function getCompanyById(companyId: string): Promise<{ name?: string
     throw new Error("Missing WHOP_APP_SERVER_KEY/WHOP_API_KEY - required for Whop API calls")
   }
 
+  console.log(`[Whop REST] 🔍 Fetching company ${companyId} from Whop API...`)
+  
   try {
-    const res = await fetch(`https://api.whop.com/api/v5/companies/${companyId}`, {
+    const url = `https://api.whop.com/api/v5/companies/${companyId}`
+    console.log(`[Whop REST] 📡 Request URL: ${url}`)
+    
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     })
 
-    if (res.status === 404) return null
+    console.log(`[Whop REST] 📥 Response status: ${res.status} ${res.statusText}`)
+
+    if (res.status === 404) {
+      console.warn(`[Whop REST] ⚠️ Company ${companyId} not found (404)`)
+      return null
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => "")
+      console.error(`[Whop REST] ❌ API error: ${res.status} ${text}`)
       throw new Error(`Whop getCompany ${companyId} failed: ${res.status} ${text}`)
     }
 
     const data = await res.json()
+    console.log(`[Whop REST] 📦 Raw API response:`, JSON.stringify(data, null, 2))
+    
+    // Try multiple possible field names for company name
+    const companyName = data.name || data.company_name || data.title || data.display_name || data.business_name || undefined
+    
+    console.log(`[Whop REST] ✅ Extracted company name: "${companyName}"`)
+    console.log(`[Whop REST] ✅ Available fields:`, Object.keys(data))
+    
     return {
       id: data.id || companyId,
-      name: data.name || data.company_name || data.title || undefined,
+      name: companyName,
     }
   } catch (error) {
-    console.error(`[Whop REST] Error fetching company ${companyId}:`, error)
+    console.error(`[Whop REST] ❌ Error fetching company ${companyId}:`, error)
+    if (error instanceof Error) {
+      console.error(`[Whop REST] ❌ Error details:`, error.message, error.stack)
+    }
     return null
   }
 }

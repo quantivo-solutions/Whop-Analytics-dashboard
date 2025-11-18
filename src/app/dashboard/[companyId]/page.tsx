@@ -774,18 +774,26 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // Get session token for SessionSetter (if created from Whop auth)
   const sessionTokenForClient = (global as any).__whopSessionToken
 
-  // Ensure company name is stored in installation (fetch if missing)
-  if (installation && !installation.experienceName) {
-    try {
-      const { updateInstallationCompanyName } = await import('@/lib/company')
-      await updateInstallationCompanyName(finalCompanyId)
-      // Refresh installation to get updated name
-      installation = await prisma.whopInstallation.findUnique({
-        where: { companyId: finalCompanyId },
-      })
-    } catch (nameError) {
-      console.warn('[Dashboard View] Failed to update company name:', nameError)
+  // Always ensure company name is stored in installation (fetch and update if missing or empty)
+  if (installation) {
+    if (!installation.experienceName) {
+      console.log('[Dashboard View] 🔍 Company name missing, fetching from Whop API...')
+      try {
+        const { updateInstallationCompanyName } = await import('@/lib/company')
+        await updateInstallationCompanyName(finalCompanyId)
+        // Refresh installation to get updated name
+        installation = await prisma.whopInstallation.findUnique({
+          where: { companyId: finalCompanyId },
+        })
+        console.log('[Dashboard View] ✅ Installation refreshed, experienceName:', installation?.experienceName || 'still null')
+      } catch (nameError) {
+        console.error('[Dashboard View] ❌ Failed to update company name:', nameError)
+      }
+    } else {
+      console.log('[Dashboard View] ✅ Company name already stored:', installation.experienceName)
     }
+  } else {
+    console.warn('[Dashboard View] ⚠️ No installation found, cannot fetch company name')
   }
 
   // Determine display name: prefer stored company name from installation, fallback to fetching fresh, then username
