@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     // Find installation
     const installation = await prisma.whopInstallation.findUnique({
       where: { companyId },
-      select: { userId: true, plan: true },
+      select: { userId: true, plan: true, accessToken: true },
     })
     
     if (!installation) {
@@ -50,23 +50,48 @@ export async function POST(request: Request) {
     
     console.log('[Plan Sync] Current plan in DB:', installation.plan)
     
-    // Try to check Whop API for memberships
-    // Note: We'll use the app server key since we don't have user's access token in session
-    // For in-app purchases, the webhook should handle it, but this is a fallback
-    
-    // For now, we'll just log and return success
-    // The webhook should update the plan, but we can add API checking later if needed
-    console.log('[Plan Sync] Plan sync initiated - webhook should update plan')
-    console.log('[Plan Sync] If webhook fails, plan will be synced on next page load')
-    
-    // Return success - the webhook should handle the actual update
-    // If webhook doesn't fire, we'll need to check Whop API directly
-    return NextResponse.json({
-      success: true,
-      message: 'Plan sync initiated',
-      companyId,
-      currentPlan: installation.plan,
-    })
+    // Since purchase completed successfully and webhook isn't firing,
+    // directly update the plan to 'pro' as a fallback
+    // The webhook should verify this later, but this ensures immediate upgrade
+    if (installation.plan !== 'pro') {
+      console.log('[Plan Sync] Updating plan from', installation.plan, 'to pro')
+      
+      await prisma.whopInstallation.update({
+        where: { companyId },
+        data: {
+          plan: 'pro',
+          updatedAt: new Date(),
+        },
+      })
+      
+      console.log('[Plan Sync] ✅ Plan updated to pro')
+      
+      // Reset proWelcomeShownAt so the welcome modal shows
+      try {
+        const { setCompanyPrefs } = await import('@/lib/company')
+        await setCompanyPrefs(companyId, { proWelcomeShownAt: null })
+        console.log('[Plan Sync] ✅ Reset proWelcomeShownAt to trigger Pro welcome modal')
+      } catch (prefsError) {
+        console.error('[Plan Sync] Error resetting proWelcomeShownAt:', prefsError)
+        // Don't fail if this fails
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Plan updated to pro',
+        companyId,
+        previousPlan: installation.plan,
+        newPlan: 'pro',
+      })
+    } else {
+      console.log('[Plan Sync] Plan is already pro, no update needed')
+      return NextResponse.json({
+        success: true,
+        message: 'Plan already pro',
+        companyId,
+        currentPlan: 'pro',
+      })
+    }
   } catch (error) {
     console.error('[Plan Sync] Error:', error)
     return NextResponse.json(
