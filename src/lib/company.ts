@@ -130,35 +130,78 @@ export async function setCompanyPrefs(
  */
 export async function updateInstallationCompanyName(companyId: CompanyID): Promise<void> {
   console.log(`[Company] 🔍 Fetching company name for ${companyId}...`)
-  try {
-    const { getCompanyById } = await import('@/lib/whop-rest')
-    const companyData = await getCompanyById(companyId)
-    
-    console.log(`[Company] 📦 Company data received:`, JSON.stringify(companyData, null, 2))
-    
-    if (!companyData) {
-      console.warn(`[Company] ⚠️ No company data returned for ${companyId}`)
-      return
+  
+  // First, try to get company name from the installation's experienceId if available
+  const installation = await prisma.whopInstallation.findUnique({
+    where: { companyId },
+  })
+  
+  let companyName: string | undefined = undefined
+  
+  // Strategy 1: Try to get company name from experience endpoint (if experienceId exists)
+  if (installation?.experienceId) {
+    try {
+      console.log(`[Company] 📡 Trying to get company name via experienceId: ${installation.experienceId}`)
+      const { getExperienceById } = await import('@/lib/whop-rest')
+      const experienceData = await getExperienceById(installation.experienceId)
+      
+      if (experienceData) {
+        console.log(`[Company] 📦 Experience data received:`, JSON.stringify(experienceData, null, 2))
+        
+        // Try to extract company name from experience data
+        const expCompanyName = 
+          experienceData.company?.name ||
+          experienceData.company?.company_name ||
+          experienceData.company?.title ||
+          experienceData.name ||
+          experienceData.title ||
+          undefined
+        
+        if (expCompanyName) {
+          companyName = expCompanyName
+          console.log(`[Company] ✅ Found company name via experience: "${companyName}"`)
+        }
+      }
+    } catch (expError) {
+      console.warn(`[Company] ⚠️ Failed to get company name via experience:`, expError)
     }
-    
-    if (companyData.name) {
+  }
+  
+  // Strategy 2: If not found via experience, try direct company endpoint
+  if (!companyName) {
+    try {
+      console.log(`[Company] 📡 Trying to get company name via direct company endpoint...`)
+      const { getCompanyById } = await import('@/lib/whop-rest')
+      const companyData = await getCompanyById(companyId)
+      
+      console.log(`[Company] 📦 Company data received:`, JSON.stringify(companyData, null, 2))
+      
+      if (companyData?.name) {
+        companyName = companyData.name
+        console.log(`[Company] ✅ Found company name via company endpoint: "${companyName}"`)
+      } else if (companyData) {
+        console.warn(`[Company] ⚠️ Company data exists but no name field found. Data keys:`, Object.keys(companyData))
+        console.warn(`[Company] ⚠️ Full company data:`, JSON.stringify(companyData, null, 2))
+      }
+    } catch (companyError) {
+      console.warn(`[Company] ⚠️ Failed to get company name via company endpoint:`, companyError)
+    }
+  }
+  
+  // Update installation if we found a name
+  if (companyName) {
+    try {
       const updated = await prisma.whopInstallation.update({
         where: { companyId },
-        data: { experienceName: companyData.name },
+        data: { experienceName: companyName },
       })
-      console.log(`[Company] ✅ Updated company name for ${companyId}: "${companyData.name}"`)
+      console.log(`[Company] ✅ Updated company name for ${companyId}: "${companyName}"`)
       console.log(`[Company] ✅ Installation updated:`, { id: updated.id, experienceName: updated.experienceName })
-    } else {
-      console.warn(`[Company] ⚠️ Company data exists but no name field found. Data keys:`, Object.keys(companyData))
-      console.warn(`[Company] ⚠️ Full company data:`, JSON.stringify(companyData, null, 2))
+    } catch (updateError) {
+      console.error(`[Company] ❌ Failed to update installation with company name:`, updateError)
     }
-  } catch (error) {
-    console.error(`[Company] ❌ Failed to update company name for ${companyId}:`, error)
-    if (error instanceof Error) {
-      console.error(`[Company] ❌ Error message:`, error.message)
-      console.error(`[Company] ❌ Error stack:`, error.stack)
-    }
-    // Don't throw - this is not critical
+  } else {
+    console.warn(`[Company] ⚠️ Could not find company name for ${companyId} via any method`)
   }
 }
 
