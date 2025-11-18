@@ -63,11 +63,16 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
   }
 
   const handleUpgrade = async () => {
+    console.log('[UpsellModal] ===== UPGRADE CLICKED =====')
     setIsLoading(true)
     
     try {
       // Get the plan ID from environment variable
       const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
+      
+      console.log('[UpsellModal] Plan ID from env:', planId)
+      console.log('[UpsellModal] iframeSdk object:', iframeSdk)
+      console.log('[UpsellModal] iframeSdk methods:', Object.keys(iframeSdk || {}))
       
       if (!planId) {
         toast.error('Upgrade is not configured. Please contact support.')
@@ -91,13 +96,17 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
       }
 
       console.log('[UpsellModal] SDK ready, calling inAppPurchase...')
+      console.log('[UpsellModal] Calling with planId:', planId)
       
       // Use Whop's iframeSdk.inAppPurchase() as per official docs
       const result = await iframeSdk.inAppPurchase({ 
         planId: planId 
       })
       
-      console.log('[UpsellModal] Purchase result:', result)
+      console.log('[UpsellModal] ===== PURCHASE RESULT =====')
+      console.log('[UpsellModal] Full result:', JSON.stringify(result, null, 2))
+      console.log('[UpsellModal] Result status:', result.status)
+      console.log('[UpsellModal] Result data:', result.data)
       
       if (result.status === 'ok') {
         toast.success('Successfully upgraded to Pro! 🎉')
@@ -110,10 +119,14 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
         }, 1500)
       } else {
         console.error('[UpsellModal] Purchase failed:', result.error)
+        console.error('[UpsellModal] Error details:', result)
         toast.error(result.error || 'Purchase failed. Please try again.')
       }
     } catch (error) {
-      console.error('[UpsellModal] Error during purchase:', error)
+      console.error('[UpsellModal] ===== ERROR DURING PURCHASE =====')
+      console.error('[UpsellModal] Error:', error)
+      console.error('[UpsellModal] Error message:', error instanceof Error ? error.message : String(error))
+      console.error('[UpsellModal] Error stack:', error instanceof Error ? error.stack : 'No stack')
       toast.error('Failed to start upgrade process. Please try again.')
     } finally {
       setIsLoading(false)
@@ -163,6 +176,28 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
           >
             {isLoading ? 'Processing...' : 'Start 7-Day Free Trial'}
           </Button>
+          {/* Fallback: Direct redirect button if SDK fails */}
+          {!isSdkReady && (
+            <Button
+              onClick={() => {
+                const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
+                if (planId) {
+                  console.log('[UpsellModal] Fallback: Redirecting to purchase page:', planId)
+                  if (window.parent && window.parent !== window) {
+                    window.parent.location.href = `https://whop.com/purchase/${planId}`
+                  } else {
+                    window.location.href = `https://whop.com/purchase/${planId}`
+                  }
+                } else {
+                  toast.error('Upgrade is not configured.')
+                }
+              }}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              Upgrade via Whop
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
