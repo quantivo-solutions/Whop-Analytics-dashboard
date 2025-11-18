@@ -144,32 +144,39 @@ export async function updateInstallationCompanyName(companyId: CompanyID): Promi
   
   let companyName: string | undefined = undefined
   
-  // Strategy 1: Try to get company name from experience endpoint (if experienceId exists)
+  // Strategy 1: Try to get company name from experience using Whop SDK (if experienceId exists)
   if (installation?.experienceId) {
     try {
-      console.log(`[Company] 📡 Trying to get company name via experienceId: ${installation.experienceId}`)
-      const { getExperienceById } = await import('@/lib/whop-rest')
-      const experienceData = await getExperienceById(installation.experienceId)
+      console.log(`[Company] 📡 Trying to get company name via Whop SDK experienceId: ${installation.experienceId}`)
+      const { whopSdk } = await import('@/lib/whop-sdk')
+      const experience = await whopSdk.experiences.getExperience({ experienceId: installation.experienceId })
       
-      if (experienceData) {
-        console.log(`[Company] 📦 Experience data received:`, JSON.stringify(experienceData, null, 2))
+      if (experience) {
+        console.log(`[Company] 📦 Experience data received from SDK, keys:`, Object.keys(experience))
         
         // Try to extract company name from experience data
+        // The SDK might return company data in different formats
         const expCompanyName = 
-          experienceData.company?.name ||
-          experienceData.company?.company_name ||
-          experienceData.company?.title ||
-          experienceData.name ||
-          experienceData.title ||
+          (experience as any).company?.name ||
+          (experience as any).company?.company_name ||
+          (experience as any).company?.title ||
+          (experience as any).name ||
+          (experience as any).title ||
           undefined
+        
+        console.log(`[Company] 📦 Extracted company name from experience: "${expCompanyName || 'none'}"`)
+        console.log(`[Company] 📦 Full experience data:`, JSON.stringify(experience, null, 2))
         
         if (expCompanyName) {
           companyName = expCompanyName
-          console.log(`[Company] ✅ Found company name via experience: "${companyName}"`)
+          console.log(`[Company] ✅ Found company name via Whop SDK experience: "${companyName}"`)
         }
       }
     } catch (expError) {
-      console.warn(`[Company] ⚠️ Failed to get company name via experience:`, expError)
+      console.warn(`[Company] ⚠️ Failed to get company name via Whop SDK experience:`, expError)
+      if (expError instanceof Error) {
+        console.warn(`[Company] ⚠️ Error details:`, expError.message, expError.stack)
+      }
     }
   }
   
