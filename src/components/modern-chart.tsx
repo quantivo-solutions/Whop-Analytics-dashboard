@@ -276,15 +276,15 @@ export function ModernChart({ data }: ModernChartProps) {
               <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
                 Trend
                 {(selectedMetric === 'revenue' ? revenueChange : membersChange) > 0 ? (
-                  <TrendingUp className="h-3 w-3 text-green-500" />
+                  <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
                 ) : (
-                  <TrendingDown className="h-3 w-3 text-red-500" />
+                  <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
                 )}
               </p>
               <p className={`text-xl font-bold ${
                 (selectedMetric === 'revenue' ? revenueChange : membersChange) > 0 
-                  ? 'text-green-500' 
-                  : 'text-red-500'
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
               }`}>
                 {(selectedMetric === 'revenue' ? revenueChange : membersChange) > 0 ? '+' : ''}
                 {(selectedMetric === 'revenue' ? revenueChange : membersChange).toFixed(1)}%
@@ -296,32 +296,32 @@ export function ModernChart({ data }: ModernChartProps) {
 
       {/* Quick Stats Grid */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
+        <Card className="border-l-4 border-l-green-500 dark:border-l-green-400 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalRevenue)}</p>
             <p className="text-xs text-muted-foreground mt-1">Last {data.length} days</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
+        <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">New Members</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">+{totalNewMembers}</p>
+            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">+{totalNewMembers}</p>
             <p className="text-xs text-muted-foreground mt-1">Joined this period</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
+        <Card className="border-l-4 border-l-purple-500 dark:border-l-purple-400 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">Active Now</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-purple-600">{membersData[membersData.length - 1]}</p>
+            <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{membersData[membersData.length - 1]}</p>
             <p className="text-xs text-muted-foreground mt-1">Current members</p>
           </CardContent>
         </Card>

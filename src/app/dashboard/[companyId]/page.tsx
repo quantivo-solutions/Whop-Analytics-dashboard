@@ -593,7 +593,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       console.log('[Dashboard View] ✅ Pro upgrade detected - showing Pro welcome modal')
       const sessionTokenForClient = (global as any).__whopSessionToken
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
           {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
           <ProWelcomeWrapper
             companyId={finalCompanyId}
@@ -629,7 +629,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     console.log('[Dashboard View] Onboarding NOT complete - showing wizard')
     const sessionTokenForClient = (global as any).__whopSessionToken
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
         {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
           <WizardWrapper
             companyId={finalCompanyId} // Use URL companyId for isolation
@@ -750,7 +750,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   if (!onboardingComplete) {
     const sessionTokenForClient = (global as any).__whopSessionToken
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
         {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
         <WizardWrapper
           companyId={companyId}
@@ -803,7 +803,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     'Your Dashboard'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
       {/* Set session cookie if needed */}
       {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
       
@@ -871,7 +871,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     
     // Return friendly "Not installed yet" state with Install CTA (200 OK, not 500)
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
           <Card className="p-8 text-center">
             <CardContent className="pt-6 space-y-4">

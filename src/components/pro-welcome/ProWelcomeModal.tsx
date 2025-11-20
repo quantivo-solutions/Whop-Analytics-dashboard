@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Sparkles, TrendingUp, Mail, Zap, Download, Users, Crown, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface ProWelcomeModalProps {
   open: boolean
@@ -23,10 +24,10 @@ export function ProWelcomeModal({ open, onClose }: ProWelcomeModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       {/* Background gradient overlay - matching Wizard style */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-slate-950/80 dark:from-black/90 dark:via-slate-900/70 dark:to-black/90" />
+      <div className="absolute inset-0 bg-gradient-to-br from-neutral-950/80 via-neutral-900/60 to-neutral-950/80 dark:from-black/90 dark:via-neutral-900/70 dark:to-black/90" />
       
       <div className="relative w-full max-w-[520px] flex items-center">
-        <Card className="relative rounded-xl border-2 border-cyan-400/30 dark:border-cyan-500/30 shadow-2xl bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 backdrop-blur-sm overflow-hidden w-full">
+        <Card className="relative rounded-xl border-2 border-cyan-400/30 dark:border-cyan-500/30 shadow-2xl bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 backdrop-blur-sm overflow-hidden w-full">
           {/* Decorative gradient border */}
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 via-sky-400/10 to-cyan-400/20 opacity-60 pointer-events-none" />
           
@@ -34,7 +35,7 @@ export function ProWelcomeModal({ open, onClose }: ProWelcomeModalProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-2 top-2 z-10 hover:bg-cyan-400/10 text-slate-600 dark:text-slate-400 h-7 w-7"
+            className="absolute right-2 top-2 z-10 hover:bg-cyan-400/10 text-neutral-600 dark:text-neutral-300 h-7 w-7"
             onClick={onClose}
           >
             <X className="h-3.5 w-3.5" />
@@ -51,7 +52,7 @@ export function ProWelcomeModal({ open, onClose }: ProWelcomeModalProps) {
                 Welcome to Whoplytics Pro!
               </h1>
               
-              <p className="text-xs text-slate-600 dark:text-slate-400">
+              <p className="text-xs text-neutral-600 dark:text-neutral-300">
                 You're all set to unlock powerful analytics and insights
               </p>
             </div>
@@ -66,19 +67,24 @@ export function ProWelcomeModal({ open, onClose }: ProWelcomeModalProps) {
 
             {/* Features list */}
             <div className="space-y-1.5 mb-3">
-              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-1.5 text-center uppercase tracking-wide">Your Pro Features</p>
+              <p className="text-[10px] font-bold text-neutral-700 dark:text-neutral-200 mb-1.5 text-center uppercase tracking-wide">Your Pro Features</p>
               <div className="grid gap-1.5">
                 {features.map((feature, index) => {
                   const Icon = feature.icon
                   return (
                     <div
                       key={index}
-                      className="flex items-center gap-2 p-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-cyan-400/50 dark:hover:border-cyan-500/50 transition-all duration-200 group shadow-sm"
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-md border transition-all duration-200 group shadow-sm",
+                        "bg-white dark:bg-neutral-800",
+                        "border-neutral-200 dark:border-neutral-700",
+                        "hover:border-cyan-400/50 dark:hover:border-cyan-500/50"
+                      )}
                     >
                       <div className="p-1 rounded bg-gradient-to-br from-cyan-400/10 to-sky-400/10 group-hover:from-cyan-400/20 group-hover:to-sky-400/20 transition-colors flex-shrink-0">
                         <Icon className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                       </div>
-                      <span className="text-xs font-medium text-slate-900 dark:text-slate-100 flex-1 leading-tight">{feature.text}</span>
+                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-50 flex-1 leading-tight">{feature.text}</span>
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse flex-shrink-0" />
                     </div>
                   )

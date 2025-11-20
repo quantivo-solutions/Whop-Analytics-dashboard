@@ -149,7 +149,7 @@ export default async function Dashboard() {
     const sessionTokenForClient = (global as any).__whopSessionToken
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
         {/* Set session cookie if needed */}
         {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
         

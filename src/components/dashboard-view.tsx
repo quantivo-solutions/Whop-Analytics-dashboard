@@ -16,6 +16,7 @@ import { Button } from './ui/button'
 import { UpsellModal } from './upsell/UpsellModal'
 import { LockedCard } from './locked-card'
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 
 interface DashboardViewProps {
   data: DashboardData
@@ -135,9 +136,9 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
                 <Zap className="h-4 w-4 text-yellow-500" />
                 <span>Waiting for your first member or payment...</span>
               </div>
-              <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2">
-                <p className="font-semibold text-blue-900 dark:text-blue-200 mb-1">💡 Note:</p>
-                <p className="text-blue-800 dark:text-blue-300">
+              <div className="text-xs bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2">
+                <p className="font-semibold text-blue-900 dark:text-blue-100 mb-1">💡 Note:</p>
+                <p className="text-blue-800 dark:text-blue-200">
                   App installations are separate from analytics data. This dashboard tracks revenue, members, and payments in your Whop. 
                   If you just installed the app, data will appear once you have members or transactions.
                 </p>
@@ -163,7 +164,14 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
             return (
               <Card 
                 key={index} 
-                className="relative overflow-hidden border-2 border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-white dark:bg-slate-900 hover:shadow-xl hover:shadow-slate-300/30 dark:hover:shadow-slate-900/50 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 shadow-md"
+                className={cn(
+                  "relative overflow-hidden border-2",
+                  "border-neutral-200 dark:border-neutral-800",
+                  "hover:border-neutral-300 dark:hover:border-neutral-700",
+                  "bg-white dark:bg-neutral-900",
+                  "hover:shadow-xl hover:shadow-neutral-200/50 dark:hover:shadow-neutral-950/50",
+                  "transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 shadow-md"
+                )}
                 style={{ 
                   animationDelay: `${index * 50}ms`,
                   animationFillMode: 'backwards'
@@ -176,11 +184,11 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                    <p className="text-xs font-semibold text-neutral-600 dark:text-neutral-300 mb-1.5 uppercase tracking-wide">
                       {stat.title}
                     </p>
-                    <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">{stat.value}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    <p className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-50 mb-1">{stat.value}</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
                       {stat.description}
                     </p>
                   </div>

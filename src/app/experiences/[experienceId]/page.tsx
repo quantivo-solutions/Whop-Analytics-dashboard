@@ -363,7 +363,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       }
       const fallbackHref = `/experiences/${experienceId}/redirect`
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
             <Card className="p-8 text-center">
               <CardContent className="pt-6 space-y-4">
@@ -639,7 +639,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-slate-100 to-white dark:from-slate-950 dark:via-slate-900 dark:to-black" />
+      <div className="absolute inset-0 bg-gradient-to-br from-neutral-50 via-neutral-100 to-white dark:from-neutral-950 dark:via-neutral-900 dark:to-black" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,rgba(236,72,153,0.12),transparent)]" />
       <div className="relative">
@@ -670,7 +670,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     
     // Return friendly "Not installed yet" state with Install CTA (200 OK, not 500)
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
           <Card className="p-8 text-center">
             <CardContent className="pt-6 space-y-4">

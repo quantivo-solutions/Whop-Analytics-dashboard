@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Check, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { UpsellModal } from '../upsell/UpsellModal'
+import { cn } from '@/lib/utils'
 
 interface StepCompareProps {
   onChooseFree: () => void
@@ -44,7 +45,11 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
 
         <div className="grid md:grid-cols-2 gap-2.5">
           {/* Free Plan */}
-          <Card className="border-2 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300">
+          <Card className={cn(
+            "border-2 transition-all duration-300",
+            "border-neutral-200 dark:border-neutral-800",
+            "hover:border-neutral-300 dark:hover:border-neutral-700"
+          )}>
             <CardHeader className="pb-2.5">
               <div className="flex items-center justify-between mb-1.5">
                 <h3 className="text-base font-bold">Free</h3>

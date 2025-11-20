@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Target, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { Wizard } from './onboarding/Wizard'
+import { cn } from '@/lib/utils'
 // Simple relative time formatter
 function formatRelativeTime(date: Date): string {
   const now = new Date()
@@ -84,7 +85,11 @@ export function GoalProgress({ goalAmount, revenueThisMonth, lastSyncAt, company
   const isGoalReached = revenueThisMonth >= goalAmount
 
   return (
-    <Card className="border-2 bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-900/50 dark:to-slate-800/30 backdrop-blur-sm shadow-sm">
+    <Card className={cn(
+      "border-2 backdrop-blur-sm shadow-sm",
+      "bg-gradient-to-r from-neutral-50/50 to-neutral-100/30",
+      "dark:from-neutral-900/50 dark:to-neutral-800/30"
+    )}>
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1">
@@ -116,7 +121,7 @@ export function GoalProgress({ goalAmount, revenueThisMonth, lastSyncAt, company
         </div>
 
         {/* Progress Bar */}
-        <div className="relative h-3 rounded-full bg-slate-200/40 dark:bg-slate-800/40 overflow-hidden">
+        <div className="relative h-3 rounded-full bg-neutral-200/40 dark:bg-neutral-800/40 overflow-hidden">
           <div
             className={`h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-700 ease-out ${
               percent >= 0.75 ? 'shadow-lg shadow-cyan-500/50 ring-2 ring-cyan-400/30' : ''

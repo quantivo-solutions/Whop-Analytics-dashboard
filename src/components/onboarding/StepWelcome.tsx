@@ -1,6 +1,7 @@
 'use client'
 
 import { TrendingUp, Users, Target, Sparkles } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export function StepWelcome() {
   return (
@@ -46,48 +47,68 @@ export function StepWelcome() {
       {/* Dashboard preview illustration */}
       <div className="flex justify-center pt-4">
         <div className="relative w-full max-w-sm">
-          <div className="grid grid-cols-3 gap-2 p-3 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-md">
+          <div className={cn(
+            "grid grid-cols-3 gap-2 p-3 rounded-lg border shadow-md",
+            "bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800",
+            "border-neutral-200 dark:border-neutral-700"
+          )}>
             {/* Revenue Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-md p-2 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className={cn(
+              "rounded-md p-2 shadow-sm border",
+              "bg-white dark:bg-neutral-800",
+              "border-neutral-200 dark:border-neutral-700"
+            )}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Revenue</span>
+                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">Revenue</span>
               </div>
-              <div className="text-sm font-bold text-slate-900 dark:text-slate-100">$12.5k</div>
-              <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-full mt-1.5 overflow-hidden">
+              <div className="text-sm font-bold text-neutral-900 dark:text-neutral-50">$12.5k</div>
+              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full mt-1.5 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full" style={{ width: '75%' }}></div>
               </div>
             </div>
             
             {/* Members Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-md p-2 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className={cn(
+              "rounded-md p-2 shadow-sm border",
+              "bg-white dark:bg-neutral-800",
+              "border-neutral-200 dark:border-neutral-700"
+            )}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Members</span>
+                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">Members</span>
               </div>
-              <div className="text-sm font-bold text-slate-900 dark:text-slate-100">248</div>
-              <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-full mt-1.5 overflow-hidden">
+              <div className="text-sm font-bold text-neutral-900 dark:text-neutral-50">248</div>
+              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full mt-1.5 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full" style={{ width: '62%' }}></div>
               </div>
             </div>
             
             {/* Growth Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-md p-2 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className={cn(
+              "rounded-md p-2 shadow-sm border",
+              "bg-white dark:bg-neutral-800",
+              "border-neutral-200 dark:border-neutral-700"
+            )}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
-                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Growth</span>
+                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">Growth</span>
               </div>
-              <div className="text-sm font-bold text-slate-900 dark:text-slate-100">+24%</div>
-              <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-full mt-1.5 overflow-hidden">
+              <div className="text-sm font-bold text-neutral-900 dark:text-neutral-50">+24%</div>
+              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full mt-1.5 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-purple-400 to-pink-500 rounded-full" style={{ width: '85%' }}></div>
               </div>
             </div>
             
             {/* Chart preview below */}
-            <div className="col-span-3 mt-1.5 bg-white dark:bg-slate-800 rounded-md p-2 border border-slate-200 dark:border-slate-700">
+            <div className={cn(
+              "col-span-3 mt-1.5 rounded-md p-2 border",
+              "bg-white dark:bg-neutral-800",
+              "border-neutral-200 dark:border-neutral-700"
+            )}>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Monthly Trend</span>
-                <Sparkles className="h-2.5 w-2.5 text-cyan-500" />
+                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">Monthly Trend</span>
+                <Sparkles className="h-2.5 w-2.5 text-cyan-500 dark:text-cyan-400" />
               </div>
               <div className="relative h-12">
                 <svg viewBox="0 0 200 60" className="w-full h-full">
