@@ -1,17 +1,19 @@
 'use client'
 
-import { WhopApp } from '@whop/react'
+import { WhopIframeSdkProvider, WhopThemeScript } from '@whop/react'
 import { ReactNode } from 'react'
 
 /**
  * Whop SDK Provider
  * Wraps the app to provide Whop iFrame SDK context and theme synchronization
- * WhopApp component with appearance="inherit" automatically syncs with Whop's theme settings
+ * WhopThemeScript automatically applies the dark class based on Whop's theme settings
+ * The frosted-ui/styles.css import in globals.css provides the theme styling
  */
 export function WhopProvider({ children }: { children: ReactNode }) {
   return (
-    <WhopApp appearance="inherit" grayColor="gray" accentColor="blue">
+    <WhopIframeSdkProvider>
+      <WhopThemeScript />
       {children}
-    </WhopApp>
+    </WhopIframeSdkProvider>
   )
 }
