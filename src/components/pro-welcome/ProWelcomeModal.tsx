@@ -67,7 +67,7 @@ export function ProWelcomeModal({ open, onClose }: ProWelcomeModalProps) {
 
             {/* Features list */}
             <div className="space-y-1.5 mb-3">
-              <p className="text-[10px] font-bold text-neutral-700 dark:text-neutral-200 mb-1.5 text-center uppercase tracking-wide">Your Pro Features</p>
+              <p className="text-[10px] font-bold text-muted-foreground mb-1.5 text-center uppercase tracking-wide">Your Pro Features</p>
               <div className="grid gap-1.5">
                 {features.map((feature, index) => {
                   const Icon = feature.icon
