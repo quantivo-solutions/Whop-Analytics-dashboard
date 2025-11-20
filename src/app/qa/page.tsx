@@ -43,7 +43,7 @@ const mockDashboardData: DashboardData = {
     newMembers: 32,
     cancellations: 6,
     trialsPaid: 17,
-    latestDate: new Date('2025-11-17').toISOString(),
+    latestDate: new Date('2025-11-17'),
     isDataFresh: true,
   },
 }
