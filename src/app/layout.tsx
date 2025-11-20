@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { WhopProvider } from '@/components/whop-provider'
-import { ThemeDetector } from '@/components/theme-detector'
 import { Footer } from '@/components/footer'
 import './globals.css'
 
