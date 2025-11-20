@@ -19,8 +19,8 @@ export function ThemeSync() {
         
         if (themeCookie) {
           // Cookie format: whop-frosted-theme=appearance:dark or whop-frosted-theme=appearance:light
-          const match = themeCookie.match(/appearance:(?<appearance>light|dark)/)
-          const appearance = match?.groups?.appearance
+          const match = themeCookie.match(/appearance:(light|dark)/)
+          const appearance = match?.[1]
           
           if (appearance === 'dark' || appearance === 'light') {
             const html = document.documentElement
