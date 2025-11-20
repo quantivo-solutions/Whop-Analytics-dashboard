@@ -7,11 +7,11 @@ export function StepWelcome() {
   return (
     <div className="space-y-4">
       <div className="text-center space-y-1.5">
-        <h2 className="text-xl md:text-2xl font-semibold">Welcome to Whoplytics</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold text-foreground">Welcome to Whoplytics</h2>
         <p className="text-sm text-muted-foreground">Your subscription business, at a glance.</p>
       </div>
 
-      <div className="rounded-lg bg-muted/50 p-4 space-y-3">
+      <div className="rounded-lg bg-muted/50 backdrop-blur-sm border border-border/50 p-4 sm:p-5 space-y-3">
         <h3 className="font-semibold text-sm">What you'll get:</h3>
         <ul className="space-y-2.5">
           <li className="flex items-start gap-2.5">
@@ -49,21 +49,21 @@ export function StepWelcome() {
         <div className="relative w-full max-w-sm">
           <div className={cn(
             "grid grid-cols-3 gap-2 p-3 rounded-lg border shadow-md",
-            "bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800",
-            "border-neutral-200 dark:border-neutral-700"
+            "bg-card/80 backdrop-blur-sm",
+            "border-border/50"
           )}>
             {/* Revenue Card */}
             <div className={cn(
               "rounded-md p-2 shadow-sm border",
-              "bg-white dark:bg-neutral-800",
-              "border-neutral-200 dark:border-neutral-700"
+              "bg-card/90 backdrop-blur-sm",
+              "border-border/50"
             )}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">Revenue</span>
+                <span className="text-[10px] font-semibold text-muted-foreground">Revenue</span>
               </div>
-              <div className="text-sm font-bold text-neutral-900 dark:text-neutral-50">$12.5k</div>
-              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full mt-1.5 overflow-hidden">
+              <div className="text-sm font-bold text-foreground">$12.5k</div>
+              <div className="h-1 bg-muted/50 rounded-full mt-1.5 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full" style={{ width: '75%' }}></div>
               </div>
             </div>
@@ -71,15 +71,15 @@ export function StepWelcome() {
             {/* Members Card */}
             <div className={cn(
               "rounded-md p-2 shadow-sm border",
-              "bg-white dark:bg-neutral-800",
-              "border-neutral-200 dark:border-neutral-700"
+              "bg-card/90 backdrop-blur-sm",
+              "border-border/50"
             )}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">Members</span>
+                <span className="text-[10px] font-semibold text-muted-foreground">Members</span>
               </div>
-              <div className="text-sm font-bold text-neutral-900 dark:text-neutral-50">248</div>
-              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full mt-1.5 overflow-hidden">
+              <div className="text-sm font-bold text-foreground">248</div>
+              <div className="h-1 bg-muted/50 rounded-full mt-1.5 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full" style={{ width: '62%' }}></div>
               </div>
             </div>
@@ -87,15 +87,15 @@ export function StepWelcome() {
             {/* Growth Card */}
             <div className={cn(
               "rounded-md p-2 shadow-sm border",
-              "bg-white dark:bg-neutral-800",
-              "border-neutral-200 dark:border-neutral-700"
+              "bg-card/90 backdrop-blur-sm",
+              "border-border/50"
             )}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
-                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">Growth</span>
+                <span className="text-[10px] font-semibold text-muted-foreground">Growth</span>
               </div>
-              <div className="text-sm font-bold text-neutral-900 dark:text-neutral-50">+24%</div>
-              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full mt-1.5 overflow-hidden">
+              <div className="text-sm font-bold text-foreground">+24%</div>
+              <div className="h-1 bg-muted/50 rounded-full mt-1.5 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-purple-400 to-pink-500 rounded-full" style={{ width: '85%' }}></div>
               </div>
             </div>
@@ -103,11 +103,11 @@ export function StepWelcome() {
             {/* Chart preview below */}
             <div className={cn(
               "col-span-3 mt-1.5 rounded-md p-2 border",
-              "bg-white dark:bg-neutral-800",
-              "border-neutral-200 dark:border-neutral-700"
+              "bg-card/90 backdrop-blur-sm",
+              "border-border/50"
             )}>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">Monthly Trend</span>
+                <span className="text-[10px] font-semibold text-muted-foreground">Monthly Trend</span>
                 <Sparkles className="h-2.5 w-2.5 text-cyan-500 dark:text-cyan-400" />
               </div>
               <div className="relative h-12">

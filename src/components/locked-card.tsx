@@ -20,28 +20,28 @@ export function LockedCard({ title, subtitle, companyId }: LockedCardProps) {
     <>
       <Card 
         className={cn(
-          "relative border-2 border-dashed",
-          "border-neutral-300 dark:border-neutral-700",
-          "hover:border-neutral-400 dark:hover:border-neutral-600",
-          "bg-white dark:bg-neutral-900",
-          "shadow-md overflow-hidden h-full flex flex-col cursor-pointer transition-colors"
+          "relative border-2 border-dashed border-border/50",
+          "bg-card/50 backdrop-blur-sm",
+          "hover:bg-card/70 hover:border-border",
+          "shadow-lg overflow-hidden h-full flex flex-col cursor-pointer",
+          "transition-all duration-200"
         )}
         onClick={() => setUpsellOpen(true)}
       >
         {/* Lock overlay */}
-        <div className="flex-1 flex flex-col items-center justify-center p-4 text-center bg-white dark:bg-neutral-900">
+        <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-5 text-center bg-card/50">
           <div className={cn(
             "p-2 rounded-full mb-2.5 ring-2 flex-shrink-0",
-            "bg-neutral-100 dark:bg-neutral-800",
-            "ring-neutral-200 dark:ring-neutral-700"
+            "bg-muted/50 backdrop-blur-sm",
+            "ring-border/50"
           )}>
-            <Lock className="h-3.5 w-3.5 text-neutral-700 dark:text-neutral-200" />
+            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
-          <h3 className="text-sm font-bold mb-1.5 text-neutral-900 dark:text-neutral-50 leading-tight">{title}</h3>
-          <p className="text-xs text-neutral-600 dark:text-neutral-300 mb-2 leading-snug px-1 flex-1">{subtitle}</p>
+          <h3 className="text-sm font-bold mb-1.5 text-foreground leading-tight">{title}</h3>
+          <p className="text-xs text-muted-foreground mb-2 leading-snug px-1 flex-1">{subtitle}</p>
           <Badge 
             variant="outline" 
-            className="text-xs border-primary/30 text-primary dark:text-primary bg-primary/5 dark:bg-primary/10 hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors mt-auto"
+            className="text-xs border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-colors mt-auto"
           >
             Pro Feature
           </Badge>

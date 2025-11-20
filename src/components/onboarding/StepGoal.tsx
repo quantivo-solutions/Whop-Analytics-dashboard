@@ -35,18 +35,18 @@ export function StepGoal({ goalAmount, onGoalChange }: StepGoalProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <div className="text-center space-y-1.5">
-        <h2 className="text-xl md:text-2xl font-semibold">Set your monthly revenue goal</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold text-foreground">Set your monthly revenue goal</h2>
         <p className="text-sm text-muted-foreground">We'll track your progress automatically.</p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 sm:space-y-4">
         <div className="space-y-2">
-          <Label className="text-sm">Choose an amount or enter custom</Label>
+          <Label className="text-sm text-foreground">Choose an amount or enter custom</Label>
           
           {/* Preset buttons */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
             {PRESET_AMOUNTS.map((amount) => (
               <Button
                 key={amount}

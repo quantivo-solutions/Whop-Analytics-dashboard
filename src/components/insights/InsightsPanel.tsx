@@ -137,14 +137,14 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
   if (isFreePlan) {
     return (
       <>
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold tracking-tight mb-2">Insights</h2>
-          <p className="text-muted-foreground">
+        <div className="mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-2 text-foreground">Insights</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Unlock advanced analytics with Pro
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <LockedCard
             title="Churn Risk (Pro)"
             subtitle="Spot churn before it happens (Pro)"
@@ -169,28 +169,28 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
 
   return (
     <>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight mb-2">Insights</h2>
-        <p className="text-muted-foreground">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-2 text-foreground">Insights</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Key metrics and alerts to help you grow your business
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {/* Trial Conversion */}
         <Card className={cn(
-          "relative border-2",
-          "border-neutral-200 dark:border-neutral-800",
-          "hover:border-neutral-300 dark:hover:border-neutral-700",
-          "hover:shadow-lg transition-all duration-300"
+          "relative border border-border/50",
+          "bg-card/80 backdrop-blur-sm",
+          "hover:bg-card/90 hover:border-border hover:shadow-xl",
+          "transition-all duration-200"
         )}>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 px-4 sm:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Trial Conversion</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm sm:text-base font-semibold text-foreground">Trial Conversion</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <div className="space-y-2">
               <p className="text-2xl font-bold">{trialConversion.value.toFixed(1)}%</p>
               <p className="text-sm text-muted-foreground">{trialConversion.label}</p>
@@ -203,40 +203,40 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
 
         {/* Churn Risk */}
         <Card className={cn(
-          "relative border-2",
-          "border-neutral-200 dark:border-neutral-800",
-          "hover:border-neutral-300 dark:hover:border-neutral-700",
-          "hover:shadow-lg transition-all duration-300",
+          "relative border border-border/50",
+          "bg-card/80 backdrop-blur-sm",
+          "hover:bg-card/90 hover:border-border hover:shadow-xl",
+          "transition-all duration-200",
           churnRisk.locked && 'opacity-75'
         )}>
           {churnRisk.locked && (
             <div 
               className={cn(
-                "absolute inset-0 backdrop-blur-md rounded-lg flex items-center justify-center z-10 cursor-pointer transition-colors",
-                "bg-background/95 dark:bg-neutral-950/95",
-                "hover:bg-background/98 dark:hover:bg-neutral-950/98"
+                "absolute inset-0 backdrop-blur-md rounded-xl flex items-center justify-center z-10 cursor-pointer transition-colors",
+                "bg-background/95",
+                "hover:bg-background/98"
               )}
               onClick={() => setUpsellOpen(true)}
             >
               <div className="text-center space-y-2 p-4">
                 <div className={cn(
                   "p-2 rounded-full mx-auto w-fit",
-                  "bg-muted/80 dark:bg-neutral-800/80"
+                  "bg-muted/80 backdrop-blur-sm"
                 )}>
-                  <Lock className="h-5 w-5 text-neutral-600 dark:text-neutral-300" />
+                  <Lock className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <p className="text-xs font-medium text-muted-foreground">Pro feature</p>
                 <p className="text-xs text-primary hover:underline font-medium">Click to learn more</p>
               </div>
             </div>
           )}
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 px-4 sm:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Churn Risk</CardTitle>
-              <TrendingDown className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm sm:text-base font-semibold text-foreground">Churn Risk</CardTitle>
+              <TrendingDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             {!churnRisk.locked ? (
               <div className="space-y-2">
                 <p className="text-2xl font-bold">{churnRisk.value}</p>
@@ -256,18 +256,18 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
 
         {/* Revenue Velocity */}
         <Card className={cn(
-          "relative border-2",
-          "border-neutral-200 dark:border-neutral-800",
-          "hover:border-neutral-300 dark:hover:border-neutral-700",
-          "hover:shadow-lg transition-all duration-300"
+          "relative border border-border/50",
+          "bg-card/80 backdrop-blur-sm",
+          "hover:bg-card/90 hover:border-border hover:shadow-xl",
+          "transition-all duration-200"
         )}>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 px-4 sm:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Revenue Velocity</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm sm:text-base font-semibold text-foreground">Revenue Velocity</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <div className="space-y-2">
               <p className="text-2xl font-bold">
                 {revenueVelocity.value >= 0 ? '+' : ''}{revenueVelocity.value.toFixed(1)}%
@@ -282,40 +282,40 @@ export function InsightsPanel({ data, plan, goalAmount }: InsightsPanelProps) {
 
         {/* Top Customers */}
         <Card className={cn(
-          "relative border-2",
-          "border-neutral-200 dark:border-neutral-800",
-          "hover:border-neutral-300 dark:hover:border-neutral-700",
-          "hover:shadow-lg transition-all duration-300",
+          "relative border border-border/50",
+          "bg-card/80 backdrop-blur-sm",
+          "hover:bg-card/90 hover:border-border hover:shadow-xl",
+          "transition-all duration-200",
           topCustomers.locked && 'opacity-75'
         )}>
           {topCustomers.locked && (
             <div 
               className={cn(
-                "absolute inset-0 backdrop-blur-md rounded-lg flex items-center justify-center z-10 cursor-pointer transition-colors",
-                "bg-background/95 dark:bg-neutral-950/95",
-                "hover:bg-background/98 dark:hover:bg-neutral-950/98"
+                "absolute inset-0 backdrop-blur-md rounded-xl flex items-center justify-center z-10 cursor-pointer transition-colors",
+                "bg-background/95",
+                "hover:bg-background/98"
               )}
               onClick={() => setUpsellOpen(true)}
             >
               <div className="text-center space-y-2 p-4">
                 <div className={cn(
                   "p-2 rounded-full mx-auto w-fit",
-                  "bg-muted/80 dark:bg-neutral-800/80"
+                  "bg-muted/80 backdrop-blur-sm"
                 )}>
-                  <Lock className="h-5 w-5 text-neutral-600 dark:text-neutral-300" />
+                  <Lock className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <p className="text-xs font-medium text-muted-foreground">Pro feature</p>
                 <p className="text-xs text-primary hover:underline font-medium">Click to learn more</p>
               </div>
             </div>
           )}
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 px-4 sm:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Top Customers</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm sm:text-base font-semibold text-foreground">Top Customers</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             {!topCustomers.locked ? (
               <div className="space-y-2">
                 <p className="text-2xl font-bold">{topCustomers.value}</p>

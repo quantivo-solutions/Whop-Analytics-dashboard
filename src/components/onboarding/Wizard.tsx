@@ -164,9 +164,9 @@ export function Wizard({ companyId, initialPrefs, onComplete, initialStep }: Wiz
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       {/* Background gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-neutral-950/80 via-neutral-900/60 to-neutral-950/80 dark:from-black/90 dark:via-neutral-900/70 dark:to-black/90" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       
-      <Card className="relative w-full max-w-[640px] max-h-[90vh] rounded-2xl border shadow-2xl bg-background/95 backdrop-blur-sm flex flex-col overflow-hidden">
+      <Card className="relative w-full max-w-[640px] max-h-[90vh] rounded-2xl border border-border/50 shadow-2xl bg-background/95 backdrop-blur-md flex flex-col overflow-hidden">
         {/* Close button - only show when editing (not first-time onboarding) */}
         {isEditingMode && (
           <Button

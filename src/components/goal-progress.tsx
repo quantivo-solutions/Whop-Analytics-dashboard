@@ -86,24 +86,23 @@ export function GoalProgress({ goalAmount, revenueThisMonth, lastSyncAt, company
 
   return (
     <Card className={cn(
-      "border-2 backdrop-blur-sm shadow-sm",
-      "bg-gradient-to-r from-neutral-50/50 to-neutral-100/30",
-      "dark:from-neutral-900/50 dark:to-neutral-800/30"
+      "border border-border/50 backdrop-blur-sm shadow-lg",
+      "bg-card/80"
     )}>
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-3">
+      <CardContent className="p-4 sm:p-5 lg:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-3">
           <div className="flex-1">
             {isGoalReached ? (
-              <p className="text-sm font-semibold text-foreground">
+              <p className="text-sm sm:text-base font-semibold text-foreground">
                 Goal reached 🎉
               </p>
             ) : (
-              <p className="text-sm font-semibold text-foreground">
+              <p className="text-sm sm:text-base font-semibold text-foreground">
                 You're ${amountRemaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} away from your monthly goal
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0">
             <span>Last synced {relativeTime}</span>
             {isDataFresh && (
               <>
@@ -121,7 +120,7 @@ export function GoalProgress({ goalAmount, revenueThisMonth, lastSyncAt, company
         </div>
 
         {/* Progress Bar */}
-        <div className="relative h-3 rounded-full bg-neutral-200/40 dark:bg-neutral-800/40 overflow-hidden">
+        <div className="relative h-3 rounded-full bg-muted/50 overflow-hidden">
           <div
             className={`h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-700 ease-out ${
               percent >= 0.75 ? 'shadow-lg shadow-cyan-500/50 ring-2 ring-cyan-400/30' : ''

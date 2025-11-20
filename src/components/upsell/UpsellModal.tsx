@@ -157,7 +157,7 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-background/95 backdrop-blur-sm border-2">
+      <DialogContent className="sm:max-w-[500px] bg-background/95 backdrop-blur-md border border-border/50">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-sky-500 bg-clip-text text-transparent">
             Upgrade to Whoplytics Pro

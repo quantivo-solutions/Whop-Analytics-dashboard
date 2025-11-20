@@ -92,20 +92,20 @@ export function ModernChart({ data }: ModernChartProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Main Chart Card */}
-      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-background to-muted/20">
-        <CardHeader className="pb-2">
-          <div className="flex items-start justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Main Chart Card - Frosted-UI Style */}
+      <Card className="overflow-hidden border border-border/50 shadow-xl bg-card/80 backdrop-blur-sm">
+        <CardHeader className="pb-2 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div>
-              <CardTitle className="text-2xl font-bold">Performance Overview</CardTitle>
-              <CardDescription className="text-base mt-1">
+              <CardTitle className="text-xl sm:text-2xl font-bold text-foreground">Performance Overview</CardTitle>
+              <CardDescription className="text-sm sm:text-base mt-1">
                 Last {data.length} days of activity
               </CardDescription>
             </div>
             
             {/* Metric Selector */}
-            <div className="flex gap-2 bg-muted/50 rounded-lg p-1">
+            <div className="flex gap-2 bg-muted/50 backdrop-blur-sm rounded-lg p-1 border border-border/50">
               <button
                 onClick={() => setSelectedMetric('revenue')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
@@ -130,9 +130,9 @@ export function ModernChart({ data }: ModernChartProps) {
           </div>
         </CardHeader>
         
-        <CardContent className="pt-6">
+        <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
           {/* Chart Container */}
-          <div className="relative h-64 w-full">
+          <div className="relative h-48 sm:h-64 lg:h-80 w-full">
             <svg
               viewBox="0 0 100 100"
               className="w-full h-full"
@@ -294,34 +294,34 @@ export function ModernChart({ data }: ModernChartProps) {
         </CardContent>
       </Card>
 
-      {/* Quick Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-l-4 border-l-green-500 dark:border-l-green-400 hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
+      {/* Quick Stats Grid - Frosted-UI Style */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="border-l-4 border-l-green-500 dark:border-l-green-400 hover:shadow-xl transition-all duration-200 bg-card/80 backdrop-blur-sm">
+          <CardHeader className="pb-3 px-4 sm:px-6">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalRevenue)}</p>
+          <CardContent className="px-4 sm:px-6">
+            <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalRevenue)}</p>
             <p className="text-xs text-muted-foreground mt-1">Last {data.length} days</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400 hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
+        <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400 hover:shadow-xl transition-all duration-200 bg-card/80 backdrop-blur-sm">
+          <CardHeader className="pb-3 px-4 sm:px-6">
             <CardTitle className="text-sm font-medium text-muted-foreground">New Members</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">+{totalNewMembers}</p>
+          <CardContent className="px-4 sm:px-6">
+            <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">+{totalNewMembers}</p>
             <p className="text-xs text-muted-foreground mt-1">Joined this period</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-purple-500 dark:border-l-purple-400 hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
+        <Card className="border-l-4 border-l-purple-500 dark:border-l-purple-400 hover:shadow-xl transition-all duration-200 bg-card/80 backdrop-blur-sm sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-3 px-4 sm:px-6">
             <CardTitle className="text-sm font-medium text-muted-foreground">Active Now</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{membersData[membersData.length - 1]}</p>
+          <CardContent className="px-4 sm:px-6">
+            <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{membersData[membersData.length - 1]}</p>
             <p className="text-xs text-muted-foreground mt-1">Current members</p>
           </CardContent>
         </Card>

@@ -24,10 +24,10 @@ export function ProWelcomeModal({ open, onClose }: ProWelcomeModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       {/* Background gradient overlay - matching Wizard style */}
-      <div className="absolute inset-0 bg-gradient-to-br from-neutral-950/80 via-neutral-900/60 to-neutral-950/80 dark:from-black/90 dark:via-neutral-900/70 dark:to-black/90" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       
       <div className="relative w-full max-w-[520px] flex items-center">
-        <Card className="relative rounded-xl border-2 border-cyan-400/30 dark:border-cyan-500/30 shadow-2xl bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 backdrop-blur-sm overflow-hidden w-full">
+        <Card className="relative rounded-xl border border-border/50 shadow-2xl bg-background/95 backdrop-blur-md overflow-hidden w-full">
           {/* Decorative gradient border */}
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 via-sky-400/10 to-cyan-400/20 opacity-60 pointer-events-none" />
           
@@ -75,16 +75,16 @@ export function ProWelcomeModal({ open, onClose }: ProWelcomeModalProps) {
                     <div
                       key={index}
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-md border transition-all duration-200 group shadow-sm",
-                        "bg-white dark:bg-neutral-800",
-                        "border-neutral-200 dark:border-neutral-700",
+                        "flex items-center gap-2 p-2 sm:p-2.5 rounded-md border transition-all duration-200 group shadow-sm",
+                        "bg-card/80 backdrop-blur-sm",
+                        "border-border/50",
                         "hover:border-cyan-400/50 dark:hover:border-cyan-500/50"
                       )}
                     >
                       <div className="p-1 rounded bg-gradient-to-br from-cyan-400/10 to-sky-400/10 group-hover:from-cyan-400/20 group-hover:to-sky-400/20 transition-colors flex-shrink-0">
                         <Icon className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                       </div>
-                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-50 flex-1 leading-tight">{feature.text}</span>
+                      <span className="text-xs sm:text-sm font-medium text-foreground flex-1 leading-tight">{feature.text}</span>
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse flex-shrink-0" />
                     </div>
                   )

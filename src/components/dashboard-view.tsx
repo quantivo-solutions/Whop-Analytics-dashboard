@@ -91,18 +91,18 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
 
   return (
     <div className="space-y-6">
-      {/* Status Badge - Compact & Elegant */}
+      {/* Status Badge - Frosted-UI Style */}
       {showBadge && hasData && effectiveBadgeType === 'live' && (
-        <div className="flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-2.5 animate-in fade-in slide-in-from-top duration-500">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-green-500/10 dark:bg-green-500/20 backdrop-blur-md border border-green-500/30 dark:border-green-500/40 rounded-xl px-4 py-3 animate-in fade-in slide-in-from-top duration-500">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
             </span>
-            <span className="text-sm font-medium text-green-900 dark:text-green-100">Live Data</span>
+            <span className="text-sm font-medium text-green-700 dark:text-green-300">Live Data</span>
           </div>
           {kpis.latestDate && (
-            <span className="text-xs text-green-700 dark:text-green-300">
+            <span className="text-xs text-green-600 dark:text-green-400">
               Updated {new Date(kpis.latestDate).toLocaleDateString('en-US', { 
                 month: 'short', 
                 day: 'numeric',
@@ -114,31 +114,31 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state - Frosted-UI Style */}
       {!hasData && (
-        <Card className="border-dashed border-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+        <Card className="border-dashed border-2 border-border/50 bg-card/50 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16 text-center px-4">
             <div className="relative mb-6">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur-xl opacity-20 animate-pulse" />
-              <div className="relative rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 p-6 border border-blue-500/20">
-                <Activity className="h-12 w-12 text-blue-500" />
+              <div className="relative rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 p-6 border border-blue-500/20 backdrop-blur-sm">
+                <Activity className="h-10 w-10 sm:h-12 sm:w-12 text-blue-500" />
               </div>
             </div>
             
-            <h3 className="text-2xl font-bold mb-2">No activity yet</h3>
-            <p className="text-muted-foreground max-w-md mb-6">
+            <h3 className="text-xl sm:text-2xl font-bold mb-2 text-foreground">No activity yet</h3>
+            <p className="text-sm sm:text-base text-muted-foreground max-w-md mb-6">
               Your analytics will appear here as soon as customers start joining your Whop or making payments.
               Data syncs automatically via webhooks and daily cron jobs.
             </p>
             
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
-                <Zap className="h-4 w-4 text-yellow-500" />
+            <div className="w-full max-w-md space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 backdrop-blur-sm rounded-lg px-4 py-2.5 border border-border/50">
+                <Zap className="h-4 w-4 text-yellow-500 flex-shrink-0" />
                 <span>Waiting for your first member or payment...</span>
               </div>
-              <div className="text-xs bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2">
-                <p className="font-semibold text-blue-900 dark:text-blue-100 mb-1">💡 Note:</p>
-                <p className="text-blue-800 dark:text-blue-200">
+              <div className="text-xs bg-blue-500/10 dark:bg-blue-500/20 backdrop-blur-sm border border-blue-500/30 dark:border-blue-500/40 rounded-lg px-4 py-3">
+                <p className="font-semibold text-blue-700 dark:text-blue-300 mb-1">💡 Note:</p>
+                <p className="text-blue-600 dark:text-blue-400 leading-relaxed">
                   App installations are separate from analytics data. This dashboard tracks revenue, members, and payments in your Whop. 
                   If you just installed the app, data will appear once you have members or transactions.
                 </p>
@@ -148,9 +148,9 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
         </Card>
       )}
 
-      {/* Stats cards - Modern & Clean */}
+      {/* Stats cards - Frosted-UI Style */}
       {hasData && (
-        <div className={`grid gap-3 sm:gap-4 ${isProPlan ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-3'}`}>
+        <div className={`grid gap-3 sm:gap-4 ${isProPlan ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
           {statsData.map((stat, index) => {
             const Icon = stat.icon
             const iconColors = [
@@ -165,30 +165,29 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               <Card 
                 key={index} 
                 className={cn(
-                  "relative overflow-hidden border-2",
-                  "border-neutral-200 dark:border-neutral-800",
-                  "hover:border-neutral-300 dark:hover:border-neutral-700",
-                  "bg-white dark:bg-neutral-900",
-                  "hover:shadow-xl hover:shadow-neutral-200/50 dark:hover:shadow-neutral-950/50",
-                  "transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 shadow-md"
+                  "relative overflow-hidden border border-border/50",
+                  "bg-card/80 backdrop-blur-sm",
+                  "hover:bg-card/90 hover:border-border hover:shadow-xl",
+                  "transition-all duration-300 animate-in fade-in slide-in-from-bottom-2",
+                  "shadow-lg"
                 )}
                 style={{ 
                   animationDelay: `${index * 50}ms`,
                   animationFillMode: 'backwards'
                 }}
               >
-                <CardContent className="p-5 sm:p-6">
+                <CardContent className="p-4 sm:p-5 lg:p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <div className={`${iconColors[index]} rounded-lg p-2.5 shadow-md`}>
+                    <div className={`${iconColors[index]} rounded-lg p-2 sm:p-2.5 shadow-md`}>
                       <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-neutral-600 dark:text-neutral-300 mb-1.5 uppercase tracking-wide">
+                    <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
                       {stat.title}
                     </p>
-                    <p className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-50 mb-1">{stat.value}</p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+                    <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-1">{stat.value}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">
                       {stat.description}
                     </p>
                   </div>
@@ -215,13 +214,13 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
         </div>
       )}
 
-      {/* Charts Section */}
+      {/* Charts Section - Frosted-UI Style */}
       {hasData && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">Revenue Trend</h2>
-              <p className="text-sm text-muted-foreground">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Revenue Trend</h2>
+              <p className="text-sm text-muted-foreground mt-1">
                 {isFreePlan ? (
                   <>
                     Showing last {series.length} day{series.length !== 1 ? 's' : ''} —{' '}
@@ -244,7 +243,7 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 border-2 hover:bg-muted/50 transition-colors"
+                className="gap-2 w-full sm:w-auto"
                 onClick={async () => {
                   try {
                     const url = `/api/export/csv?companyId=${companyId}&days=${series.length}`
@@ -268,7 +267,8 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
                 }}
               >
                 <Download className="h-4 w-4" />
-                Export CSV
+                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sm:hidden">Export</span>
               </Button>
             )}
           </div>

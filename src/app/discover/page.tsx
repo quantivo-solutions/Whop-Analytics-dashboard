@@ -42,7 +42,7 @@ export default function DiscoverPage() {
   const whopInstallUrl = appId ? `https://whop.com/apps/${appId}` : null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
         <PageHeader title="Whoplytics" subtitle={TAGLINE} />
         

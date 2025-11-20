@@ -39,16 +39,16 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
     <>
       <div className="space-y-4">
         <div className="text-center space-y-1.5">
-          <h2 className="text-xl md:text-2xl font-semibold">Pick your plan</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold text-foreground">Pick your plan</h2>
           <p className="text-sm text-muted-foreground">Start free. Upgrade anytime.</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {/* Free Plan */}
           <Card className={cn(
-            "border-2 transition-all duration-300",
-            "border-neutral-200 dark:border-neutral-800",
-            "hover:border-neutral-300 dark:hover:border-neutral-700"
+            "border border-border/50 transition-all duration-200",
+            "bg-card/80 backdrop-blur-sm",
+            "hover:bg-card/90 hover:border-border hover:shadow-lg"
           )}>
             <CardHeader className="pb-2.5">
               <div className="flex items-center justify-between mb-1.5">
@@ -78,7 +78,7 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full border-2 hover:bg-muted/50 transition-colors font-medium text-xs"
+                className="w-full font-medium text-xs"
                 onClick={handleFreeClick}
                 disabled={loading !== null}
               >
@@ -88,11 +88,16 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
           </Card>
 
           {/* Pro Plan */}
-          <Card className="border-2 border-cyan-400/50 dark:border-cyan-500/50 bg-gradient-to-br from-cyan-50/50 via-sky-50/30 to-transparent dark:from-cyan-950/30 dark:via-sky-950/20 dark:to-transparent relative overflow-hidden shadow-lg shadow-cyan-500/10">
+          <Card className={cn(
+            "border-2 border-cyan-400/50 dark:border-cyan-500/50",
+            "bg-card/90 backdrop-blur-sm",
+            "relative overflow-hidden shadow-lg shadow-cyan-500/10",
+            "hover:shadow-xl hover:shadow-cyan-500/20"
+          )}>
             {/* Subtle glow effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-transparent to-transparent pointer-events-none" />
             
-            <CardHeader className="pb-3 relative z-10">
+            <CardHeader className="pb-3 relative z-10 px-4 sm:px-6">
               <div className="flex items-center justify-between mb-1.5">
                 <h3 className="text-lg font-bold">Pro</h3>
                 <Badge className="bg-gradient-to-r from-cyan-500 to-sky-500 text-white border-0 flex items-center gap-1 shadow-md text-xs px-1.5 py-0.5">
@@ -101,35 +106,35 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
                 </Badge>
               </div>
               <div className="space-y-0.5">
-                <p className="text-2xl font-bold">$15</p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">$15</p>
                 <p className="text-xs text-muted-foreground">/ month</p>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3 relative z-10">
+            <CardContent className="space-y-3 relative z-10 px-4 sm:px-6">
               <ul className="space-y-2">
                 <li className="flex items-start gap-2">
                   <Check className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-xs">Everything in Free</span>
+                  <span className="text-xs text-foreground">Everything in Free</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-xs">Daily email reports</span>
+                  <span className="text-xs text-foreground">Daily email reports</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-xs">Churn risk insights</span>
+                  <span className="text-xs text-foreground">Churn risk insights</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-xs">Trial conversion deep-dive</span>
+                  <span className="text-xs text-foreground">Trial conversion deep-dive</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-xs">Discord alerts</span>
+                  <span className="text-xs text-foreground">Discord alerts</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-xs">CSV export & 90-day history</span>
+                  <span className="text-xs text-foreground">CSV export & 90-day history</span>
                 </li>
               </ul>
               <Button
