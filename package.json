@@ -28,7 +28,12 @@
     "test:webhook:refund": "node scripts/send-whop-webhook.mjs refund_created biz_test_company_123 1299",
     "validate:integrity": "node scripts/validate-integrity.mjs"
   },
-  "keywords": ["whop", "analytics", "dashboard", "business-insights"],
+  "keywords": [
+    "whop",
+    "analytics",
+    "dashboard",
+    "business-insights"
+  ],
   "author": "Whoplytics",
   "license": "ISC",
   "dependencies": {
@@ -40,6 +45,7 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@whop/api": "^0.0.51",
+    "@whop/frosted-ui": "^0.0.1-canary.24",
     "@whop/react": "^0.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
