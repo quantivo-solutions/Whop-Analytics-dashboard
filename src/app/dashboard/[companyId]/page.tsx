@@ -37,6 +37,7 @@ import { SessionSetter } from '@/components/session-setter'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
+import { PlanSyncCheck } from '@/components/plan-sync-check'
 import { env } from '@/lib/env'
 import { RemoveScopeBadge } from '@/components/remove-scope-badge'
 
@@ -891,6 +892,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     <div className="min-h-screen bg-background">
       {/* Set session cookie if needed */}
       {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+      
+      {/* Background plan sync check - verifies plan status on load */}
+      <PlanSyncCheck />
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-7xl">
         <RemoveScopeBadge />
