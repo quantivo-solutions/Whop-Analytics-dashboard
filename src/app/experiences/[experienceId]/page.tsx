@@ -662,7 +662,7 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             })
           }
           
-          plan = 'free'
+          // Plan is updated in UserPlan table, no need to set local variable
           const refreshed = installation.userId
             ? await prisma.whopInstallation.findUnique({
                 where: {
