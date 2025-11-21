@@ -617,26 +617,32 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
       
       if (wasRecentlyUpdated) {
         console.log('[Experience Page] ⚠️ Skipping membership check - installation updated', Math.round(updatedAgoMs / 1000), 'seconds ago (likely from webhook)')
-      } else {
-        const userResponse = await fetch(`https://api.whop.com/api/v5/users/${whopUser.userId}/memberships`, {
-          headers: { 'Authorization': `Bearer ${env.WHOP_APP_SERVER_KEY}` },
-          next: { revalidate: 0 },
-        })
-        let shouldDowngrade = false
-        if (userResponse.ok) {
-          const memberships = await userResponse.json()
-          const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
-          const hasPro = Array.isArray(memberships) && memberships.some((m: any) => {
-            const status = m.status || m.state || m.membership_status
-            const productId = m.product?.id || m.access_pass?.id || m.product_id
-            return (status === 'valid' || status === 'active') && (!planId || productId === planId)
-          })
-          shouldDowngrade = !hasPro
         } else {
-          // Don't downgrade on API errors - only downgrade if we can confirm no membership
-          console.warn('[Experience Page] ⚠️ Unable to verify memberships, status:', userResponse.status, '- NOT downgrading (API may be unavailable)')
-          shouldDowngrade = false
-        }
+          // Check membership status via Whop API to detect cancellations
+          // Use installation access token if available (has proper permissions)
+          const accessToken = installation?.accessToken || env.WHOP_APP_SERVER_KEY
+          
+          const { checkUserMembershipStatus } = await import('@/lib/membership-check')
+          const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken)
+          
+          let shouldDowngrade = false
+          
+          if (membershipResult.error) {
+            // Don't downgrade on API errors - only downgrade if we can confirm no membership
+            console.warn('[Experience Page] ⚠️ Unable to verify memberships:', membershipResult.error, '- NOT downgrading (API may be unavailable)')
+            shouldDowngrade = false
+          } else {
+            // Only downgrade if user has Pro plan in DB but no active membership found
+            const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
+            shouldDowngrade = (currentUserPlan === 'pro' || currentUserPlan === 'business') && !membershipResult.hasActivePro
+            
+            console.log('[Experience Page] Membership verification result:', {
+              hasProMembership: membershipResult.hasActivePro,
+              totalMemberships: membershipResult.memberships.length,
+              currentPlanInDB: currentUserPlan,
+              shouldDowngrade,
+            })
+          }
         if (shouldDowngrade) {
           if (installation.userId) {
             await prisma.whopInstallation.update({
