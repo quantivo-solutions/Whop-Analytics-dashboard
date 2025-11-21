@@ -730,6 +730,7 @@ async function handleMembershipCancelled(data: any) {
     data.userId ||
     null
 
+  console.log('[WHOP] ===== MEMBERSHIP CANCELLATION WEBHOOK =====')
   console.log('[WHOP] membership.deactivated webhook received:', {
     user_id: userId,
     company_id,
@@ -741,6 +742,14 @@ async function handleMembershipCancelled(data: any) {
   
   // Log full webhook payload for debugging
   console.log('[WHOP] Full membership cancellation webhook payload:', JSON.stringify(data, null, 2))
+  
+  // Also log nested structures that might contain userId
+  if (data.membership) {
+    console.log('[WHOP] Membership object:', JSON.stringify(data.membership, null, 2))
+  }
+  if (data.user) {
+    console.log('[WHOP] User object:', JSON.stringify(data.user, null, 2))
+  }
 
   // CRITICAL: Update UserPlan even if installation isn't found
   // The userId is the key - we can update the plan directly
@@ -821,6 +830,25 @@ async function handleMembershipCancelled(data: any) {
         const { setUserPlan } = await import('@/lib/plan')
         await setUserPlan(installation.userId, 'free')
         console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${installation.userId} to free (found via installation lookup)`)
+        
+        // Also update installation.updatedAt to trigger any UI updates
+        try {
+          await prisma.whopInstallation.update({
+            where: {
+              companyId_userId: {
+                companyId: installation.companyId,
+                userId: installation.userId,
+              },
+            },
+            data: {
+              updatedAt: new Date(),
+            },
+          })
+          console.log(`[WHOP] ✅ Updated installation timestamp for ${installation.companyId}`)
+        } catch (updateError) {
+          console.error(`[WHOP] Error updating installation timestamp:`, updateError)
+          // Don't fail if this fails
+        }
       } catch (planError) {
         console.error(`[WHOP] ❌ Error updating user plan via installation lookup:`, planError)
         throw planError
@@ -830,9 +858,37 @@ async function handleMembershipCancelled(data: any) {
       console.error(`[WHOP] ❌ Webhook data keys:`, Object.keys(data))
       console.error(`[WHOP] ❌ Full webhook data:`, JSON.stringify(data, null, 2))
       
-      // Don't throw error - log it but allow webhook to succeed
-      // The plan will be synced when user accesses the dashboard
-      console.warn(`[WHOP] ⚠️ Plan downgrade skipped - will sync on next dashboard access`)
+      // Try one more time with a broader search - check all possible userId fields
+      const allPossibleUserIds = [
+        data.user?.id,
+        data.user?.user_id,
+        data.membership?.user_id,
+        data.membership?.userId,
+        data.user_id,
+        data.userId,
+        data.member?.user_id,
+        data.member?.userId,
+        data.customer?.id,
+        data.customer?.user_id,
+      ].filter(Boolean)
+      
+      console.log(`[WHOP] All possible userIds found:`, allPossibleUserIds)
+      
+      if (allPossibleUserIds.length > 0) {
+        const firstUserId = allPossibleUserIds[0]
+        console.log(`[WHOP] Attempting to downgrade with userId: ${firstUserId}`)
+        try {
+          const { setUserPlan } = await import('@/lib/plan')
+          await setUserPlan(firstUserId, 'free')
+          console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${firstUserId} to free (found via broad search)`)
+        } catch (planError) {
+          console.error(`[WHOP] ❌ Error updating user plan with broad search:`, planError)
+        }
+      } else {
+        // Don't throw error - log it but allow webhook to succeed
+        // The plan will be synced when user accesses the dashboard
+        console.warn(`[WHOP] ⚠️ Plan downgrade skipped - will sync on next dashboard access`)
+      }
     }
   }
 }

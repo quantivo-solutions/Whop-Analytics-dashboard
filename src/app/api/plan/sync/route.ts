@@ -70,21 +70,34 @@ export async function POST(request: Request) {
       await setUserPlan(userId, requestedPlan)
       console.log(`[Plan Sync] ✅ User plan updated to ${requestedPlan} (applies to all companies)`)
       
-      // Reset proWelcomeShownAt if upgrading to Pro
+      // Reset proWelcomeShownAt AND update installation.updatedAt if upgrading to Pro
       if (requestedPlan === 'pro' || requestedPlan === 'business') {
         try {
           const installations = await prisma.whopInstallation.findMany({
             where: { userId },
-            select: { companyId: true },
           })
           
           const { setCompanyPrefs } = await import('@/lib/company')
           for (const inst of installations) {
+            // Reset proWelcomeShownAt so modal can show
             await setCompanyPrefs(inst.companyId, { proWelcomeShownAt: null })
+            
+            // Update installation.updatedAt so wasRecentlyUpdated check passes
+            await prisma.whopInstallation.update({
+              where: {
+                companyId_userId: {
+                  companyId: inst.companyId,
+                  userId: inst.userId,
+                },
+              },
+              data: {
+                updatedAt: new Date(),
+              },
+            })
           }
-          console.log('[Plan Sync] ✅ Reset proWelcomeShownAt for', installations.length, 'installations')
+          console.log('[Plan Sync] ✅ Reset proWelcomeShownAt and updated installation timestamps for', installations.length, 'installations')
         } catch (prefsError) {
-          console.error('[Plan Sync] Error resetting proWelcomeShownAt:', prefsError)
+          console.error('[Plan Sync] Error resetting proWelcomeShownAt or updating installations:', prefsError)
         }
       }
       
@@ -105,20 +118,34 @@ export async function POST(request: Request) {
       
       console.log('[Plan Sync] ✅ User plan updated to pro (applies to all companies)')
       
-      // Reset proWelcomeShownAt for all installations of this user
+      // Reset proWelcomeShownAt AND update installation.updatedAt for all installations
+      // This ensures the Pro welcome modal shows (checks wasRecentlyUpdated)
       try {
         const installations = await prisma.whopInstallation.findMany({
           where: { userId },
-          select: { companyId: true },
         })
         
         const { setCompanyPrefs } = await import('@/lib/company')
         for (const inst of installations) {
+          // Reset proWelcomeShownAt so modal can show
           await setCompanyPrefs(inst.companyId, { proWelcomeShownAt: null })
+          
+          // Update installation.updatedAt so wasRecentlyUpdated check passes
+          await prisma.whopInstallation.update({
+            where: {
+              companyId_userId: {
+                companyId: inst.companyId,
+                userId: inst.userId,
+              },
+            },
+            data: {
+              updatedAt: new Date(),
+            },
+          })
         }
-        console.log('[Plan Sync] ✅ Reset proWelcomeShownAt for', installations.length, 'installations')
+        console.log('[Plan Sync] ✅ Reset proWelcomeShownAt and updated installation timestamps for', installations.length, 'installations')
       } catch (prefsError) {
-        console.error('[Plan Sync] Error resetting proWelcomeShownAt:', prefsError)
+        console.error('[Plan Sync] Error resetting proWelcomeShownAt or updating installations:', prefsError)
         // Don't fail if this fails
       }
       
