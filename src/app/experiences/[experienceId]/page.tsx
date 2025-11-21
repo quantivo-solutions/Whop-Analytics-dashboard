@@ -643,7 +643,13 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
               shouldDowngrade,
             })
           }
-        if (shouldDowngrade) {
+        if (shouldDowngrade && whopUser?.userId) {
+          // USER-LEVEL PLAN: Update UserPlan table (applies to ALL companies for this user)
+          const { setUserPlan } = await import('@/lib/plan')
+          await setUserPlan(whopUser.userId, 'free')
+          console.log('[Experience Page] ✅ Downgraded USER-LEVEL plan to free (confirmed no active membership found)')
+          
+          // Update installation timestamp for UI consistency
           if (installation.userId) {
             await prisma.whopInstallation.update({
               where: {
@@ -652,15 +658,11 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                   userId: installation.userId,
                 },
               },
-              data: { plan: 'free', updatedAt: new Date() },
-            })
-          } else {
-            await prisma.whopInstallation.updateMany({
-              where: { companyId: installation.companyId },
-              data: { plan: 'free', updatedAt: new Date() },
+              data: { updatedAt: new Date() },
             })
           }
-          console.log('[Experience Page] ✅ Downgraded to free (confirmed no active membership)')
+          
+          plan = 'free'
           const refreshed = installation.userId
             ? await prisma.whopInstallation.findUnique({
                 where: {
