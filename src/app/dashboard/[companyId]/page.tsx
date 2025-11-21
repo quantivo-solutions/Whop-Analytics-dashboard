@@ -619,9 +619,21 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   let onboardingComplete = false
   
   try {
-    // SAFETY: If installation was just updated moments ago AND plan is free, treat as fresh and reset onboarding
-    // BUT: Don't reset if user just upgraded to Pro (plan is pro/business)
-    if (installation && installation.plan === 'free') {
+    // USER-LEVEL PLAN: Check if user has Pro FIRST (before safety reset)
+    // This prevents resetting onboarding when user upgrades to Pro
+    let isPro = false
+    if (whopUser?.userId) {
+      const { getUserPlan } = await import('@/lib/plan')
+      const userPlan = await getUserPlan(whopUser.userId)
+      isPro = userPlan === 'pro' || userPlan === 'business'
+    } else {
+      // Fallback to installation.plan for old installations (migration period)
+      isPro = installation && (installation.plan === 'pro' || installation.plan === 'business')
+    }
+    
+    // SAFETY: If installation was just updated moments ago AND user is NOT Pro, treat as fresh and reset onboarding
+    // BUT: Don't reset if user just upgraded to Pro (would interfere with Pro welcome modal)
+    if (installation && !isPro) {
       const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
       if (updatedAgoMs < 5000) {
         try {
@@ -635,17 +647,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
 
     prefs = await getCompanyPrefs(finalCompanyId) // Always use URL companyId for isolation
-    
-    // USER-LEVEL PLAN: Check if user has Pro (from UserPlan table)
-    let isPro = false
-    if (whopUser?.userId) {
-      const { getUserPlan } = await import('@/lib/plan')
-      const userPlan = await getUserPlan(whopUser.userId)
-      isPro = userPlan === 'pro' || userPlan === 'business'
-    } else {
-      // Fallback to installation.plan for old installations (migration period)
-      isPro = installation && (installation.plan === 'pro' || installation.plan === 'business')
-    }
     const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
     const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
     const onboardingWasCompleted = prefs.completedAt !== null
