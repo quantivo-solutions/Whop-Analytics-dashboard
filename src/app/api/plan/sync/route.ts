@@ -11,6 +11,8 @@ import { getUserPlan, setUserPlan } from '@/lib/plan'
  * This is called after an in-app purchase to immediately update the plan
  * without waiting for webhooks.
  * 
+ * Can also be used to downgrade to 'free' by passing ?plan=free
+ * 
  * Strategy:
  * 1. Get current session (userId)
  * 2. Update UserPlan table (user-level plan)
@@ -19,6 +21,10 @@ import { getUserPlan, setUserPlan } from '@/lib/plan'
 export async function POST(request: Request) {
   try {
     console.log('[Plan Sync] ===== SYNC REQUEST =====')
+    
+    // Check if plan is specified in query params (for manual downgrade)
+    const { searchParams } = new URL(request.url)
+    const requestedPlan = searchParams.get('plan') as 'free' | 'pro' | 'business' | null
     
     // Get session to find userId (reads from cookies)
     const session = await getSession()
@@ -38,10 +44,44 @@ export async function POST(request: Request) {
     const currentPlan = await getUserPlan(userId)
     console.log('[Plan Sync] Current user plan:', currentPlan)
     
-    // Since purchase completed successfully and webhook isn't firing,
-    // directly update the user-level plan to 'pro' as a fallback
-    // The webhook should verify this later, but this ensures immediate upgrade
-    if (currentPlan !== 'pro') {
+    // Determine target plan
+    const targetPlan = requestedPlan || (currentPlan !== 'pro' ? 'pro' : 'pro')
+    
+    // If plan is specified and different from current, update it
+    if (requestedPlan && requestedPlan !== currentPlan) {
+      console.log('[Plan Sync] Updating user plan from', currentPlan, 'to', requestedPlan)
+      await setUserPlan(userId, requestedPlan)
+      console.log(`[Plan Sync] ✅ User plan updated to ${requestedPlan} (applies to all companies)`)
+      
+      // Reset proWelcomeShownAt if upgrading to Pro
+      if (requestedPlan === 'pro' || requestedPlan === 'business') {
+        try {
+          const installations = await prisma.whopInstallation.findMany({
+            where: { userId },
+            select: { companyId: true },
+          })
+          
+          const { setCompanyPrefs } = await import('@/lib/company')
+          for (const inst of installations) {
+            await setCompanyPrefs(inst.companyId, { proWelcomeShownAt: null })
+          }
+          console.log('[Plan Sync] ✅ Reset proWelcomeShownAt for', installations.length, 'installations')
+        } catch (prefsError) {
+          console.error('[Plan Sync] Error resetting proWelcomeShownAt:', prefsError)
+        }
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: `User plan updated to ${requestedPlan} (applies to all companies)`,
+        userId,
+        previousPlan: currentPlan,
+        newPlan: requestedPlan,
+      })
+    }
+    
+    // Default behavior: upgrade to pro if not already pro
+    if (currentPlan !== 'pro' && !requestedPlan) {
       console.log('[Plan Sync] Updating user plan from', currentPlan, 'to pro')
       
       await setUserPlan(userId, 'pro')
@@ -73,12 +113,12 @@ export async function POST(request: Request) {
         newPlan: 'pro',
       })
     } else {
-      console.log('[Plan Sync] User plan is already pro, no update needed')
+      console.log('[Plan Sync] User plan is already', currentPlan, ', no update needed')
       return NextResponse.json({
         success: true,
-        message: 'User plan already pro',
+        message: `User plan already ${currentPlan}`,
         userId,
-        currentPlan: 'pro',
+        currentPlan,
       })
     }
   } catch (error) {
