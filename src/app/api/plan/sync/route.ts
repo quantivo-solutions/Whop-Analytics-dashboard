@@ -21,18 +21,32 @@ import { getUserPlan, setUserPlan } from '@/lib/plan'
 export async function POST(request: Request) {
   try {
     console.log('[Plan Sync] ===== SYNC REQUEST =====')
+    console.log('[Plan Sync] Request URL:', request.url)
+    console.log('[Plan Sync] Request headers:', Object.fromEntries(request.headers.entries()))
     
     // Check if plan is specified in query params (for manual downgrade)
     const { searchParams } = new URL(request.url)
     const requestedPlan = searchParams.get('plan') as 'free' | 'pro' | 'business' | null
     
+    console.log('[Plan Sync] Requested plan from query:', requestedPlan)
+    
     // Get session to find userId (reads from cookies)
     const session = await getSession()
     
+    console.log('[Plan Sync] Session data:', {
+      hasSession: !!session,
+      userId: session?.userId,
+      companyId: session?.companyId,
+    })
+    
     if (!session?.userId) {
-      console.error('[Plan Sync] No userId in session')
+      console.error('[Plan Sync] ❌ No userId in session')
+      console.error('[Plan Sync] Session object:', session)
       return NextResponse.json(
-        { error: 'No userId in session' },
+        { 
+          error: 'No userId in session',
+          details: 'Session cookie may be missing or invalid. Make sure credentials: "include" is set in fetch call.',
+        },
         { status: 401 }
       )
     }
@@ -44,10 +58,13 @@ export async function POST(request: Request) {
     const currentPlan = await getUserPlan(userId)
     console.log('[Plan Sync] Current user plan:', currentPlan)
     
-    // Determine target plan
-    const targetPlan = requestedPlan || (currentPlan !== 'pro' ? 'pro' : 'pro')
+    // Determine target plan - if purchase was successful, upgrade to pro
+    // If plan is explicitly requested via query param, use that
+    const targetPlan = requestedPlan || (currentPlan !== 'pro' ? 'pro' : currentPlan)
     
-    // If plan is specified and different from current, update it
+    console.log('[Plan Sync] Target plan:', targetPlan)
+    
+    // If plan is specified via query param and different from current, update it
     if (requestedPlan && requestedPlan !== currentPlan) {
       console.log('[Plan Sync] Updating user plan from', currentPlan, 'to', requestedPlan)
       await setUserPlan(userId, requestedPlan)
@@ -80,9 +97,9 @@ export async function POST(request: Request) {
       })
     }
     
-    // Default behavior: upgrade to pro if not already pro
+    // Default behavior: upgrade to pro if not already pro (called after successful purchase)
     if (currentPlan !== 'pro' && !requestedPlan) {
-      console.log('[Plan Sync] Updating user plan from', currentPlan, 'to pro')
+      console.log('[Plan Sync] Updating user plan from', currentPlan, 'to pro (after purchase)')
       
       await setUserPlan(userId, 'pro')
       
@@ -112,11 +129,20 @@ export async function POST(request: Request) {
         previousPlan: currentPlan,
         newPlan: 'pro',
       })
-    } else {
-      console.log('[Plan Sync] User plan is already', currentPlan, ', no update needed')
+    } else if (currentPlan === 'pro' && !requestedPlan) {
+      console.log('[Plan Sync] User plan is already pro, no update needed')
       return NextResponse.json({
         success: true,
-        message: `User plan already ${currentPlan}`,
+        message: 'User plan already pro',
+        userId,
+        currentPlan: 'pro',
+      })
+    } else {
+      // This shouldn't happen, but handle it
+      console.log('[Plan Sync] No action needed. Current plan:', currentPlan, 'Requested:', requestedPlan)
+      return NextResponse.json({
+        success: true,
+        message: `No update needed. Current plan: ${currentPlan}`,
         userId,
         currentPlan,
       })

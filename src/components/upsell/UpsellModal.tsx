@@ -157,17 +157,31 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
           const syncResponse = await fetch('/api/plan/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // CRITICAL: Include cookies for session auth
           })
           
           if (syncResponse.ok) {
             const syncData = await syncResponse.json()
-            console.log('[UpsellModal] Plan sync response:', syncData)
+            console.log('[UpsellModal] ✅ Plan sync successful:', syncData)
+            
+            if (syncData.success && syncData.newPlan === 'pro') {
+              console.log('[UpsellModal] ✅ Plan updated to Pro in database')
+            }
           } else {
-            console.warn('[UpsellModal] Plan sync failed:', await syncResponse.text())
+            const errorText = await syncResponse.text()
+            console.error('[UpsellModal] ❌ Plan sync failed:', syncResponse.status, errorText)
+            // Try to parse error if it's JSON
+            try {
+              const errorData = JSON.parse(errorText)
+              console.error('[UpsellModal] Sync error details:', errorData)
+            } catch {
+              // Not JSON, already logged as text
+            }
           }
         } catch (syncError) {
-          console.warn('[UpsellModal] Plan sync error (non-critical):', syncError)
+          console.error('[UpsellModal] ❌ Plan sync error:', syncError)
           // Don't fail the purchase if sync fails - webhook will handle it
+          // But log it so we can debug
         }
         
         // Close modal and reload page to show updated plan
