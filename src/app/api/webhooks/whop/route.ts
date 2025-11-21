@@ -688,81 +688,110 @@ async function handleMembershipActivated(data: any) {
  * This fires when a user cancels or subscription expires
  */
 async function handleMembershipCancelled(data: any) {
+  // Extract userId from multiple possible locations in webhook payload
   const user = data.user
+  const membership = data.membership
   const company = data.company
   const company_id = company?.id || data.company_id
   const experience = data.experience
   const product = data.product
 
+  // Try multiple paths for userId (Whop webhooks vary in structure)
+  const userId = 
+    user?.id || 
+    user?.user_id ||
+    membership?.user_id ||
+    membership?.userId ||
+    data.user_id ||
+    data.userId ||
+    null
+
   console.log('[WHOP] membership.deactivated webhook received:', {
-    user_id: user?.id,
+    user_id: userId,
     company_id,
     company_title: company?.title,
     product_title: product?.title,
     experience_id: experience?.id,
+    webhook_keys: Object.keys(data),
   })
+  
+  // Log full webhook payload for debugging
+  console.log('[WHOP] Full membership cancellation webhook payload:', JSON.stringify(data, null, 2))
 
-  // Use same lookup strategy as handleMembershipActivated
-  let installation = null
-  
-  // Priority 1: experienceId
-  if (experience?.id) {
-    installation = await prisma.whopInstallation.findFirst({
-      where: { experienceId: experience.id },
-    })
-    
-    if (installation) {
-      console.log(`[WHOP] ✅ Found installation via experienceId: ${experience.id}`)
-    }
-  }
-  
-  // Priority 2: userId
-  if (!installation && user?.id) {
-    installation = await prisma.whopInstallation.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    })
-    
-    if (installation) {
-      console.log(`[WHOP] ✅ Found installation via userId: ${user.id}`)
-    }
-  }
-  
-  // Priority 3: company_id from webhook
-  if (!installation && company_id) {
-    installation = await prisma.whopInstallation.findFirst({
-      where: { companyId: company_id },
-      orderBy: { updatedAt: 'desc' },
-    })
-    
-    if (installation) {
-      console.log(`[WHOP] Found installation via webhook company_id: ${company_id}`)
-    }
-  }
-
-  if (installation && user?.id) {
-    // USER-LEVEL PLAN: Update UserPlan table to 'free' (applies to ALL companies for this user)
-    const { setUserPlan } = await import('@/lib/plan')
-    await setUserPlan(user.id, 'free')
-    console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${user.id} to free (applies to all companies)`)
-    
-    // Get all installations for this user to reset onboarding
-    const userInstallations = await prisma.whopInstallation.findMany({
-      where: { userId: user.id },
-    })
-    
-    // Reset onboarding for all installations (user cancelled, may want to re-onboard)
+  // CRITICAL: Update UserPlan even if installation isn't found
+  // The userId is the key - we can update the plan directly
+  if (userId) {
     try {
-      const { setCompanyPrefs } = await import('@/lib/company')
-      for (const inst of userInstallations) {
-        await setCompanyPrefs(inst.companyId, { completedAt: null })
+      // USER-LEVEL PLAN: Update UserPlan table to 'free' (applies to ALL companies for this user)
+      const { setUserPlan } = await import('@/lib/plan')
+      await setUserPlan(userId, 'free')
+      console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${userId} to free (applies to all companies)`)
+      
+      // Get all installations for this user to reset onboarding
+      const userInstallations = await prisma.whopInstallation.findMany({
+        where: { userId },
+      })
+      
+      console.log(`[WHOP] Found ${userInstallations.length} installation(s) for user ${userId}`)
+      
+      // Reset onboarding for all installations (user cancelled, may want to re-onboard)
+      if (userInstallations.length > 0) {
+        try {
+          const { setCompanyPrefs } = await import('@/lib/company')
+          for (const inst of userInstallations) {
+            await setCompanyPrefs(inst.companyId, { completedAt: null })
+          }
+          console.log(`[WHOP] ✅ Reset onboarding for ${userInstallations.length} installation(s) after cancellation`)
+        } catch (prefsError) {
+          console.error(`[WHOP] Error resetting onboarding on cancellation:`, prefsError)
+        }
       }
-      console.log(`[WHOP] ✅ Reset onboarding for ${userInstallations.length} installation(s) after cancellation`)
-    } catch (prefsError) {
-      console.error(`[WHOP] Error resetting onboarding on cancellation:`, prefsError)
+    } catch (planError) {
+      console.error(`[WHOP] ❌ Error updating user plan to free:`, planError)
+      throw planError
     }
   } else {
-    console.error(`[WHOP] ❌ No installation found to downgrade for user ${user?.id}`)
+    // Try to find userId from installation lookup as fallback
+    console.log('[WHOP] ⚠️ No userId found in webhook payload, attempting to find via installation lookup...')
+    
+    let installation = null
+    
+    // Priority 1: experienceId
+    if (experience?.id) {
+      installation = await prisma.whopInstallation.findFirst({
+        where: { experienceId: experience.id },
+      })
+      
+      if (installation) {
+        console.log(`[WHOP] ✅ Found installation via experienceId: ${experience.id}, userId: ${installation.userId}`)
+      }
+    }
+    
+    // Priority 2: company_id from webhook
+    if (!installation && company_id) {
+      installation = await prisma.whopInstallation.findFirst({
+        where: { companyId: company_id },
+        orderBy: { updatedAt: 'desc' },
+      })
+      
+      if (installation) {
+        console.log(`[WHOP] Found installation via webhook company_id: ${company_id}, userId: ${installation.userId}`)
+      }
+    }
+    
+    // If we found installation with userId, update plan
+    if (installation?.userId) {
+      try {
+        const { setUserPlan } = await import('@/lib/plan')
+        await setUserPlan(installation.userId, 'free')
+        console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${installation.userId} to free (found via installation lookup)`)
+      } catch (planError) {
+        console.error(`[WHOP] ❌ Error updating user plan via installation lookup:`, planError)
+      }
+    } else {
+      console.error(`[WHOP] ❌ Cannot downgrade plan: No userId found in webhook payload and no installation found`)
+      console.error(`[WHOP] ❌ Webhook data:`, JSON.stringify(data, null, 2))
+    }
   }
 }
 
