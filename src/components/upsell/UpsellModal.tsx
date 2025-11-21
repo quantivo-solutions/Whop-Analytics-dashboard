@@ -52,7 +52,9 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
       if (open) {
         setCheckingPlan(true)
         try {
-          const response = await fetch('/api/plan/check')
+          const response = await fetch('/api/plan/check', {
+            credentials: 'include', // CRITICAL: Include cookies for session auth
+          })
           if (response.ok) {
             const data = await response.json()
             if (data.hasPro) {
@@ -61,6 +63,9 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
             } else {
               setAlreadyPro(false)
             }
+          } else {
+            console.warn('[UpsellModal] Plan check failed:', response.status)
+            setAlreadyPro(false)
           }
         } catch (error) {
           console.error('[UpsellModal] Error checking plan:', error)
