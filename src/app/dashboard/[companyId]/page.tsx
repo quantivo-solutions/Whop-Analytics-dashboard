@@ -143,8 +143,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       }
 
           // STEP A: Look up installation by the requested companyId first
-          installation = await prisma.whopInstallation.findUnique({
+          installation = await prisma.whopInstallation.findFirst({
             where: { companyId },
+            orderBy: { updatedAt: 'desc' },
           })
           if (installation) {
             console.log('[Dashboard View] ✅ Found installation by URL companyId:', companyId)
@@ -264,8 +265,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                 })
                 
                 // CRITICAL: Verify installation was actually created
-                const verifyInstallation = await prisma.whopInstallation.findUnique({
+                const verifyInstallation = await prisma.whopInstallation.findFirst({
                   where: { companyId },
+                  orderBy: { updatedAt: 'desc' },
                 })
                 if (!verifyInstallation) {
                   console.error('[Dashboard View] ❌ CRITICAL: Installation creation verification failed - installation not found in database after create')
@@ -371,11 +373,28 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
                     })
                     
                     if (!existingByExp || existingByExp.companyId === installation.companyId) {
-                      // Update installation with experienceId
-                      installation = await prisma.whopInstallation.update({
-                        where: { companyId: installation.companyId },
-                        data: { experienceId: foundExperienceId },
-                      })
+                      // Update installation with experienceId (use composite key if userId exists)
+                      if (installation.userId) {
+                        installation = await prisma.whopInstallation.update({
+                          where: {
+                            companyId_userId: {
+                              companyId: installation.companyId,
+                              userId: installation.userId,
+                            },
+                          },
+                          data: { experienceId: foundExperienceId },
+                        })
+                      } else {
+                        await prisma.whopInstallation.updateMany({
+                          where: { companyId: installation.companyId },
+                          data: { experienceId: foundExperienceId },
+                        })
+                        const updated = await prisma.whopInstallation.findFirst({
+                          where: { companyId: installation.companyId },
+                          orderBy: { updatedAt: 'desc' },
+                        })
+                        if (updated) installation = updated
+                      }
                       console.log('[Dashboard View] ✅ Updated installation with experienceId:', foundExperienceId)
                     } else {
                       console.warn('[Dashboard View] ⚠️ ExperienceId already taken by another company, skipping')
@@ -399,27 +418,61 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               installation.profilePicUrl !== (whopUserDetails.profile_pic_url || installation.profilePicUrl)
             
             if (needsUpdate) {
-              await prisma.whopInstallation.update({
-                where: { companyId: installation.companyId },
-                data: {
-                  userId: whopUser.userId,
-                  username: whopUserDetails.username || whopUser.username || installation.username || null,
-                  email: whopUserDetails.email || installation.email || null,
-                  profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
-                },
-              })
+              // Update using composite key if userId exists, otherwise use updateMany
+              if (installation.userId || whopUser.userId) {
+                const targetUserId = whopUser.userId || installation.userId
+                if (!targetUserId) {
+                  // Fallback to updateMany if no userId available
+                  await prisma.whopInstallation.updateMany({
+                    where: { companyId: installation.companyId },
+                    data: {
+                      userId: whopUser.userId,
+                      username: whopUserDetails.username || whopUser.username || installation.username || null,
+                      email: whopUserDetails.email || installation.email || null,
+                      profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
+                    },
+                  })
+                } else {
+                  await prisma.whopInstallation.update({
+                    where: {
+                      companyId_userId: {
+                        companyId: installation.companyId,
+                        userId: targetUserId,
+                      },
+                    },
+                    data: {
+                      userId: whopUser.userId,
+                      username: whopUserDetails.username || whopUser.username || installation.username || null,
+                      email: whopUserDetails.email || installation.email || null,
+                      profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
+                    },
+                  })
+                }
+              } else {
+                await prisma.whopInstallation.updateMany({
+                  where: { companyId: installation.companyId },
+                  data: {
+                    userId: whopUser.userId,
+                    username: whopUserDetails.username || whopUser.username || installation.username || null,
+                    email: whopUserDetails.email || installation.email || null,
+                    profilePicUrl: whopUserDetails.profile_pic_url || installation.profilePicUrl || null,
+                  },
+                })
+              }
               console.log('[Dashboard View] ✅ Updated installation user data')
               // Refresh installation after update
-              installation = await prisma.whopInstallation.findUnique({
+              installation = await prisma.whopInstallation.findFirst({
                 where: { companyId: installation.companyId },
+                orderBy: { updatedAt: 'desc' },
               })
             }
             console.log('[Dashboard View] ✅ Installation exists:', installation?.companyId, 'plan:', installation?.plan || 'unknown', 'experienceId:', installation?.experienceId || 'none')
             
             // Refresh installation to get latest plan (webhook may have updated it)
             if (installation) {
-              const freshInstallation = await prisma.whopInstallation.findUnique({
+              const freshInstallation = await prisma.whopInstallation.findFirst({
                 where: { companyId: installation.companyId },
+                orderBy: { updatedAt: 'desc' },
               })
               if (freshInstallation) {
                 installation = freshInstallation
@@ -460,8 +513,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
         // If we have session, get installation
         if (session) {
-          installation = await prisma.whopInstallation.findUnique({
+          installation = await prisma.whopInstallation.findFirst({
             where: { companyId: session.companyId },
+            orderBy: { updatedAt: 'desc' },
           })
         }
       }
@@ -546,8 +600,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   // STEP 5: Refresh installation to get latest plan (webhook may have updated it)
   console.log('[Dashboard View] Refreshing installation to get latest plan...')
   if (installation) {
-    const freshInstallation = await prisma.whopInstallation.findUnique({
+    const freshInstallation = await prisma.whopInstallation.findFirst({
       where: { companyId: finalCompanyId },
+      orderBy: { updatedAt: 'desc' },
     })
     if (freshInstallation) {
       installation = freshInstallation
@@ -580,8 +635,16 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
     prefs = await getCompanyPrefs(finalCompanyId) // Always use URL companyId for isolation
     
-    // Check if user just upgraded to Pro (plan is pro/business, recently updated, onboarding completed, but welcome not shown)
-    const isPro = installation && (installation.plan === 'pro' || installation.plan === 'business')
+    // USER-LEVEL PLAN: Check if user has Pro (from UserPlan table)
+    let isPro = false
+    if (whopUser?.userId) {
+      const { getUserPlan } = await import('@/lib/plan')
+      const userPlan = await getUserPlan(whopUser.userId)
+      isPro = userPlan === 'pro' || userPlan === 'business'
+    } else {
+      // Fallback to installation.plan for old installations (migration period)
+      isPro = installation && (installation.plan === 'pro' || installation.plan === 'business')
+    }
     const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
     const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
     const onboardingWasCompleted = prefs.completedAt !== null
@@ -649,8 +712,16 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   let plan: 'free' | 'pro' | 'business' = 'free'
   
   try {
-    // Use installation.plan directly (most up-to-date from webhooks)
-    plan = (installation?.plan as 'free' | 'pro' | 'business') || 'free'
+    // USER-LEVEL PLAN: Get plan from UserPlan table (applies to all companies for this user)
+    if (whopUser?.userId) {
+      const { getUserPlan } = await import('@/lib/plan')
+      plan = await getUserPlan(whopUser.userId)
+      console.log('[Dashboard View] User-level plan:', plan, 'for userId:', whopUser.userId)
+    } else {
+      // Fallback to installation.plan for old installations without userId (migration period)
+      plan = (installation?.plan as 'free' | 'pro' | 'business') || 'free'
+      console.log('[Dashboard View] Using installation.plan fallback:', plan)
+    }
     
     // CRITICAL: Use dataCompanyId (may be userId-based if migration needed)
     // This handles cases where data exists under old user-based companyId
@@ -699,10 +770,23 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             shouldDowngrade = false
           }
           if (shouldDowngrade) {
-            await prisma.whopInstallation.update({
-              where: { companyId: installation.companyId },
-              data: { plan: 'free', updatedAt: new Date() },
-            })
+            // Update using composite key if userId exists, otherwise use updateMany
+            if (installation.userId) {
+              await prisma.whopInstallation.update({
+                where: {
+                  companyId_userId: {
+                    companyId: installation.companyId,
+                    userId: installation.userId,
+                  },
+                },
+                data: { plan: 'free', updatedAt: new Date() },
+              })
+            } else {
+              await prisma.whopInstallation.updateMany({
+                where: { companyId: installation.companyId },
+                data: { plan: 'free', updatedAt: new Date() },
+              })
+            }
             plan = 'free'
             console.log('[Dashboard View] ✅ Downgraded to free (confirmed no active membership)')
             const { setCompanyPrefs } = await import('@/lib/company')
@@ -782,8 +866,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         const { updateInstallationCompanyName } = await import('@/lib/company')
         await updateInstallationCompanyName(finalCompanyId)
         // Refresh installation to get updated name
-        installation = await prisma.whopInstallation.findUnique({
+        installation = await prisma.whopInstallation.findFirst({
           where: { companyId: finalCompanyId },
+          orderBy: { updatedAt: 'desc' },
         })
         console.log('[Dashboard View] ✅ Installation refreshed, experienceName:', installation?.experienceName || 'still null')
       } catch (nameError) {

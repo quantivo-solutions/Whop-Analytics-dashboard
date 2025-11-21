@@ -5,9 +5,14 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Starting seed...')
 
-  // Create demo WhopInstallation
+  // Create demo WhopInstallation (userId is now required)
   const demoInstallation = await prisma.whopInstallation.upsert({
-    where: { companyId: 'demo_company' },
+    where: {
+      companyId_userId: {
+        companyId: 'demo_company',
+        userId: 'demo_user',
+      },
+    },
     update: {
       experienceId: 'demo_experience',
       accessToken: process.env.WHOP_API_KEY || process.env.WHOP_APP_SERVER_KEY || 'demo_token',
@@ -15,6 +20,7 @@ async function main() {
     },
     create: {
       companyId: 'demo_company',
+      userId: 'demo_user', // REQUIRED
       experienceId: 'demo_experience',
       accessToken: process.env.WHOP_API_KEY || process.env.WHOP_APP_SERVER_KEY || 'demo_token',
       plan: 'demo',

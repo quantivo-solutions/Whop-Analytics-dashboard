@@ -21,7 +21,12 @@ async function main() {
 
   try {
     const installation = await prisma.whopInstallation.update({
-      where: { companyId: 'demo_company' },
+      where: {
+        companyId_userId: {
+          companyId: 'demo_company',
+          userId: 'demo_user',
+        },
+      },
       data: {
         accessToken: apiKey,
         plan: 'production',
@@ -29,12 +34,12 @@ async function main() {
       },
     })
 
-    console.log('\n✅ Successfully updated demo_company installation!')
-    console.log(`   Company ID: ${installation.companyId}`)
-    console.log(`   Plan: ${installation.plan}`)
-    console.log(`   Updated: ${installation.updatedAt}`)
+      console.log('\n✅ Successfully updated demo_company installation!')
+      console.log(`   Company ID: ${installation.companyId}`)
+      console.log(`   Plan: ${installation.plan}`)
+      console.log(`   Updated: ${installation.updatedAt}`)
 
-    console.log('\n📊 Next: Trigger a backfill to fetch real data:')
+      console.log('\n📊 Next: Trigger a backfill to fetch real data:')
     console.log('   Run this command:')
     console.log('   npm run test:backfill\n')
 
@@ -48,6 +53,7 @@ async function main() {
       const newInstallation = await prisma.whopInstallation.create({
         data: {
           companyId: 'demo_company',
+          userId: 'demo_user', // REQUIRED
           accessToken: apiKey,
           experienceId: 'demo_experience',
           plan: 'production',

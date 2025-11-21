@@ -261,9 +261,10 @@ async function handleAppInstalled(data: any) {
     throw new Error('Missing required installation data: company_id or access_token')
   }
 
-  // Check if installation already exists
-  const existing = await prisma.whopInstallation.findUnique({
+  // Check if installation already exists (use findFirst since companyId is not unique alone)
+  const existing = await prisma.whopInstallation.findFirst({
     where: { companyId: company_id },
+    orderBy: { updatedAt: 'desc' },
   })
   
   const isNewInstallation = !existing
@@ -277,9 +278,9 @@ async function handleAppInstalled(data: any) {
   try {
     // If experienceId is provided and already exists for a different company, handle it
     if (experience_id) {
-      const existingByExp = await prisma.whopInstallation.findUnique({
-        where: { experienceId: experience_id },
-      })
+        const existingByExp = await prisma.whopInstallation.findUnique({
+          where: { experienceId: experience_id },
+        }).catch(() => null)
       
       if (existingByExp && existingByExp.companyId !== company_id) {
         // ExperienceId already belongs to a different company
@@ -290,21 +291,31 @@ async function handleAppInstalled(data: any) {
       }
     }
     
+    // CRITICAL: userId is now REQUIRED for installations
+    if (!user_id) {
+      console.error('[WHOP] ❌ Missing userId in app.installed webhook - cannot create installation')
+      throw new Error('Missing userId - required for user-level plan tracking')
+    }
+
     await prisma.whopInstallation.upsert({
-      where: { companyId: company_id },
+      where: { 
+        companyId_userId: {
+          companyId: company_id,
+          userId: user_id,
+        }
+      },
       update: {
         experienceId: experience_id || existing?.experienceId || null, // Only update if provided and unique
         accessToken: access_token,
-        plan: 'free', // ALWAYS reset to free on install/reinstall
-        userId: user_id || existing?.userId || null, // Preserve existing userId if not provided
+        plan: 'free', // DEPRECATED: Kept for migration period. User-level plan is in UserPlan table.
         updatedAt: new Date(),
       },
       create: {
         companyId: company_id,
+        userId: user_id, // REQUIRED: User-level plan tracking
         experienceId: experience_id || null,
         accessToken: access_token,
-        plan: 'free', // Always start with free for new installs
-        userId: user_id || null, // Store userId if provided
+        plan: 'free', // DEPRECATED: Kept for migration period
       },
     })
 
@@ -334,23 +345,41 @@ async function handleAppInstalled(data: any) {
       if (error.meta?.target?.includes('experienceId')) {
         console.log('[WHOP] ⚠️ Duplicate experienceId detected, retrying without experienceId...')
         try {
-          await prisma.whopInstallation.upsert({
-            where: { companyId: company_id },
-            update: {
-              accessToken: access_token,
-              plan: 'free',
-              userId: user_id || existing?.userId || null,
-              updatedAt: new Date(),
-              // Don't update experienceId if it causes a conflict
-            },
-            create: {
-              companyId: company_id,
-              accessToken: access_token,
-              plan: 'free',
-              userId: user_id || null,
-              // Don't set experienceId if it causes a conflict
-            },
-          })
+          // Use composite key if we have userId, otherwise use updateMany
+          if (user_id) {
+            await prisma.whopInstallation.upsert({
+              where: {
+                companyId_userId: {
+                  companyId: company_id,
+                  userId: user_id,
+                },
+              },
+              update: {
+                accessToken: access_token,
+                plan: 'free',
+                userId: user_id,
+                updatedAt: new Date(),
+                // Don't update experienceId if it causes a conflict
+              },
+              create: {
+                companyId: company_id,
+                userId: user_id,
+                experienceId: null, // Skip experienceId to avoid conflict
+                accessToken: access_token,
+                plan: 'free',
+              },
+            })
+          } else {
+            // Fallback: updateMany if no userId (shouldn't happen, but handle gracefully)
+            await prisma.whopInstallation.updateMany({
+              where: { companyId: company_id },
+              data: {
+                accessToken: access_token,
+                plan: 'free',
+                updatedAt: new Date(),
+              },
+            })
+          }
           console.log(`[WHOP] ✅ Installed companyId=${company_id} without experienceId (duplicate conflict resolved)`)
           return // Success, exit early
         } catch (retryError: any) {
@@ -411,23 +440,33 @@ async function handleAppUninstalled(data: any) {
     throw new Error('Missing company_id')
   }
 
-  // Delete the installation for this company
-  await prisma.whopInstallation.delete({
-    where: { companyId: company_id },
-  })
-  console.log(`Uninstalled companyId=${company_id}`)
-
-  // Also set any other installations for this user to free (in case multiple existed)
+  // Delete the installation for this company+user combination
   const resolvedUserId = user?.id || user_id
   if (resolvedUserId) {
-    const others = await prisma.whopInstallation.findMany({ where: { userId: resolvedUserId } })
-    if (others.length > 0) {
-      await prisma.whopInstallation.updateMany({
-        where: { userId: resolvedUserId },
-        data: { plan: 'free', updatedAt: new Date() },
-      })
-      console.log(`[WHOP] ✅ Downgraded ${others.length} other installation(s) for user ${resolvedUserId} to free after uninstall`)
+    await prisma.whopInstallation.deleteMany({
+      where: { 
+        companyId: company_id,
+        userId: resolvedUserId,
+      },
+    })
+    console.log(`[WHOP] Uninstalled companyId=${company_id} for userId=${resolvedUserId}`)
+    
+    // Check if user has any remaining installations
+    const remainingInstallations = await prisma.whopInstallation.findMany({ 
+      where: { userId: resolvedUserId } 
+    })
+    
+    // If no installations remain, user-level plan can stay (they might reinstall)
+    // But if they want to remove it, they can cancel the membership separately
+    if (remainingInstallations.length === 0) {
+      console.log(`[WHOP] User ${resolvedUserId} has no remaining installations after uninstall`)
     }
+  } else {
+    // Fallback: delete by companyId only (for old installations without userId)
+    await prisma.whopInstallation.deleteMany({
+      where: { companyId: company_id },
+    })
+    console.log(`[WHOP] Uninstalled companyId=${company_id} (no userId provided)`)
   }
 
   // Reset onboarding for the uninstalled company so a reinstall shows the wizard
@@ -442,39 +481,19 @@ async function handleAppUninstalled(data: any) {
 
 /**
  * Handle app.plan.updated event
- * Update plan details for the installation
+ * DEPRECATED: This webhook is deprecated in favor of user-level plans.
+ * Plans are now managed via UserPlan table, not installation.plan.
+ * This handler is kept for backward compatibility but does nothing.
  */
 async function handlePlanUpdated(data: any) {
-  const { company_id, plan } = data
+  const { company_id, plan, user_id } = data
 
-  if (!company_id) {
-    throw new Error('Missing company_id')
-  }
-
-  // Normalize plan name to lowercase (free|pro|business)
-  let normalizedPlan = null
-  if (plan) {
-    const planLower = plan.toLowerCase()
-    if (planLower === 'pro' || planLower === 'professional') {
-      normalizedPlan = 'pro'
-    } else if (planLower === 'business' || planLower === 'enterprise') {
-      normalizedPlan = 'business'
-    } else if (planLower === 'free') {
-      normalizedPlan = 'free'
-    } else {
-      normalizedPlan = planLower
-    }
-  }
-
-  await prisma.whopInstallation.update({
-    where: { companyId: company_id },
-    data: {
-      plan: normalizedPlan,
-      updatedAt: new Date(),
-    },
-  })
-
-  console.log(`[WHOP] plan update company=${company_id} plan=${normalizedPlan || 'free'}`)
+  console.log(`[WHOP] ⚠️ app.plan.updated webhook received but is deprecated.`)
+  console.log(`[WHOP] Plans are now user-level. Use membership.activated/membership.went_invalid instead.`)
+  console.log(`[WHOP] Received: company_id=${company_id}, user_id=${user_id || 'none'}, plan=${plan || 'none'}`)
+  
+  // If user_id is provided, we could update UserPlan table, but this webhook is deprecated
+  // The membership webhooks handle plan updates correctly
 }
 
 /**
@@ -485,9 +504,10 @@ async function triggerBackfill(companyId: string) {
   try {
     console.log(`📊 Starting 7-day backfill for companyId=${companyId}`)
     
-    // Get the installation to fetch the access token
-    const installation = await prisma.whopInstallation.findUnique({
+    // Get the installation to fetch the access token (use findFirst since companyId is not unique alone)
+    const installation = await prisma.whopInstallation.findFirst({
       where: { companyId },
+      orderBy: { updatedAt: 'desc' },
     })
     
     if (!installation) {
@@ -595,8 +615,9 @@ async function handleMembershipActivated(data: any) {
   
   // Priority 3: Fall back to company_id from webhook (might be wrong company!)
   if (!installation && company_id) {
-    installation = await prisma.whopInstallation.findUnique({
+    installation = await prisma.whopInstallation.findFirst({
       where: { companyId: company_id },
+      orderBy: { updatedAt: 'desc' },
     })
     
     if (installation) {
@@ -604,68 +625,29 @@ async function handleMembershipActivated(data: any) {
     }
   }
 
-  if (installation) {
-    // Update existing installation with new plan
-    // Also check if there are other installations for this user that should be updated
-    // If the user has multiple installations, update all that might be related
+  if (installation && user?.id) {
+    // USER-LEVEL PLAN: Update UserPlan table (applies to ALL companies for this user)
+    const { setUserPlan } = await import('@/lib/plan')
+    await setUserPlan(user.id, plan as 'free' | 'pro' | 'business')
+    console.log(`[WHOP] ✅ Updated USER-LEVEL plan for user ${user.id} to ${plan} (applies to all companies)`)
+    
+    // Get all installations for this user to reset proWelcomeShownAt
     const allUserInstallations = await prisma.whopInstallation.findMany({
-      where: { userId: user?.id },
+      where: { userId: user.id },
     })
     
-    // Update the found installation
-    await prisma.whopInstallation.update({
-      where: { companyId: installation.companyId },
-      data: {
-        plan,
-        updatedAt: new Date(),
-      },
-    })
-    console.log(`[WHOP] ✅ Updated installation ${installation.companyId} to ${plan} plan`)
-    
-    // If upgrading to Pro/Business, reset proWelcomeShownAt so the welcome modal shows
+    // If upgrading to Pro/Business, reset proWelcomeShownAt for ALL installations
+    // so the welcome modal shows in each company dashboard
     if (plan === 'pro' || plan === 'business') {
       try {
         const { setCompanyPrefs } = await import('@/lib/company')
-        await setCompanyPrefs(installation.companyId, { proWelcomeShownAt: null })
-        console.log(`[WHOP] ✅ Reset proWelcomeShownAt for ${installation.companyId} to trigger Pro welcome modal`)
+        for (const inst of allUserInstallations) {
+          await setCompanyPrefs(inst.companyId, { proWelcomeShownAt: null })
+        }
+        console.log(`[WHOP] ✅ Reset proWelcomeShownAt for ${allUserInstallations.length} installation(s) to trigger Pro welcome modal`)
       } catch (prefsError) {
         console.error(`[WHOP] Error resetting proWelcomeShownAt:`, prefsError)
         // Don't fail the webhook if this fails
-      }
-    }
-    
-    // If there are multiple installations for this user, update the most recently active one
-    // This handles cases where the user has both a personal company and a business company
-    if (allUserInstallations.length > 1) {
-      // Find the installation that was most recently updated (before this webhook)
-      const otherInstallations = allUserInstallations.filter(inst => inst.companyId !== installation.companyId)
-      if (otherInstallations.length > 0) {
-        // Update the most recently created one (likely the main one)
-        const mostRecentOther = otherInstallations.sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )[0]
-        
-        console.log(`[WHOP] User has multiple installations. Also updating ${mostRecentOther.companyId} to ${plan} plan`)
-        await prisma.whopInstallation.update({
-          where: { companyId: mostRecentOther.companyId },
-          data: {
-            plan,
-            updatedAt: new Date(),
-          },
-        })
-        console.log(`[WHOP] ✅ Updated additional installation ${mostRecentOther.companyId} to ${plan} plan`)
-        
-        // Also reset proWelcomeShownAt for the additional installation if upgrading to Pro/Business
-        if (plan === 'pro' || plan === 'business') {
-          try {
-            const { setCompanyPrefs } = await import('@/lib/company')
-            await setCompanyPrefs(mostRecentOther.companyId, { proWelcomeShownAt: null })
-            console.log(`[WHOP] ✅ Reset proWelcomeShownAt for ${mostRecentOther.companyId} to trigger Pro welcome modal`)
-          } catch (prefsError) {
-            console.error(`[WHOP] Error resetting proWelcomeShownAt for additional installation:`, prefsError)
-            // Don't fail the webhook if this fails
-          }
-        }
       }
     }
   } else {
@@ -748,8 +730,9 @@ async function handleMembershipCancelled(data: any) {
   
   // Priority 3: company_id from webhook
   if (!installation && company_id) {
-    installation = await prisma.whopInstallation.findUnique({
+    installation = await prisma.whopInstallation.findFirst({
       where: { companyId: company_id },
+      orderBy: { updatedAt: 'desc' },
     })
     
     if (installation) {
@@ -757,45 +740,24 @@ async function handleMembershipCancelled(data: any) {
     }
   }
 
-  if (installation) {
-    // Update the found installation to free
-    await prisma.whopInstallation.update({
-      where: { companyId: installation.companyId },
-      data: {
-        plan: 'free',
-        updatedAt: new Date(),
-      },
+  if (installation && user?.id) {
+    // USER-LEVEL PLAN: Update UserPlan table to 'free' (applies to ALL companies for this user)
+    const { setUserPlan } = await import('@/lib/plan')
+    await setUserPlan(user.id, 'free')
+    console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${user.id} to free (applies to all companies)`)
+    
+    // Get all installations for this user to reset onboarding
+    const userInstallations = await prisma.whopInstallation.findMany({
+      where: { userId: user.id },
     })
-    console.log(`[WHOP] ✅ Downgraded installation ${installation.companyId} to free plan`)
     
-    // CRITICAL: Also update ALL other installations for this user to free
-    // This ensures consistency across all installations
-    if (user?.id) {
-      const userInstallations = await prisma.whopInstallation.findMany({
-        where: { userId: user.id },
-      })
-      
-      if (userInstallations.length > 1) {
-        // Update all other installations to free
-        await prisma.whopInstallation.updateMany({
-          where: {
-            userId: user.id,
-            companyId: { not: installation.companyId }, // Exclude the one we already updated
-          },
-          data: {
-            plan: 'free',
-            updatedAt: new Date(),
-          },
-        })
-        console.log(`[WHOP] ✅ Downgraded ${userInstallations.length - 1} other installation(s) for user ${user.id} to free plan`)
-      }
-    }
-    
-    // Reset onboarding for this installation (user cancelled, may want to re-onboard)
+    // Reset onboarding for all installations (user cancelled, may want to re-onboard)
     try {
-      const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
-      await setCompanyPrefs(installation.companyId, { completedAt: null })
-      console.log(`[WHOP] ✅ Reset onboarding for cancelled installation: ${installation.companyId}`)
+      const { setCompanyPrefs } = await import('@/lib/company')
+      for (const inst of userInstallations) {
+        await setCompanyPrefs(inst.companyId, { completedAt: null })
+      }
+      console.log(`[WHOP] ✅ Reset onboarding for ${userInstallations.length} installation(s) after cancellation`)
     } catch (prefsError) {
       console.error(`[WHOP] Error resetting onboarding on cancellation:`, prefsError)
     }

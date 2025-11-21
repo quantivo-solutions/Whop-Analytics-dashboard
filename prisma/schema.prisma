@@ -23,20 +23,22 @@ model InstallationAttempt {
 }
 
 model MetricsDaily {
-  id            String            @id @default(cuid())
-  companyId     String
-  date          DateTime
-  grossRevenue  Decimal           @db.Decimal(12, 2)
-  activeMembers Int
-  newMembers    Int
-  cancellations Int
-  trialsStarted Int
-  trialsPaid    Int
-  createdAt     DateTime          @default(now())
-  installation  WhopInstallation? @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  id                 String            @id @default(cuid())
+  companyId          String
+  date               DateTime
+  grossRevenue       Decimal           @db.Decimal(12, 2)
+  activeMembers      Int
+  newMembers         Int
+  cancellations      Int
+  trialsStarted      Int
+  trialsPaid         Int
+  createdAt          DateTime          @default(now())
+  WhopInstallation   WhopInstallation? @relation(fields: [whopInstallationId], references: [id])
+  whopInstallationId String?
 
   @@unique([companyId, date])
   @@index([companyId, date])
+  @@index([companyId])
 }
 
 model WorkspaceSettings {
@@ -51,35 +53,44 @@ model WorkspaceSettings {
 
 model WhopInstallation {
   id             String         @id @default(cuid())
-  companyId      String         @unique
-  userId         String?        // Whop user ID for matching memberships
+  companyId      String
+  userId         String // Whop user ID - REQUIRED for user-level plan tracking
   experienceId   String?        @unique
-  experienceName String?        // Experience/company name for display
-  plan           String?
+  experienceName String? // Experience/company name for display
+  plan           String? // DEPRECATED: Use UserPlan table instead. Kept for migration period.
   accessToken    String
-  username       String?        // User's Whop username
-  email          String?        // User's email
-  profilePicUrl  String?        // User's profile picture URL
-  reportEmail    String?        // Per-company email for reports
+  username       String? // User's Whop username
+  email          String? // User's email
+  profilePicUrl  String? // User's profile picture URL
+  reportEmail    String? // Per-company email for reports
   weeklyEmail    Boolean        @default(true)
   dailyEmail     Boolean        @default(false)
-  discordWebhook String?        // Per-company Discord webhook
+  discordWebhook String? // Per-company Discord webhook
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   metrics        MetricsDaily[]
-  
+
+  @@unique([companyId, userId], name: "companyId_userId") // Multiple users can install app in same company
   @@index([userId])
+  @@index([companyId])
+}
+
+model UserPlan {
+  userId    String   @id // Whop user ID - primary key
+  plan      String   @default("free") // "free" | "pro" | "business"
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 model CompanyPrefs {
-  companyId        String   @id
-  goalAmount       Decimal? @db.Decimal(12, 2)
-  wantsDailyMail   Boolean  @default(false)
-  wantsDiscord     Boolean  @default(false)
-  completedAt      DateTime?
+  companyId         String    @id
+  goalAmount        Decimal?  @db.Decimal(12, 2)
+  wantsDailyMail    Boolean   @default(false)
+  wantsDiscord      Boolean   @default(false)
+  completedAt       DateTime?
   proWelcomeShownAt DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@map("CompanyPrefs")
 }

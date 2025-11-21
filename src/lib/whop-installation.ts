@@ -16,8 +16,9 @@ export async function getWhopToken(companyId?: string): Promise<string | null> {
     let installation
 
     if (companyId) {
-      installation = await prisma.whopInstallation.findUnique({
+      installation = await prisma.whopInstallation.findFirst({
         where: { companyId },
+        orderBy: { updatedAt: 'desc' },
       })
     } else {
       // Get the first installation (for single-company setups)

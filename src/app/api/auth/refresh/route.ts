@@ -22,9 +22,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get installation to verify it exists and get user data
-    const installation = await prisma.whopInstallation.findUnique({
+    // Get installation to verify it exists and get user data (use findFirst since companyId alone is not unique)
+    const installation = await prisma.whopInstallation.findFirst({
       where: { companyId },
+      orderBy: { updatedAt: 'desc' },
     })
 
     if (!installation) {

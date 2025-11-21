@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendDailyReportEmail } from '@/lib/email'
 import { postToDiscord, formatDailySummary } from '@/lib/discord'
-import { getPlanForCompany, isPro } from '@/lib/plan'
+import { getUserPlan, isPro } from '@/lib/plan'
 
 export const runtime = 'nodejs'
 
@@ -29,26 +29,29 @@ export async function GET(request: Request) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Find all Pro installations that have daily email enabled
-    // Only send to Pro/Business plans (Free plan gets weekly only)
-    const proInstallations = await prisma.whopInstallation.findMany({
+    // USER-LEVEL PLAN: Find all installations with daily email enabled
+    // Then check user-level plan for each user
+    const installationsWithDailyEmail = await prisma.whopInstallation.findMany({
       where: {
-        plan: { in: ['pro', 'business'] },
         dailyEmail: true,
         reportEmail: { not: null },
+        // Filter out installations without userId (userId is required, but filter for safety)
+        // Since userId is required in schema, this filter may not be needed, but keeping for safety
       },
     })
     
-    // Double-check plan status for each installation
+    // Filter by user-level plan (Pro/Business users only)
     const validInstallations = []
-    for (const installation of proInstallations) {
-      const plan = await getPlanForCompany(installation.companyId)
-      if (isPro(plan)) {
-        validInstallations.push(installation)
+    for (const installation of installationsWithDailyEmail) {
+      if (installation.userId) {
+        const userPlan = await getUserPlan(installation.userId)
+        if (isPro(userPlan)) {
+          validInstallations.push(installation)
+        }
       }
     }
 
-    console.log(`[Whoplytics] Found ${validInstallations.length} Pro installation(s) with daily email enabled (out of ${proInstallations.length} total)`)
+    console.log(`[Whoplytics] Found ${validInstallations.length} Pro installation(s) with daily email enabled (out of ${installationsWithDailyEmail.length} total)`)
 
     if (validInstallations.length === 0) {
       console.log('[Whoplytics] ℹ️  No Pro installations with daily email enabled')

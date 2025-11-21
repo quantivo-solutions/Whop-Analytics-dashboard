@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     console.log(`[Debug] Checking installation for companyId: ${companyId}`)
     
     // Check if installation exists
-    const installation = await prisma.whopInstallation.findUnique({
+    const installation = await prisma.whopInstallation.findFirst({
       where: { companyId },
     })
     

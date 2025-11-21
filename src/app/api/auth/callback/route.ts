@@ -509,8 +509,9 @@ export async function GET(request: Request) {
 
     if (!installation) {
       installation = await prisma.whopInstallation
-        .findUnique({
+        .findFirst({
           where: { companyId },
+          orderBy: { updatedAt: 'desc' },
         })
         .catch(() => null)
     }
@@ -518,8 +519,9 @@ export async function GET(request: Request) {
     if (!installation && legacyCompanyIds.size > 0) {
       for (const legacyId of legacyCompanyIds) {
         const legacyInstallation = await prisma.whopInstallation
-          .findUnique({
+          .findFirst({
             where: { companyId: legacyId },
+            orderBy: { updatedAt: 'desc' },
           })
           .catch(() => null)
 
@@ -583,8 +585,9 @@ export async function GET(request: Request) {
           console.log(`[OAuth Callback] ✅ CREATED new installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
           
           // CRITICAL: Verify installation was actually created
-          const verifyInstallation = await prisma.whopInstallation.findUnique({
+          const verifyInstallation = await prisma.whopInstallation.findFirst({
             where: { companyId },
+            orderBy: { updatedAt: 'desc' },
           })
           if (!verifyInstallation) {
             throw new Error(`Installation creation verification failed - installation not found in database after create`)
@@ -598,8 +601,9 @@ export async function GET(request: Request) {
             // If companyId conflict, try to find existing installation
             if (createError.meta?.target?.includes('companyId')) {
               console.log(`[OAuth] Installation already exists for companyId ${companyId}, fetching...`)
-              installation = await prisma.whopInstallation.findUnique({
+              installation = await prisma.whopInstallation.findFirst({
                 where: { companyId },
+                orderBy: { updatedAt: 'desc' },
               })
             }
             // If experienceId conflict, retry without experienceId
@@ -626,39 +630,77 @@ export async function GET(request: Request) {
           }
         }
       } else {
-        // Update existing installation
+        // Update existing installation (use composite key if userId exists, otherwise use id)
         try {
-          await prisma.whopInstallation.update({
-            where: { companyId },
-            data: { 
-              userId: userData.id, // Store/update user ID for webhook matching
-              // If we have an experienceId now, set it; otherwise keep existing
-              experienceId: experienceId || installation.experienceId,
-              accessToken: access_token,
-              plan: userPlan, // Sync plan from Whop
-              username: userData.username || null,
-              email: userData.email || null,
-              profilePicUrl: userData.profile_pic_url || null,
-            },
-          })
+          const updateData = { 
+            userId: userData.id, // Store/update user ID for webhook matching
+            // If we have an experienceId now, set it; otherwise keep existing
+            experienceId: experienceId || installation.experienceId,
+            accessToken: access_token,
+            plan: userPlan, // Sync plan from Whop
+            username: userData.username || null,
+            email: userData.email || null,
+            profilePicUrl: userData.profile_pic_url || null,
+          }
+          
+          if (installation.userId) {
+            await prisma.whopInstallation.update({
+              where: {
+                companyId_userId: {
+                  companyId: installation.companyId,
+                  userId: installation.userId,
+                },
+              },
+              data: updateData,
+            })
+          } else if (installation.id) {
+            await prisma.whopInstallation.update({
+              where: { id: installation.id },
+              data: updateData,
+            })
+          } else {
+            await prisma.whopInstallation.updateMany({
+              where: { companyId },
+              data: updateData,
+            })
+          }
           console.log(`[OAuth] ✅ Updated installation for ${companyId} (user: ${userData.id}, username: ${userData.username || 'none'}) with plan: ${userPlan}`)
         } catch (updateError: any) {
           // Handle unique constraint violations during update
           if (updateError.code === 'P2002' && updateError.meta?.target?.includes('experienceId')) {
             console.warn(`[OAuth] ⚠️ Cannot update experienceId due to conflict, keeping existing value`)
-            // Update without changing experienceId
-            await prisma.whopInstallation.update({
-              where: { companyId },
-              data: { 
-                userId: userData.id,
-                // Don't update experienceId if conflict
-                accessToken: access_token,
-                plan: userPlan,
-                username: userData.username || null,
-                email: userData.email || null,
-                profilePicUrl: userData.profile_pic_url || null,
-              },
-            })
+            // Update without changing experienceId (use composite key or id)
+            const updateData = { 
+              userId: userData.id,
+              // Don't update experienceId if conflict
+              accessToken: access_token,
+              plan: userPlan,
+              username: userData.username || null,
+              email: userData.email || null,
+              profilePicUrl: userData.profile_pic_url || null,
+            }
+            
+            if (installation.userId) {
+              await prisma.whopInstallation.update({
+                where: {
+                  companyId_userId: {
+                    companyId: installation.companyId,
+                    userId: installation.userId,
+                  },
+                },
+                data: updateData,
+              })
+            } else if (installation.id) {
+              await prisma.whopInstallation.update({
+                where: { id: installation.id },
+                data: updateData,
+              })
+            } else {
+              await prisma.whopInstallation.updateMany({
+                where: { companyId },
+                data: updateData,
+              })
+            }
             console.log(`[OAuth] ✅ Updated installation without experienceId due to conflict`)
           } else {
             throw updateError // Re-throw if we can't handle it

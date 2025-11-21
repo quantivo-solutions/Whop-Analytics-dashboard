@@ -153,8 +153,9 @@ export async function getCompanySeries(
  */
 export async function getInstallationByCompany(companyId: string) {
   try {
-    return await prisma.whopInstallation.findUnique({
+    return await prisma.whopInstallation.findFirst({
       where: { companyId },
+      orderBy: { updatedAt: 'desc' },
     })
   } catch (error) {
     console.error(`Error fetching installation for company ${companyId}:`, error)

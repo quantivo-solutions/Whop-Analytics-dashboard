@@ -34,8 +34,9 @@ export async function POST(request: Request) {
     let whopInstallation
 
     if (companyIdParam) {
-      whopInstallation = await prisma.whopInstallation.findUnique({
+      whopInstallation = await prisma.whopInstallation.findFirst({
         where: { companyId: companyIdParam },
+        orderBy: { updatedAt: 'desc' },
       })
       if (!whopInstallation) {
         console.warn(`No Whop installation found for companyId: ${companyIdParam}`)

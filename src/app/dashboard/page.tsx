@@ -35,8 +35,9 @@ export default async function Dashboard() {
       
       // First try by companyId from Whop user (most accurate)
       if (whopUser.companyId) {
-        installation = await prisma.whopInstallation.findUnique({
+        installation = await prisma.whopInstallation.findFirst({
           where: { companyId: whopUser.companyId },
+          orderBy: { updatedAt: 'desc' },
         })
         if (installation) {
           console.log('[Dashboard] ✅ Found installation by Whop user companyId:', whopUser.companyId, 'plan:', installation.plan)

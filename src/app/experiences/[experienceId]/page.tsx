@@ -100,10 +100,28 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           }
           
           if (installation && Object.keys(updateData).length > 0) {
-            installation = await prisma.whopInstallation.update({
-              where: { companyId: installation.companyId },
-              data: updateData,
-            })
+            // Update using composite key if userId exists, otherwise use updateMany
+            if (installation.userId) {
+              installation = await prisma.whopInstallation.update({
+                where: {
+                  companyId_userId: {
+                    companyId: installation.companyId,
+                    userId: installation.userId,
+                  },
+                },
+                data: updateData,
+              })
+            } else {
+              await prisma.whopInstallation.updateMany({
+                where: { companyId: installation.companyId },
+                data: updateData,
+              })
+              const updated = await prisma.whopInstallation.findFirst({
+                where: { companyId: installation.companyId },
+                orderBy: { updatedAt: 'desc' },
+              })
+              if (updated) installation = updated
+            }
             console.log('[Experience Page] ✅ Updated installation with user profile data')
           }
         }
@@ -126,11 +144,28 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
             
             if (experienceName && installation) {
               console.log('[Experience Page] Got experience name:', experienceName)
-              // Save to database
-              installation = await prisma.whopInstallation.update({
-                where: { companyId: installation.companyId },
-                data: { experienceName } as any,
-              })
+              // Save to database (use composite key if userId exists)
+              if (installation.userId) {
+                installation = await prisma.whopInstallation.update({
+                  where: {
+                    companyId_userId: {
+                      companyId: installation.companyId,
+                      userId: installation.userId,
+                    },
+                  },
+                  data: { experienceName },
+                })
+              } else {
+                await prisma.whopInstallation.updateMany({
+                  where: { companyId: installation.companyId },
+                  data: { experienceName },
+                })
+                const updated = await prisma.whopInstallation.findFirst({
+                  where: { companyId: installation.companyId },
+                  orderBy: { updatedAt: 'desc' },
+                })
+                if (updated) installation = updated
+              }
             }
           }
         } catch (expError) {
@@ -311,19 +346,48 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
         if (createErr.code === 'P2002') {
           if (createErr.meta?.target?.includes('companyId') && resolvedCompanyId) {
             console.warn('[Experience Page] CompanyId conflict - updating existing installation instead')
-            installation = await prisma.whopInstallation.update({
+            // Try to find existing installation to get userId for composite key
+            const existingInst = await prisma.whopInstallation.findFirst({
               where: { companyId: resolvedCompanyId },
-              data: {
-                experienceId,
-                userId: whopUser.userId,
-                accessToken: env.WHOP_APP_SERVER_KEY,
-                plan: 'free',
-                username: whopUser.username || null,
-              },
-            }).catch((err) => {
-              console.error('[Experience Page] Failed to update existing installation after conflict:', err)
-              return null
+              orderBy: { updatedAt: 'desc' },
             })
+            if (existingInst?.userId) {
+              installation = await prisma.whopInstallation.update({
+                where: {
+                  companyId_userId: {
+                    companyId: resolvedCompanyId,
+                    userId: existingInst.userId,
+                  },
+                },
+                data: {
+                  experienceId,
+                  userId: whopUser.userId,
+                  accessToken: env.WHOP_APP_SERVER_KEY,
+                  plan: 'free',
+                  username: whopUser.username || null,
+                },
+              }).catch((err) => {
+                console.error('[Experience Page] Failed to update existing installation after conflict:', err)
+                return null
+              })
+            } else {
+              // Fallback: use updateMany if no userId found
+              await prisma.whopInstallation.updateMany({
+                where: { companyId: resolvedCompanyId },
+                data: {
+                  experienceId,
+                  userId: whopUser.userId,
+                  accessToken: env.WHOP_APP_SERVER_KEY,
+                  plan: 'free',
+                  username: whopUser.username || null,
+                },
+              })
+              const updated = await prisma.whopInstallation.findFirst({
+                where: { companyId: resolvedCompanyId },
+                orderBy: { updatedAt: 'desc' },
+              })
+              if (updated) installation = updated
+            }
             if (installation) {
               // Fetch and store company name if missing
               if (!installation.experienceName) {
@@ -331,8 +395,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                   const { updateInstallationCompanyName } = await import('@/lib/company')
                   await updateInstallationCompanyName(resolvedCompanyId)
                   // Refresh installation to get updated name
-                  installation = await prisma.whopInstallation.findUnique({
+                  installation = await prisma.whopInstallation.findFirst({
                     where: { companyId: resolvedCompanyId },
+                    orderBy: { updatedAt: 'desc' },
                   })
                 } catch (nameError) {
                   console.warn('[Experience Page] Failed to fetch company name:', nameError)
@@ -396,23 +461,65 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
     console.log('[Experience Page] Updating installation to match current experience...')
 
     // Update installation to match current experienceId (user may have reinstalled)
-    installation = await prisma.whopInstallation.update({
-      where: { companyId: installation.companyId },
-      data: { experienceId },
-    })
+    // Use composite key if userId exists, otherwise use updateMany
+    if (installation.userId) {
+      installation = await prisma.whopInstallation.update({
+        where: {
+          companyId_userId: {
+            companyId: installation.companyId,
+            userId: installation.userId,
+          },
+        },
+        data: { experienceId },
+      })
+    } else {
+      await prisma.whopInstallation.updateMany({
+        where: { companyId: installation.companyId },
+        data: { experienceId },
+      })
+      const updated = await prisma.whopInstallation.findFirst({
+        where: { companyId: installation.companyId },
+        orderBy: { updatedAt: 'desc' },
+      })
+      if (updated) installation = updated
+    }
     console.log('[Experience Page] ✅ Updated installation experienceId to:', experienceId)
     experienceIdWasUpdated = true
 
     // CRITICAL: Treat this as a fresh install event. Reset plan to free and onboarding to incomplete.
     try {
       if (installation.plan !== 'free') {
-        await prisma.whopInstallation.update({
-          where: { companyId: installation.companyId },
-          data: { plan: 'free', updatedAt: new Date() },
-        })
+        if (installation.userId) {
+          await prisma.whopInstallation.update({
+            where: {
+              companyId_userId: {
+                companyId: installation.companyId,
+                userId: installation.userId,
+              },
+            },
+            data: { plan: 'free', updatedAt: new Date() },
+          })
+        } else {
+          await prisma.whopInstallation.updateMany({
+            where: { companyId: installation.companyId },
+            data: { plan: 'free', updatedAt: new Date() },
+          })
+        }
         console.log('[Experience Page] ✅ Reset plan to free due to reinstall')
         // Refresh after plan change
-        const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
+        const refreshed = installation.userId
+          ? await prisma.whopInstallation.findUnique({
+              where: {
+                companyId_userId: {
+                  companyId: installation.companyId,
+                  userId: installation.userId,
+                },
+              },
+            })
+          : await prisma.whopInstallation.findFirst({
+              where: { companyId: installation.companyId },
+              orderBy: { updatedAt: 'desc' },
+            })
         if (refreshed) installation = refreshed
       }
       const { getCompanyPrefs, setCompanyPrefs } = await import('@/lib/company')
@@ -432,8 +539,9 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   
   // Refresh installation to ensure latest plan from webhooks
   if (installation) {
-    const freshInstallation = await prisma.whopInstallation.findUnique({
+    const freshInstallation = await prisma.whopInstallation.findFirst({
       where: { companyId: installation.companyId },
+      orderBy: { updatedAt: 'desc' },
     })
     if (freshInstallation) {
       installation = freshInstallation
@@ -445,12 +553,36 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
   if (experienceIdWasUpdated && installation) {
     try {
       if (installation.plan !== 'free') {
-        await prisma.whopInstallation.update({
-          where: { companyId: installation.companyId },
-          data: { plan: 'free', updatedAt: new Date() },
-        })
+        if (installation.userId) {
+          await prisma.whopInstallation.update({
+            where: {
+              companyId_userId: {
+                companyId: installation.companyId,
+                userId: installation.userId,
+              },
+            },
+            data: { plan: 'free', updatedAt: new Date() },
+          })
+        } else {
+          await prisma.whopInstallation.updateMany({
+            where: { companyId: installation.companyId },
+            data: { plan: 'free', updatedAt: new Date() },
+          })
+        }
         console.log('[Experience Page] ✅ [HARD-RESET] Forced plan to free due to experienceId change (reinstall)')
-        const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
+        const refreshed = installation.userId
+          ? await prisma.whopInstallation.findUnique({
+              where: {
+                companyId_userId: {
+                  companyId: installation.companyId,
+                  userId: installation.userId,
+                },
+              },
+            })
+          : await prisma.whopInstallation.findFirst({
+              where: { companyId: installation.companyId },
+              orderBy: { updatedAt: 'desc' },
+            })
         if (refreshed) installation = refreshed
       }
       const { setCompanyPrefs } = await import('@/lib/company')
@@ -506,12 +638,36 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           shouldDowngrade = false
         }
         if (shouldDowngrade) {
-          await prisma.whopInstallation.update({
-            where: { companyId: installation.companyId },
-            data: { plan: 'free', updatedAt: new Date() },
-          })
+          if (installation.userId) {
+            await prisma.whopInstallation.update({
+              where: {
+                companyId_userId: {
+                  companyId: installation.companyId,
+                  userId: installation.userId,
+                },
+              },
+              data: { plan: 'free', updatedAt: new Date() },
+            })
+          } else {
+            await prisma.whopInstallation.updateMany({
+              where: { companyId: installation.companyId },
+              data: { plan: 'free', updatedAt: new Date() },
+            })
+          }
           console.log('[Experience Page] ✅ Downgraded to free (confirmed no active membership)')
-          const refreshed = await prisma.whopInstallation.findUnique({ where: { companyId: installation.companyId } })
+          const refreshed = installation.userId
+            ? await prisma.whopInstallation.findUnique({
+                where: {
+                  companyId_userId: {
+                    companyId: installation.companyId,
+                    userId: installation.userId,
+                  },
+                },
+              })
+            : await prisma.whopInstallation.findFirst({
+                where: { companyId: installation.companyId },
+                orderBy: { updatedAt: 'desc' },
+              })
           if (refreshed) installation = refreshed
           const { setCompanyPrefs } = await import('@/lib/company')
           await setCompanyPrefs(installation.companyId, { completedAt: null })

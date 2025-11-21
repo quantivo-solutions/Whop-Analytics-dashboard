@@ -46,8 +46,9 @@ export async function GET(request: Request) {
     }
 
     // Check if user owns this installation
-    const installation = await prisma.whopInstallation.findUnique({
+    const installation = await prisma.whopInstallation.findFirst({
       where: { companyId },
+      orderBy: { updatedAt: 'desc' },
     })
 
     if (!installation) {

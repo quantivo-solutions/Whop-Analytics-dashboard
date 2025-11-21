@@ -35,8 +35,9 @@ export async function GET(request: Request) {
     
     if (queryCompanyId) {
       // Check if user owns this installation (by companyId or userId)
-      const installation = await prisma.whopInstallation.findUnique({
+      const installation = await prisma.whopInstallation.findFirst({
         where: { companyId: queryCompanyId },
+        orderBy: { updatedAt: 'desc' },
       })
       
       if (!installation) {
@@ -87,8 +88,9 @@ export async function GET(request: Request) {
     })
 
     // Get installation with settings
-    const installation = await prisma.whopInstallation.findUnique({
+    const installation = await prisma.whopInstallation.findFirst({
       where: { companyId },
+      orderBy: { updatedAt: 'desc' },
     })
 
     console.log('[Settings GET] Installation found:', {
@@ -105,13 +107,23 @@ export async function GET(request: Request) {
       )
     }
 
+    // USER-LEVEL PLAN: Get plan from UserPlan table
+    let plan: 'free' | 'pro' | 'business' = 'free'
+    if (installation.userId) {
+      const { getUserPlan } = await import('@/lib/plan')
+      plan = await getUserPlan(installation.userId)
+    } else {
+      // Fallback to installation.plan for old installations (migration period)
+      plan = (installation.plan as 'free' | 'pro' | 'business') || 'free'
+    }
+
     // Return settings from installation (per-company)
     const response = {
       reportEmail: installation.reportEmail || '',
       weeklyEmail: installation.weeklyEmail ?? true,
       dailyEmail: installation.dailyEmail ?? false,
       discordWebhook: installation.discordWebhook || '',
-      plan: installation.plan || 'free',
+      plan,
       companyId: installation.companyId,
     }
 
@@ -157,8 +169,9 @@ export async function POST(request: Request) {
     
     if (requestCompanyId) {
       // Check if user owns this installation
-      const installation = await prisma.whopInstallation.findUnique({
+      const installation = await prisma.whopInstallation.findFirst({
         where: { companyId: requestCompanyId },
+        orderBy: { updatedAt: 'desc' },
       })
       
       if (!installation) {
@@ -211,8 +224,9 @@ export async function POST(request: Request) {
     })
 
     // Get user's installation to check plan
-    const installation = await prisma.whopInstallation.findUnique({
+    const installation = await prisma.whopInstallation.findFirst({
       where: { companyId: targetCompanyId },
+      orderBy: { updatedAt: 'desc' },
     })
 
     console.log('[Settings POST] Installation found:', {
@@ -229,7 +243,15 @@ export async function POST(request: Request) {
       )
     }
 
-    const userPlan = installation.plan || 'free'
+    // USER-LEVEL PLAN: Get plan from UserPlan table
+    let userPlan: 'free' | 'pro' | 'business' = 'free'
+    if (installation.userId) {
+      const { getUserPlan } = await import('@/lib/plan')
+      userPlan = await getUserPlan(installation.userId)
+    } else {
+      // Fallback to installation.plan for old installations (migration period)
+      userPlan = (installation.plan as 'free' | 'pro' | 'business') || 'free'
+    }
     const isPro = userPlan === 'pro' || userPlan === 'business'
 
     // Enforce Pro-only features
@@ -245,15 +267,49 @@ export async function POST(request: Request) {
       discordWebhook: sanitizedDiscordWebhook ? 'SET' : 'null',
     })
 
-    const updatedInstallation = await prisma.whopInstallation.update({
-      where: { companyId: targetCompanyId },
-      data: {
-        reportEmail: reportEmail || null,
-        weeklyEmail: weeklyEmail ?? true,
-        dailyEmail: sanitizedDailyEmail,
-        discordWebhook: sanitizedDiscordWebhook,
-      },
-    })
+    // Update installation (use composite key if userId exists, otherwise use updateMany)
+    let updatedInstallation
+    if (installation.userId) {
+      updatedInstallation = await prisma.whopInstallation.update({
+        where: {
+          companyId_userId: {
+            companyId: targetCompanyId,
+            userId: installation.userId,
+          },
+        },
+        data: {
+          reportEmail: reportEmail || null,
+          weeklyEmail: weeklyEmail ?? true,
+          dailyEmail: sanitizedDailyEmail,
+          discordWebhook: sanitizedDiscordWebhook,
+          updatedAt: new Date(),
+        },
+      })
+    } else {
+      // Fallback: updateMany if no userId
+      await prisma.whopInstallation.updateMany({
+        where: { companyId: targetCompanyId },
+        data: {
+          reportEmail: reportEmail || null,
+          weeklyEmail: weeklyEmail ?? true,
+          dailyEmail: sanitizedDailyEmail,
+          discordWebhook: sanitizedDiscordWebhook,
+          updatedAt: new Date(),
+        },
+      })
+      // Fetch updated installation
+      updatedInstallation = await prisma.whopInstallation.findFirst({
+        where: { companyId: targetCompanyId },
+        orderBy: { updatedAt: 'desc' },
+      })
+    }
+
+    if (!updatedInstallation) {
+      return NextResponse.json(
+        { error: 'Failed to update installation' },
+        { status: 500 }
+      )
+    }
 
     console.log(`[Settings POST] ✅ Successfully saved for ${targetCompanyId}:`, {
       savedEmail: updatedInstallation.reportEmail,

@@ -2,75 +2,64 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { env } from '@/lib/env'
 import { getSession } from '@/lib/session'
+import { getUserPlan, setUserPlan } from '@/lib/plan'
 
 /**
  * POST /api/plan/sync
  * 
- * Manually syncs the plan for the current user's installation.
+ * Manually syncs the plan for the current user (USER-LEVEL entitlement).
  * This is called after an in-app purchase to immediately update the plan
  * without waiting for webhooks.
  * 
  * Strategy:
- * 1. Get current session (companyId, userId)
- * 2. Find installation
- * 3. Check Whop API for active memberships
- * 4. Update plan based on memberships
+ * 1. Get current session (userId)
+ * 2. Update UserPlan table (user-level plan)
+ * 3. Plan applies to ALL companies for this user
  */
 export async function POST(request: Request) {
   try {
     console.log('[Plan Sync] ===== SYNC REQUEST =====')
     
-    // Get session to find companyId (reads from cookies)
+    // Get session to find userId (reads from cookies)
     const session = await getSession()
     
-    if (!session?.companyId) {
-      console.error('[Plan Sync] No companyId in session')
+    if (!session?.userId) {
+      console.error('[Plan Sync] No userId in session')
       return NextResponse.json(
-        { error: 'No companyId in session' },
+        { error: 'No userId in session' },
         { status: 401 }
       )
     }
     
-    const companyId = session.companyId
-    console.log('[Plan Sync] Company ID:', companyId)
+    const userId = session.userId
+    console.log('[Plan Sync] User ID:', userId)
     
-    // Find installation
-    const installation = await prisma.whopInstallation.findUnique({
-      where: { companyId },
-      select: { userId: true, plan: true, accessToken: true },
-    })
-    
-    if (!installation) {
-      console.error('[Plan Sync] No installation found for companyId:', companyId)
-      return NextResponse.json(
-        { error: 'Installation not found' },
-        { status: 404 }
-      )
-    }
-    
-    console.log('[Plan Sync] Current plan in DB:', installation.plan)
+    // Get current user-level plan
+    const currentPlan = await getUserPlan(userId)
+    console.log('[Plan Sync] Current user plan:', currentPlan)
     
     // Since purchase completed successfully and webhook isn't firing,
-    // directly update the plan to 'pro' as a fallback
+    // directly update the user-level plan to 'pro' as a fallback
     // The webhook should verify this later, but this ensures immediate upgrade
-    if (installation.plan !== 'pro') {
-      console.log('[Plan Sync] Updating plan from', installation.plan, 'to pro')
+    if (currentPlan !== 'pro') {
+      console.log('[Plan Sync] Updating user plan from', currentPlan, 'to pro')
       
-      await prisma.whopInstallation.update({
-        where: { companyId },
-        data: {
-          plan: 'pro',
-          updatedAt: new Date(),
-        },
-      })
+      await setUserPlan(userId, 'pro')
       
-      console.log('[Plan Sync] ✅ Plan updated to pro')
+      console.log('[Plan Sync] ✅ User plan updated to pro (applies to all companies)')
       
-      // Reset proWelcomeShownAt so the welcome modal shows
+      // Reset proWelcomeShownAt for all installations of this user
       try {
+        const installations = await prisma.whopInstallation.findMany({
+          where: { userId },
+          select: { companyId: true },
+        })
+        
         const { setCompanyPrefs } = await import('@/lib/company')
-        await setCompanyPrefs(companyId, { proWelcomeShownAt: null })
-        console.log('[Plan Sync] ✅ Reset proWelcomeShownAt to trigger Pro welcome modal')
+        for (const inst of installations) {
+          await setCompanyPrefs(inst.companyId, { proWelcomeShownAt: null })
+        }
+        console.log('[Plan Sync] ✅ Reset proWelcomeShownAt for', installations.length, 'installations')
       } catch (prefsError) {
         console.error('[Plan Sync] Error resetting proWelcomeShownAt:', prefsError)
         // Don't fail if this fails
@@ -78,17 +67,17 @@ export async function POST(request: Request) {
       
       return NextResponse.json({
         success: true,
-        message: 'Plan updated to pro',
-        companyId,
-        previousPlan: installation.plan,
+        message: 'User plan updated to pro (applies to all companies)',
+        userId,
+        previousPlan: currentPlan,
         newPlan: 'pro',
       })
     } else {
-      console.log('[Plan Sync] Plan is already pro, no update needed')
+      console.log('[Plan Sync] User plan is already pro, no update needed')
       return NextResponse.json({
         success: true,
-        message: 'Plan already pro',
-        companyId,
+        message: 'User plan already pro',
+        userId,
         currentPlan: 'pro',
       })
     }

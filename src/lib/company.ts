@@ -25,17 +25,35 @@ export async function getInstallationByExperience(experienceId: string) {
 }
 
 /**
- * Get installation by company ID
+ * Get installation by company ID and userId (if provided)
  * Used for Dashboard View pages
  * 
  * INTEGRITY: Always use this helper to ensure we're querying the correct company
+ * 
+ * Note: Since installations are now keyed by (companyId + userId), if userId is provided,
+ * we use the composite key. Otherwise, we use findFirst to get any installation for the company.
  */
-export async function getInstallationByCompany(companyId: CompanyID) {
+export async function getInstallationByCompany(companyId: CompanyID, userId?: string) {
   if (!companyId) {
     throw new Error('[Company Integrity] Missing companyId parameter')
   }
-  return prisma.whopInstallation.findUnique({ 
-    where: { companyId } 
+  
+  // If userId is provided, use composite key
+  if (userId) {
+    return prisma.whopInstallation.findUnique({
+      where: {
+        companyId_userId: {
+          companyId,
+          userId,
+        },
+      },
+    })
+  }
+  
+  // Otherwise, get first installation for this company (for backward compatibility)
+  return prisma.whopInstallation.findFirst({
+    where: { companyId },
+    orderBy: { updatedAt: 'desc' },
   })
 }
 
@@ -132,8 +150,9 @@ export async function updateInstallationCompanyName(companyId: CompanyID): Promi
   console.log(`[Company] 🔍 Fetching company name for ${companyId}...`)
   
   // First, try to get company name from the installation's experienceId if available
-  const installation = await prisma.whopInstallation.findUnique({
+  const installation = await prisma.whopInstallation.findFirst({
     where: { companyId },
+    orderBy: { updatedAt: 'desc' },
   })
   
   console.log(`[Company] 📋 Installation fetched:`, {
@@ -202,14 +221,33 @@ export async function updateInstallationCompanyName(companyId: CompanyID): Promi
   }
   
   // Update installation if we found a name
-  if (companyName) {
+  if (companyName && installation) {
     try {
-      const updated = await prisma.whopInstallation.update({
-        where: { companyId },
-        data: { experienceName: companyName },
-      })
-      console.log(`[Company] ✅ Updated company name for ${companyId}: "${companyName}"`)
-      console.log(`[Company] ✅ Installation updated:`, { id: updated.id, experienceName: updated.experienceName })
+      let updated
+      if (installation.userId) {
+        updated = await prisma.whopInstallation.update({
+          where: {
+            companyId_userId: {
+              companyId,
+              userId: installation.userId,
+            },
+          },
+          data: { experienceName: companyName },
+        })
+      } else {
+        await prisma.whopInstallation.updateMany({
+          where: { companyId },
+          data: { experienceName: companyName },
+        })
+        updated = await prisma.whopInstallation.findFirst({
+          where: { companyId },
+          orderBy: { updatedAt: 'desc' },
+        })
+      }
+      if (updated) {
+        console.log(`[Company] ✅ Updated company name for ${companyId}: "${companyName}"`)
+        console.log(`[Company] ✅ Installation updated:`, { id: updated.id, experienceName: updated.experienceName })
+      }
     } catch (updateError) {
       console.error(`[Company] ❌ Failed to update installation with company name:`, updateError)
     }
@@ -235,30 +273,16 @@ export async function linkExperienceToCompany(params: { experienceId: string; co
   
   console.log(`[Whoplytics] Linking experience ${experienceId} to company ${companyId}`)
   
-  // Try by company first
-  const byCompany = await prisma.whopInstallation.findUnique({ where: { companyId } })
-  
-  if (byCompany) {
-    if (byCompany.experienceId !== experienceId) {
-      await prisma.whopInstallation.update({ 
-        where: { companyId }, 
-        data: { experienceId } 
-      })
-      console.log(`[Whoplytics] Updated installation: companyId ${companyId} now linked to experienceId ${experienceId}`)
-      return { created: false, updated: true }
-    }
-    return { created: false, updated: false }
-  }
-  
-  // Try by experience
+  // Try by experience first (most reliable - experienceId is still unique)
   const byExp = await prisma.whopInstallation.findUnique({ where: { experienceId } }).catch(() => null)
   
   if (byExp) {
     if (byExp.companyId !== companyId) {
       // Update companyId if it changed (shouldn't happen, but handle gracefully)
-      await prisma.whopInstallation.update({ 
-        where: { experienceId }, 
-        data: { companyId } 
+      // Note: This requires userId for composite key, so we need to use findFirst and updateMany
+      await prisma.whopInstallation.updateMany({
+        where: { experienceId },
+        data: { companyId },
       })
       console.log(`[Whoplytics] Updated installation: experienceId ${experienceId} now linked to companyId ${companyId}`)
       return { created: false, updated: true }
@@ -266,18 +290,41 @@ export async function linkExperienceToCompany(params: { experienceId: string; co
     return { created: false, updated: false }
   }
   
-  // Create minimal row; plan/token can be filled later via OAuth or webhook
-  await prisma.whopInstallation.create({
-    data: { 
-      companyId, 
-      experienceId, 
-      plan: "free", 
-      accessToken: process.env.WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY || "" 
-    },
+  // Try by company (get first installation for this company)
+  const byCompany = await prisma.whopInstallation.findFirst({ 
+    where: { companyId },
+    orderBy: { updatedAt: 'desc' },
   })
   
-  console.log(`[Whoplytics] Created new installation: companyId ${companyId} <-> experienceId ${experienceId}`)
-  return { created: true, updated: false }
+  if (byCompany) {
+    if (byCompany.experienceId !== experienceId) {
+      // Update experienceId if userId matches (or update first one found)
+      if (byCompany.userId) {
+        await prisma.whopInstallation.update({
+          where: {
+            companyId_userId: {
+              companyId: byCompany.companyId,
+              userId: byCompany.userId,
+            },
+          },
+          data: { experienceId },
+        })
+      } else {
+        // Fallback: updateMany if no userId
+        await prisma.whopInstallation.updateMany({
+          where: { companyId },
+          data: { experienceId },
+        })
+      }
+      console.log(`[Whoplytics] Updated installation: companyId ${companyId} now linked to experienceId ${experienceId}`)
+      return { created: false, updated: true }
+    }
+    return { created: false, updated: false }
+  }
+  
+  // NOTE: Cannot create installation without userId (required field)
+  // This function should be called with userId from the calling context
+  throw new Error(`[Whoplytics] Cannot create installation without userId. Please provide userId when linking experience to company.`)
 }
 
 /**

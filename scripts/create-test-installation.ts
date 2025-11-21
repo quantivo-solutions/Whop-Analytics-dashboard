@@ -21,10 +21,13 @@ async function main() {
   
   console.log(`✅ Found API key (length: ${apiKey.length})`)
   
-  // Create a test installation
+  // Create a test installation (userId is now required)
   const installation = await prisma.whopInstallation.upsert({
     where: {
-      companyId: 'test-company-id',
+      companyId_userId: {
+        companyId: 'test-company-id',
+        userId: 'test-user-id',
+      },
     },
     update: {
       accessToken: apiKey,
@@ -34,6 +37,7 @@ async function main() {
     },
     create: {
       companyId: 'test-company-id',
+      userId: 'test-user-id', // REQUIRED
       experienceId: 'test-experience-id',
       accessToken: apiKey,
       plan: 'test',

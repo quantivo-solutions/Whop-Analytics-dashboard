@@ -32,8 +32,10 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
   const iframeSdk = useIframeSdk()
   const [isLoading, setIsLoading] = useState(false)
   const [isSdkReady, setIsSdkReady] = useState(false)
+  const [alreadyPro, setAlreadyPro] = useState(false)
+  const [checkingPlan, setCheckingPlan] = useState(false)
 
-  // Check if SDK is ready
+  // Check if SDK is ready and if user already has Pro
   useEffect(() => {
     const checkSdkReady = () => {
       if (iframeSdk && typeof iframeSdk.inAppPurchase === 'function') {
@@ -46,8 +48,35 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
       }
     }
 
+    const checkUserPlan = async () => {
+      if (open) {
+        setCheckingPlan(true)
+        try {
+          const response = await fetch('/api/plan/check')
+          if (response.ok) {
+            const data = await response.json()
+            if (data.hasPro) {
+              setAlreadyPro(true)
+              console.log('[UpsellModal] User already has Pro plan:', data.plan)
+            } else {
+              setAlreadyPro(false)
+            }
+          }
+        } catch (error) {
+          console.error('[UpsellModal] Error checking plan:', error)
+          // Don't block upgrade if check fails
+          setAlreadyPro(false)
+        } finally {
+          setCheckingPlan(false)
+        }
+      } else {
+        setAlreadyPro(false)
+      }
+    }
+
     if (open) {
       checkSdkReady()
+      checkUserPlan()
     }
   }, [iframeSdk, open])
 
@@ -64,6 +93,16 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
 
   const handleUpgrade = async () => {
     console.log('[UpsellModal] ===== UPGRADE CLICKED =====')
+    
+    // Check if user already has Pro
+    if (alreadyPro) {
+      toast.info('You already have Pro plan across all your businesses!', {
+        description: 'Your Pro entitlement applies to all companies you manage.'
+      })
+      onClose()
+      return
+    }
+    
     setIsLoading(true)
     
     try {
@@ -160,10 +199,13 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
       <DialogContent className="sm:max-w-[500px] bg-background/95 backdrop-blur-md border border-border/50">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-sky-500 bg-clip-text text-transparent">
-            Upgrade to Whoplytics Pro
+            {alreadyPro ? 'Already Pro!' : 'Upgrade to Whoplytics Pro'}
           </DialogTitle>
           <DialogDescription>
-            Unlock advanced analytics and automated insights to grow your business faster.
+            {alreadyPro 
+              ? 'You already have Pro plan. Your entitlement applies to all your businesses.'
+              : 'Unlock advanced analytics and automated insights to grow your business faster.'
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -181,20 +223,31 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button 
-            variant="outline" 
-            onClick={onClose} 
-            className="w-full sm:w-auto border-2 hover:bg-muted/50 transition-colors"
-          >
-            Continue Free
-          </Button>
-          <Button
-            onClick={handleUpgrade}
-            disabled={isLoading || !isSdkReady}
-            className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
-          >
-            {isLoading ? 'Processing...' : 'Start 7-Day Free Trial'}
-          </Button>
+          {alreadyPro ? (
+            <Button 
+              onClick={onClose}
+              className="w-full sm:w-auto bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 text-white font-medium"
+            >
+              Got it!
+            </Button>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={onClose} 
+                className="w-full sm:w-auto border-2 hover:bg-muted/50 transition-colors"
+              >
+                Continue Free
+              </Button>
+              <Button
+                onClick={handleUpgrade}
+                disabled={isLoading || !isSdkReady || checkingPlan}
+                className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
+              >
+                {isLoading ? 'Processing...' : checkingPlan ? 'Checking...' : 'Start 7-Day Free Trial'}
+              </Button>
+            </>
+          )}
           {/* Fallback: Direct redirect button if SDK fails */}
           {!isSdkReady && (
             <Button

@@ -101,8 +101,11 @@ export async function POST(request: NextRequest) {
 
     // Check if user owns this installation (by companyId or userId)
     const { prisma } = await import('@/lib/prisma')
-    const installation = await prisma.whopInstallation.findUnique({
+    // Use findFirst since companyId alone is not unique (composite key requires userId)
+    // This gets the most recent installation for the company
+    const installation = await prisma.whopInstallation.findFirst({
       where: { companyId },
+      orderBy: { updatedAt: 'desc' },
     })
 
     if (!installation) {
