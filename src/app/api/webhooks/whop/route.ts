@@ -42,6 +42,9 @@ export async function POST(request: Request) {
   console.log(`[WHOP Webhook] Request URL: ${request.url}`)
   console.log(`[WHOP Webhook] Request headers:`, Object.fromEntries(request.headers.entries()))
   
+  // Log webhook receipt for ALL requests (helps debug cancellation issues)
+  console.log(`[WHOP Webhook] 📥 Webhook received - checking for cancellation events...`)
+  
   try {
     // Read raw body first for signature verification
     const rawBody = await request.text()
