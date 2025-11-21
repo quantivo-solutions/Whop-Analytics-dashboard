@@ -27,11 +27,15 @@ export function PlanSyncCheck() {
             console.log('[PlanSyncCheck] ✅ Plan was out of sync and has been updated:', data)
             // Reload page to reflect updated plan
             window.location.reload()
+          } else if (data.apiVerificationFailed) {
+            console.log('[PlanSyncCheck] ⚠️ API verification unavailable - keeping current plan')
+            // Don't reload if API verification failed - we're keeping the current plan
           } else {
             console.log('[PlanSyncCheck] ✅ Plan is in sync')
           }
         } else {
           console.warn('[PlanSyncCheck] Plan verification failed:', response.status)
+          // Don't reload on error - keep current state
         }
       } catch (error) {
         console.error('[PlanSyncCheck] Error verifying plan:', error)
