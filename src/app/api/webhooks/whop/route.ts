@@ -155,19 +155,43 @@ export async function POST(request: Request) {
         await handleMembershipCancelled(data)
         break
       
+      // Handle payment/subscription cancellation events
+      case 'payment.refunded':
+      case 'payment_refunded':
+      case 'subscription.cancelled':
+      case 'subscription_cancelled':
+      case 'subscription.expired':
+      case 'subscription_expired':
+        console.log(`[WHOP] ⚠️  Payment/subscription cancellation event detected: ${action}`)
+        await handleMembershipCancelled(data)
+        break
+      
       default:
         console.log(`ℹ️  Unhandled webhook action: ${action}`)
         console.log(`ℹ️  Full webhook body for unhandled action:`, JSON.stringify(body, null, 2))
         
         // Check if this might be a membership event with different naming
         if (action && (action.includes('membership') || action.includes('purchase') || action.includes('payment'))) {
-          console.log(`[WHOP] ⚠️  Potential membership event with unrecognized action: ${action}`)
-          console.log(`[WHOP] ⚠️  Attempting to handle as membership.activated...`)
-          try {
-            await handleMembershipActivated(data)
-            console.log(`[WHOP] ✅ Successfully handled unrecognized membership event`)
-          } catch (err) {
-            console.error(`[WHOP] ❌ Failed to handle unrecognized membership event:`, err)
+          // Check if it's a cancellation event
+          if (action.includes('cancel') || action.includes('invalid') || action.includes('expired') || action.includes('refund')) {
+            console.log(`[WHOP] ⚠️  Potential membership cancellation event with unrecognized action: ${action}`)
+            console.log(`[WHOP] ⚠️  Attempting to handle as membership.cancelled...`)
+            try {
+              await handleMembershipCancelled(data)
+              console.log(`[WHOP] ✅ Successfully handled unrecognized cancellation event`)
+            } catch (err) {
+              console.error(`[WHOP] ❌ Failed to handle unrecognized cancellation event:`, err)
+            }
+          } else {
+            // Otherwise treat as activation
+            console.log(`[WHOP] ⚠️  Potential membership event with unrecognized action: ${action}`)
+            console.log(`[WHOP] ⚠️  Attempting to handle as membership.activated...`)
+            try {
+              await handleMembershipActivated(data)
+              console.log(`[WHOP] ✅ Successfully handled unrecognized membership event`)
+            } catch (err) {
+              console.error(`[WHOP] ❌ Failed to handle unrecognized membership event:`, err)
+            }
           }
         }
     }
@@ -779,6 +803,18 @@ async function handleMembershipCancelled(data: any) {
       }
     }
     
+    // Priority 3: Try to find by membership.user_id if available
+    if (!installation && membership?.user_id) {
+      installation = await prisma.whopInstallation.findFirst({
+        where: { userId: membership.user_id },
+        orderBy: { updatedAt: 'desc' },
+      })
+      
+      if (installation) {
+        console.log(`[WHOP] Found installation via membership.user_id: ${membership.user_id}`)
+      }
+    }
+    
     // If we found installation with userId, update plan
     if (installation?.userId) {
       try {
@@ -787,10 +823,16 @@ async function handleMembershipCancelled(data: any) {
         console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${installation.userId} to free (found via installation lookup)`)
       } catch (planError) {
         console.error(`[WHOP] ❌ Error updating user plan via installation lookup:`, planError)
+        throw planError
       }
     } else {
       console.error(`[WHOP] ❌ Cannot downgrade plan: No userId found in webhook payload and no installation found`)
-      console.error(`[WHOP] ❌ Webhook data:`, JSON.stringify(data, null, 2))
+      console.error(`[WHOP] ❌ Webhook data keys:`, Object.keys(data))
+      console.error(`[WHOP] ❌ Full webhook data:`, JSON.stringify(data, null, 2))
+      
+      // Don't throw error - log it but allow webhook to succeed
+      // The plan will be synced when user accesses the dashboard
+      console.warn(`[WHOP] ⚠️ Plan downgrade skipped - will sync on next dashboard access`)
     }
   }
 }
