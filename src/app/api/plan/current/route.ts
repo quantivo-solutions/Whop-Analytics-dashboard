@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { getUserPlan } from '@/lib/plan'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * GET /api/plan/current
  * 
@@ -30,6 +34,12 @@ export async function GET(request: Request) {
       plan: currentPlan,
       currentPlan, // Also return as currentPlan for consistency
       timestamp: new Date().toISOString(),
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     })
   } catch (error) {
     console.error('[Plan Current] Error:', error)

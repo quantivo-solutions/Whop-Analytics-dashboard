@@ -27,10 +27,13 @@ export function PlanSyncCheck() {
       
       try {
         // Use lightweight endpoint that just returns current plan from DB
-        const response = await fetch('/api/plan/current', {
+        const response = await fetch('/api/plan/current?' + Date.now(), {
           method: 'GET',
           credentials: 'include',
           cache: 'no-store', // Always fetch fresh data
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
         })
         
         if (response.ok) {

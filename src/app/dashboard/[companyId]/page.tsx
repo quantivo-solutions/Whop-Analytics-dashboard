@@ -647,12 +647,20 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
 
     prefs = await getCompanyPrefs(finalCompanyId) // Always use URL companyId for isolation
+    onboardingComplete = await isOnboardingComplete(finalCompanyId)
+    
+    // Check for Pro Welcome modal ONLY if onboarding is already completed
+    // This ensures Welcome wizard shows first on first installation, Pro Welcome shows on upgrade
     const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
     const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
-    const onboardingWasCompleted = prefs.completedAt !== null
     const proWelcomeNotShown = prefs.proWelcomeShownAt === null
     
-    const showProWelcome = isPro && wasRecentlyUpdated && onboardingWasCompleted && proWelcomeNotShown
+    // Only show Pro Welcome if:
+    // 1. User is Pro
+    // 2. Installation was recently updated (upgrade happened)
+    // 3. Onboarding is already completed (not first installation)
+    // 4. Pro Welcome hasn't been shown yet
+    const showProWelcome = isPro && wasRecentlyUpdated && onboardingComplete && proWelcomeNotShown
     
     if (showProWelcome) {
       console.log('[Dashboard View] ✅ Pro upgrade detected - showing Pro welcome modal')
@@ -666,8 +674,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         </div>
       )
     }
-    
-    onboardingComplete = await isOnboardingComplete(finalCompanyId)
     
     console.log('[Dashboard View] Onboarding status:', {
       companyId: finalCompanyId,
