@@ -715,44 +715,49 @@ async function handleMembershipActivated(data: any) {
  * This fires when a user cancels or subscription expires
  */
 async function handleMembershipCancelled(data: any) {
-  // Extract userId from multiple possible locations in webhook payload
-  const user = data.user
-  const membership = data.membership
-  const company = data.company
-  const company_id = company?.id || data.company_id
-  const experience = data.experience
-  const product = data.product
+  try {
+    // Extract userId from multiple possible locations in webhook payload
+    const user = data.user || data.data?.user
+    const membership = data.membership || data.data?.membership
+    const company = data.company || data.data?.company
+    const company_id = company?.id || data.company_id || data.data?.company_id
+    const experience = data.experience || data.data?.experience
+    const product = data.product || data.data?.product
 
-  // Try multiple paths for userId (Whop webhooks vary in structure)
-  const userId = 
-    user?.id || 
-    user?.user_id ||
-    membership?.user_id ||
-    membership?.userId ||
-    data.user_id ||
-    data.userId ||
-    null
+    // Try multiple paths for userId (Whop webhooks vary in structure)
+    const userId = 
+      user?.id || 
+      user?.user_id ||
+      membership?.user_id ||
+      membership?.userId ||
+      membership?.user?.id ||
+      data.user_id ||
+      data.userId ||
+      data.data?.user_id ||
+      data.data?.userId ||
+      null
 
-  console.log('[WHOP] ===== MEMBERSHIP CANCELLATION WEBHOOK =====')
-  console.log('[WHOP] membership.deactivated webhook received:', {
-    user_id: userId,
-    company_id,
-    company_title: company?.title,
-    product_title: product?.title,
-    experience_id: experience?.id,
-    webhook_keys: Object.keys(data),
-  })
-  
-  // Log full webhook payload for debugging
-  console.log('[WHOP] Full membership cancellation webhook payload:', JSON.stringify(data, null, 2))
-  
-  // Also log nested structures that might contain userId
-  if (data.membership) {
-    console.log('[WHOP] Membership object:', JSON.stringify(data.membership, null, 2))
-  }
-  if (data.user) {
-    console.log('[WHOP] User object:', JSON.stringify(data.user, null, 2))
-  }
+    console.log('[WHOP] ===== MEMBERSHIP CANCELLATION WEBHOOK =====')
+    console.log('[WHOP] membership.deactivated webhook received:', {
+      user_id: userId,
+      company_id,
+      company_title: company?.title,
+      product_title: product?.title,
+      experience_id: experience?.id,
+      webhook_keys: Object.keys(data),
+      has_data_wrapper: !!data.data,
+    })
+    
+    // Log full webhook payload for debugging
+    console.log('[WHOP] Full membership cancellation webhook payload:', JSON.stringify(data, null, 2))
+    
+    // Also log nested structures that might contain userId
+    if (data.membership || data.data?.membership) {
+      console.log('[WHOP] Membership object:', JSON.stringify(data.membership || data.data?.membership, null, 2))
+    }
+    if (data.user || data.data?.user) {
+      console.log('[WHOP] User object:', JSON.stringify(data.user || data.data?.user, null, 2))
+    }
 
   // CRITICAL: Update UserPlan even if installation isn't found
   // The userId is the key - we can update the plan directly
