@@ -170,8 +170,10 @@ export async function checkUserMembershipStatus(
     
     // Strategy 2: If no memberships found via API, try checking access via SDK
     // This is a fallback when API endpoints don't work
-    if (memberships.length === 0 && companyId && planId) {
-      console.log('[Membership Check] ⚠️ No memberships found via API, trying SDK access check...')
+    // BUT: Only use SDK check if API calls failed with errors
+    // If API returned 200 OK with empty array, that's a valid "no memberships" response
+    if (memberships.length === 0 && lastError && companyId && planId) {
+      console.log('[Membership Check] ⚠️ API calls failed, trying SDK access check as fallback...')
       try {
         // Try to check if user has access to Pro product via SDK
         // This might work even if memberships API doesn't
@@ -182,10 +184,19 @@ export async function checkUserMembershipStatus(
             hasActivePro: hasAccess,
             memberships: [],
           }
+        } else {
+          console.warn('[Membership Check] ⚠️ SDK access check also failed - cannot verify membership')
         }
       } catch (sdkError) {
         console.warn('[Membership Check] SDK access check failed:', sdkError)
       }
+    } else if (memberships.length === 0 && !lastError) {
+      // API returned 200 OK with empty array - this is a valid "no memberships" response
+      // But we need to be careful: app memberships endpoint only shows memberships for THIS app
+      // User might have membership for different product/plan
+      console.log('[Membership Check] ⚠️ API returned empty memberships (200 OK)')
+      console.log('[Membership Check] ⚠️ This might mean: no membership for this app, OR user has different product')
+      console.log('[Membership Check] ⚠️ Cannot safely downgrade based on app memberships endpoint alone')
     }
     
     // CRITICAL: If API returned empty array successfully (200 OK), that's a valid "no memberships" response
