@@ -42,16 +42,20 @@ export async function checkUserMembershipStatus(
     console.log('[Membership Check] Using plan ID:', planId)
     console.log('[Membership Check] Company ID:', companyId)
     
-    // Strategy 1: Try app memberships endpoint (if we have app context)
-    // This endpoint might work with "Manage members" or "Update memberships" permissions
+    // Strategy 1: Try endpoints that work with member:basic:read permission
+    // We have: member:basic:read, member:stats:read, webhook_receive:memberships
+    // Try app-scoped endpoints first (these might work with app server key)
     const endpoints = [
       // Try app memberships endpoint with plan filter (most specific)
+      // This should work with member:basic:read permission
       planId ? `https://api.whop.com/api/v5/app/memberships?user_id=${userId}&plan_id=${planId}&status=active,valid,trialing` : null,
-      // Try app memberships endpoint (all memberships for user)
+      // Try app memberships endpoint (all memberships for user in this app)
       `https://api.whop.com/api/v5/app/memberships?user_id=${userId}`,
-      // Try checking access to specific plan/product
+      // Try checking access to specific plan/product (might work with member:basic:read)
       planId ? `https://api.whop.com/api/v5/users/${userId}/access/${planId}` : null,
-      // Try v5 users endpoint (might work with different permissions)
+      // Try company-scoped memberships (if we have companyId)
+      companyId ? `https://api.whop.com/api/v5/companies/${companyId}/memberships?user_id=${userId}` : null,
+      // Try v5 users endpoint (might work with member:basic:read)
       `https://api.whop.com/api/v5/users/${userId}/memberships`,
       // Try v2 API as fallback (will likely fail but worth trying)
       `https://api.whop.com/api/v2/memberships?user_id=${userId}`,
