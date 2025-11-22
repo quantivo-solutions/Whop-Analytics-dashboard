@@ -749,35 +749,37 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         // ALWAYS check membership status - don't skip even if recently updated
         // This ensures we catch cancellations even if webhooks fail
         console.log('[Dashboard View] 🔍 ALWAYS checking membership status for Pro user (cancellation detection)')
-          // Check membership status via Whop API to detect cancellations
-          // This is a fallback since webhooks may not be sent for cancellations
-          console.log('[Dashboard View] 🔍 Checking membership status for cancellation detection...')
+        
+        // Check membership status via Whop API to detect cancellations
+        // This is a fallback since webhooks may not be sent for cancellations
+        console.log('[Dashboard View] 🔍 Checking membership status for cancellation detection...')
+        
+        // Use installation access token if available (has proper permissions)
+        const accessToken = installation?.accessToken || env.WHOP_APP_SERVER_KEY
+        
+        const { checkUserMembershipStatus } = await import('@/lib/membership-check')
+        const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken)
+        
+        let shouldDowngrade = false
+        
+        if (membershipResult.error) {
+          // Don't downgrade on API errors - only downgrade if we can confirm no membership
+          console.warn('[Dashboard View] ⚠️ Unable to verify memberships:', membershipResult.error, '- NOT downgrading (API may be unavailable)')
+          shouldDowngrade = false
+        } else {
+          // Only downgrade if user has Pro plan in DB but no active membership found
+          const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
+          shouldDowngrade = (currentUserPlan === 'pro' || currentUserPlan === 'business') && !membershipResult.hasActivePro
           
-          // Use installation access token if available (has proper permissions)
-          const accessToken = installation?.accessToken || env.WHOP_APP_SERVER_KEY
-          
-          const { checkUserMembershipStatus } = await import('@/lib/membership-check')
-          const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken)
-          
-          let shouldDowngrade = false
-          
-          if (membershipResult.error) {
-            // Don't downgrade on API errors - only downgrade if we can confirm no membership
-            console.warn('[Dashboard View] ⚠️ Unable to verify memberships:', membershipResult.error, '- NOT downgrading (API may be unavailable)')
-            shouldDowngrade = false
-          } else {
-            // Only downgrade if user has Pro plan in DB but no active membership found
-            const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
-            shouldDowngrade = (currentUserPlan === 'pro' || currentUserPlan === 'business') && !membershipResult.hasActivePro
-            
-            console.log('[Dashboard View] Membership verification result:', {
-              hasProMembership: membershipResult.hasActivePro,
-              totalMemberships: membershipResult.memberships.length,
-              currentPlanInDB: currentUserPlan,
-              shouldDowngrade,
-            })
-          }
-          if (shouldDowngrade && whopUser?.userId) {
+          console.log('[Dashboard View] Membership verification result:', {
+            hasProMembership: membershipResult.hasActivePro,
+            totalMemberships: membershipResult.memberships.length,
+            currentPlanInDB: currentUserPlan,
+            shouldDowngrade,
+          })
+        }
+        
+        if (shouldDowngrade && whopUser?.userId) {
             console.log('[Dashboard View] 🚨 CANCELLATION DETECTED - Downgrading user plan')
             
             // USER-LEVEL PLAN: Update UserPlan table (applies to ALL companies for this user)
