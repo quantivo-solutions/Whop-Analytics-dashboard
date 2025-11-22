@@ -775,36 +775,36 @@ async function handleMembershipCancelled(data: any) {
     // The userId is the key - we can update the plan directly
     if (userId) {
       try {
-      // USER-LEVEL PLAN: Update UserPlan table to 'free' (applies to ALL companies for this user)
-      const { setUserPlan } = await import('@/lib/plan')
-      await setUserPlan(userId, 'free')
-      console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${userId} to free (applies to all companies)`)
-      
-      // Get all installations for this user to reset onboarding
-      const userInstallations = await prisma.whopInstallation.findMany({
-        where: { userId },
-      })
-      
-      console.log(`[WHOP] Found ${userInstallations.length} installation(s) for user ${userId}`)
-      
-      // Reset onboarding for all installations (user cancelled, may want to re-onboard)
-      if (userInstallations.length > 0) {
-        try {
-          const { setCompanyPrefs } = await import('@/lib/company')
-          for (const inst of userInstallations) {
-            await setCompanyPrefs(inst.companyId, { completedAt: null })
+        // USER-LEVEL PLAN: Update UserPlan table to 'free' (applies to ALL companies for this user)
+        const { setUserPlan } = await import('@/lib/plan')
+        await setUserPlan(userId, 'free')
+        console.log(`[WHOP] ✅ Downgraded USER-LEVEL plan for user ${userId} to free (applies to all companies)`)
+        
+        // Get all installations for this user to reset onboarding
+        const userInstallations = await prisma.whopInstallation.findMany({
+          where: { userId },
+        })
+        
+        console.log(`[WHOP] Found ${userInstallations.length} installation(s) for user ${userId}`)
+        
+        // Reset onboarding for all installations (user cancelled, may want to re-onboard)
+        if (userInstallations.length > 0) {
+          try {
+            const { setCompanyPrefs } = await import('@/lib/company')
+            for (const inst of userInstallations) {
+              await setCompanyPrefs(inst.companyId, { completedAt: null })
+            }
+            console.log(`[WHOP] ✅ Reset onboarding for ${userInstallations.length} installation(s) after cancellation`)
+          } catch (prefsError) {
+            console.error(`[WHOP] Error resetting onboarding on cancellation:`, prefsError)
           }
-          console.log(`[WHOP] ✅ Reset onboarding for ${userInstallations.length} installation(s) after cancellation`)
-        } catch (prefsError) {
-          console.error(`[WHOP] Error resetting onboarding on cancellation:`, prefsError)
         }
+      } catch (planError) {
+        console.error(`[WHOP] ❌ Error updating user plan to free:`, planError)
+        // Don't throw - log error but continue
+        console.warn(`[WHOP] ⚠️ Plan update failed, but continuing webhook processing`)
       }
-    } catch (planError) {
-      console.error(`[WHOP] ❌ Error updating user plan to free:`, planError)
-      // Don't throw - log error but continue
-      console.warn(`[WHOP] ⚠️ Plan update failed, but continuing webhook processing`)
-    }
-  } else {
+    } else {
     // Try to find userId from installation lookup as fallback
     console.log('[WHOP] ⚠️ No userId found in webhook payload, attempting to find via installation lookup...')
     
