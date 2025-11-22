@@ -801,7 +801,8 @@ async function handleMembershipCancelled(data: any) {
       }
     } catch (planError) {
       console.error(`[WHOP] ❌ Error updating user plan to free:`, planError)
-      throw planError
+      // Don't throw - log error but continue
+      console.warn(`[WHOP] ⚠️ Plan update failed, but continuing webhook processing`)
     }
   } else {
     // Try to find userId from installation lookup as fallback
@@ -871,7 +872,8 @@ async function handleMembershipCancelled(data: any) {
         }
       } catch (planError) {
         console.error(`[WHOP] ❌ Error updating user plan via installation lookup:`, planError)
-        throw planError
+        // Don't throw - log error but continue
+        console.warn(`[WHOP] ⚠️ Plan update failed, but continuing webhook processing`)
       }
     } else {
       console.error(`[WHOP] ❌ Cannot downgrade plan: No userId found in webhook payload and no installation found`)
