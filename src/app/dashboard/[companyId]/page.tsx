@@ -763,33 +763,44 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         let shouldDowngrade = false
         
         if (membershipResult.error) {
-          // If error indicates we can't verify (permissions issue), don't downgrade
-          // Only downgrade if we explicitly confirmed no membership
-          const isPermissionError = membershipResult.error.includes('permissions') || 
-                                   membershipResult.error.includes('Unauthorized') ||
-                                   membershipResult.error.includes('Cannot verify')
-          
-          if (isPermissionError) {
-            console.warn('[Dashboard View] ⚠️ Cannot verify memberships due to API permissions:', membershipResult.error)
-            console.warn('[Dashboard View] ⚠️ Relying on webhooks for cancellation detection')
-            console.warn('[Dashboard View] ⚠️ To enable API-based cancellation detection, enable "list_memberships" permission in Whop Developer Portal')
-            shouldDowngrade = false
-          } else {
-            // Other errors - don't downgrade
-            console.warn('[Dashboard View] ⚠️ Unable to verify memberships:', membershipResult.error, '- NOT downgrading')
-            shouldDowngrade = false
-          }
-        } else {
-          // Only downgrade if user has Pro plan in DB but no active membership found
+          // CRITICAL: If we can't verify via API, NEVER downgrade
+          // Only downgrade if we can CONFIRM no membership exists
+          console.warn('[Dashboard View] ⚠️ Cannot verify memberships via API:', membershipResult.error)
+          console.warn('[Dashboard View] ⚠️ NOT downgrading - trusting DB/webhooks instead')
+          console.warn('[Dashboard View] ⚠️ API verification is unreliable, so we only downgrade when webhooks confirm cancellation')
+          shouldDowngrade = false
+        } else if (membershipResult.memberships.length === 0 && !membershipResult.hasActivePro) {
+          // CRITICAL: Only downgrade if API explicitly returned empty array AND confirmed no active Pro
+          // This means API worked and confirmed no membership exists
+          // If API returned empty but we can't verify (error), don't downgrade
           const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
-          shouldDowngrade = (currentUserPlan === 'pro' || currentUserPlan === 'business') && !membershipResult.hasActivePro
+          
+          // Only downgrade if:
+          // 1. User has Pro in DB
+          // 2. API successfully returned empty memberships (confirmed no membership)
+          // 3. API confirmed no active Pro membership
+          shouldDowngrade = (currentUserPlan === 'pro' || currentUserPlan === 'business') && 
+                           membershipResult.memberships.length === 0 && 
+                           !membershipResult.hasActivePro
           
           console.log('[Dashboard View] Membership verification result:', {
             hasProMembership: membershipResult.hasActivePro,
             totalMemberships: membershipResult.memberships.length,
             currentPlanInDB: currentUserPlan,
             shouldDowngrade,
+            note: shouldDowngrade ? 'API confirmed no membership - downgrading' : 'API returned empty but cannot confirm - NOT downgrading',
           })
+        } else {
+          // API returned memberships or confirmed active Pro - don't downgrade
+          const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
+          console.log('[Dashboard View] Membership verification result:', {
+            hasProMembership: membershipResult.hasActivePro,
+            totalMemberships: membershipResult.memberships.length,
+            currentPlanInDB: currentUserPlan,
+            shouldDowngrade: false,
+            note: 'API returned memberships or confirmed active Pro - plan is correct',
+          })
+          shouldDowngrade = false
         }
         
         if (shouldDowngrade && whopUser?.userId) {

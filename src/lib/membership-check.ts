@@ -188,6 +188,8 @@ export async function checkUserMembershipStatus(
       }
     }
     
+    // CRITICAL: If API returned empty array successfully (200 OK), that's a valid "no memberships" response
+    // But if API failed with errors, we can't trust the empty result - return error instead
     if (memberships.length === 0 && lastError) {
       const isPermissionError = lastError.message.includes('permissions') || 
                                lastError.message.includes('Unauthorized') ||
@@ -198,18 +200,25 @@ export async function checkUserMembershipStatus(
         console.warn('[Membership Check] ⚠️ API permission error - cannot verify membership status')
         console.warn('[Membership Check] ⚠️ Current permissions: member:basic:read, member:stats:read')
         console.warn('[Membership Check] ⚠️ These permissions should allow reading memberships, but API is rejecting')
-        console.warn('[Membership Check] ⚠️ Relying on webhooks for cancellation detection')
-        console.warn('[Membership Check] ⚠️ Note: webhook_receive:memberships is enabled, so webhooks should work')
+        console.warn('[Membership Check] ⚠️ Returning error - caller should NOT downgrade when verification fails')
       } else {
         console.warn('[Membership Check] ⚠️ All API endpoints failed, cannot verify membership status')
         console.warn('[Membership Check] ⚠️ Error:', lastError.message)
       }
       
+      // Return error so caller knows verification failed
+      // Caller should NOT downgrade when verification fails - only when API confirms no membership
       return {
-        hasActivePro: false, // Default to false when we can't verify
+        hasActivePro: false, // Unknown - can't verify
         memberships: [],
-        error: `Cannot verify: ${lastError.message}. Webhooks required for cancellation detection.`,
+        error: `Cannot verify: ${lastError.message}. Do not downgrade when verification fails.`,
       }
+    }
+    
+    // If we got here with empty memberships but no error, API successfully confirmed no memberships
+    // This is a valid "no membership" response - caller can downgrade
+    if (memberships.length === 0) {
+      console.log('[Membership Check] ✅ API successfully confirmed: user has no memberships')
     }
     
     // Check for active Pro membership
