@@ -769,38 +769,23 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
           console.warn('[Dashboard View] ⚠️ NOT downgrading - trusting DB/webhooks instead')
           console.warn('[Dashboard View] ⚠️ API verification is unreliable, so we only downgrade when webhooks confirm cancellation')
           shouldDowngrade = false
-        } else if (membershipResult.memberships.length === 0 && !membershipResult.hasActivePro) {
-          // CRITICAL: Only downgrade if API explicitly returned empty array AND confirmed no active Pro
-          // This means API worked and confirmed no membership exists
-          // If API returned empty but we can't verify (error), don't downgrade
-          const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
-          
-          // Only downgrade if:
-          // 1. User has Pro in DB
-          // 2. API successfully returned empty memberships (confirmed no membership)
-          // 3. API confirmed no active Pro membership
-          shouldDowngrade = (currentUserPlan === 'pro' || currentUserPlan === 'business') && 
-                           membershipResult.memberships.length === 0 && 
-                           !membershipResult.hasActivePro
-          
-          console.log('[Dashboard View] Membership verification result:', {
-            hasProMembership: membershipResult.hasActivePro,
-            totalMemberships: membershipResult.memberships.length,
-            currentPlanInDB: currentUserPlan,
-            shouldDowngrade,
-            note: shouldDowngrade ? 'API confirmed no membership - downgrading' : 'API returned empty but cannot confirm - NOT downgrading',
-          })
         } else {
-          // API returned memberships or confirmed active Pro - don't downgrade
+          // API call succeeded (no error)
           const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
+          
+          // CRITICAL: Disable automatic downgrade via API verification
+          // The app memberships endpoint only shows memberships for THIS app
+          // Empty result doesn't mean user has no membership (might be different product/plan)
+          // Only downgrade when webhooks confirm cancellation
+          shouldDowngrade = false
+          
           console.log('[Dashboard View] Membership verification result:', {
             hasProMembership: membershipResult.hasActivePro,
             totalMemberships: membershipResult.memberships.length,
             currentPlanInDB: currentUserPlan,
             shouldDowngrade: false,
-            note: 'API returned memberships or confirmed active Pro - plan is correct',
+            note: 'API verification disabled - app memberships endpoint unreliable. Relying on webhooks for cancellation detection.',
           })
-          shouldDowngrade = false
         }
         
         if (shouldDowngrade && whopUser?.userId) {
