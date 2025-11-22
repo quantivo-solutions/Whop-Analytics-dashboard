@@ -5,84 +5,128 @@ import { useEffect, useRef } from 'react'
 /**
  * PlanSyncCheck Component
  * 
- * Automatically detects plan changes from webhooks by polling the database.
+ * Automatically detects plan changes from webhooks using multiple methods:
+ * 1. Aggressive polling (every 2 seconds)
+ * 2. Window visibility change detection
+ * 3. Timestamp-based change detection
+ * 
  * When a plan change is detected, automatically reloads the dashboard.
- * 
- * Runs silently in the background - no UI shown unless there's an error.
- * 
- * Polling interval: 5 seconds (checks for plan changes from webhooks)
  */
 export function PlanSyncCheck() {
   const lastPlanRef = useRef<string | null>(null)
+  const lastTimestampRef = useRef<string | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const isReloadingRef = useRef(false)
+  const checkCountRef = useRef(0)
+  
+  const checkPlan = async (isInitialCheck = false, reason = '') => {
+    // Prevent multiple reloads
+    if (isReloadingRef.current) {
+      return
+    }
+    
+    checkCountRef.current++
+    const checkNumber = checkCountRef.current
+    
+    try {
+      // Use cache-busting URL
+      const cacheBuster = `${Date.now()}_${Math.random().toString(36).substring(7)}`
+      const url = `/api/plan/current?t=${cacheBuster}&_=${checkNumber}`
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const currentPlan = data.plan || data.currentPlan || 'free'
+        const planUpdatedAt = data.planUpdatedAt || null
+        
+        // On initial check, store both plan and timestamp
+        if (isInitialCheck) {
+          lastPlanRef.current = currentPlan
+          lastTimestampRef.current = planUpdatedAt
+          console.log(`[PlanSyncCheck] ✅ Initial check: plan="${currentPlan}", timestamp="${planUpdatedAt}"`)
+          return
+        }
+        
+        // Check for plan change
+        const planChanged = lastPlanRef.current !== null && lastPlanRef.current !== currentPlan
+        
+        // Check for timestamp change (indicates DB update)
+        const timestampChanged = planUpdatedAt && 
+          lastTimestampRef.current && 
+          lastTimestampRef.current !== planUpdatedAt
+        
+        if (planChanged || timestampChanged) {
+          console.log(`[PlanSyncCheck] 🔄 ${reason} - PLAN CHANGE DETECTED!`, {
+            plan: `${lastPlanRef.current} → ${currentPlan}`,
+            timestamp: `${lastTimestampRef.current} → ${planUpdatedAt}`,
+            checkNumber,
+          })
+          isReloadingRef.current = true
+          
+          // Reload immediately
+          window.location.reload()
+          return
+        }
+        
+        // Update refs
+        lastPlanRef.current = currentPlan
+        if (planUpdatedAt) {
+          lastTimestampRef.current = planUpdatedAt
+        }
+      } else {
+        const errorText = await response.text().catch(() => '')
+        console.warn(`[PlanSyncCheck] ⚠️ Check failed (${reason}):`, response.status, errorText.substring(0, 50))
+      }
+    } catch (error) {
+      console.error(`[PlanSyncCheck] ❌ Error (${reason}):`, error)
+    }
+  }
   
   useEffect(() => {
-    // Only run on client side
-    const checkPlan = async (isInitialCheck = false) => {
-      // Prevent multiple reloads
-      if (isReloadingRef.current) {
-        return
-      }
-      
-      try {
-        // Use lightweight endpoint that just returns current plan from DB
-        const response = await fetch('/api/plan/current?' + Date.now(), {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store', // Always fetch fresh data
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          const currentPlan = data.plan || data.currentPlan || 'free'
-          
-          // On initial check, just store the plan
-          if (isInitialCheck) {
-            lastPlanRef.current = currentPlan
-            console.log('[PlanSyncCheck] ✅ Initial plan check:', currentPlan)
-            return
-          }
-          
-          // On subsequent checks, compare with last known plan
-          if (lastPlanRef.current !== null && lastPlanRef.current !== currentPlan) {
-            console.log(`[PlanSyncCheck] 🔄 Plan changed from ${lastPlanRef.current} to ${currentPlan} - reloading...`)
-            isReloadingRef.current = true
-            // Plan changed - reload to reflect new plan
-            window.location.reload()
-            return
-          }
-          
-          // Update last known plan
-          lastPlanRef.current = currentPlan
-        } else {
-          console.warn('[PlanSyncCheck] Plan check failed:', response.status)
-          // Don't reload on error - keep current state
-        }
-      } catch (error) {
-        console.error('[PlanSyncCheck] Error checking plan:', error)
-        // Don't show error to user - this is a background sync
+    console.log('[PlanSyncCheck] 🚀 Starting plan monitoring')
+    
+    // Initial check immediately
+    checkPlan(true, 'initial')
+    
+    // Aggressive polling every 2 seconds
+    intervalRef.current = setInterval(() => {
+      checkPlan(false, 'poll')
+    }, 2000)
+    
+    // Also check when window becomes visible (user switches back to tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[PlanSyncCheck] 👁️ Window visible - checking plan')
+        checkPlan(false, 'visibility')
       }
     }
     
-    // Initial check after a short delay to ensure page is loaded
-    const initialTimeoutId = setTimeout(() => {
-      checkPlan(true)
-    }, 1000) // Check after 1 second
+    // Also check on window focus
+    const handleFocus = () => {
+      console.log('[PlanSyncCheck] 🎯 Window focused - checking plan')
+      checkPlan(false, 'focus')
+    }
     
-    // Set up periodic polling every 5 seconds to detect webhook-triggered plan changes
-    intervalRef.current = setInterval(() => {
-      checkPlan(false)
-    }, 5000) // Check every 5 seconds for faster detection
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
     
     return () => {
-      clearTimeout(initialTimeoutId)
+      console.log('[PlanSyncCheck] 🛑 Cleaning up')
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
     }
   }, [])
   
