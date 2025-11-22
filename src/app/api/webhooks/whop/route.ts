@@ -774,7 +774,7 @@ async function handleMembershipCancelled(data: any) {
     // CRITICAL: Update UserPlan even if installation isn't found
     // The userId is the key - we can update the plan directly
     if (userId) {
-    try {
+      try {
       // USER-LEVEL PLAN: Update UserPlan table to 'free' (applies to ALL companies for this user)
       const { setUserPlan } = await import('@/lib/plan')
       await setUserPlan(userId, 'free')

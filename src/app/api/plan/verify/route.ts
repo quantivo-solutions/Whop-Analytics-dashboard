@@ -107,6 +107,8 @@ export async function POST(request: Request) {
           message: `Plan synced: ${currentPlan} → ${correctPlan}`,
           previousPlan: currentPlan,
           newPlan: correctPlan,
+          currentPlan: correctPlan,
+          plan: correctPlan, // Also return as 'plan' for consistency
           synced: true,
         })
       } else if (apiVerificationFailed) {
@@ -115,6 +117,7 @@ export async function POST(request: Request) {
           success: true,
           message: 'API verification unavailable - keeping current plan',
           currentPlan,
+          plan: currentPlan, // Also return as 'plan' for consistency
           synced: false,
           apiVerificationFailed: true,
         })
@@ -124,6 +127,7 @@ export async function POST(request: Request) {
           success: true,
           message: 'Plan is correct',
           currentPlan,
+          plan: currentPlan, // Also return as 'plan' for consistency
           synced: false,
         })
       }
