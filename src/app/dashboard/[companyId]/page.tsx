@@ -670,14 +670,22 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
     
     // Onboarding IS complete - now check for Pro Welcome (upgrade scenario)
-    // IMPORTANT: Use planVerified (from verification step) not isPro (from earlier)
+    // Get current plan from DB to check if user is Pro
+    let isProUser = false
+    if (whopUser?.userId) {
+      const { getUserPlan } = await import('@/lib/plan')
+      const userPlan = await getUserPlan(whopUser.userId)
+      isProUser = userPlan === 'pro' || userPlan === 'business'
+    } else {
+      isProUser = installation && (installation.plan === 'pro' || installation.plan === 'business')
+    }
+    
     const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
     const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
     const proWelcomeNotShown = prefs.proWelcomeShownAt === null
-    const isProUser = plan === 'pro' || plan === 'business'
     
     // Only show Pro Welcome if:
-    // 1. User is Pro (verified plan)
+    // 1. User is Pro
     // 2. Installation was recently updated (upgrade happened)
     // 3. Pro Welcome hasn't been shown yet
     // Note: onboardingComplete is already checked above
