@@ -742,16 +742,13 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       isDataFresh: dashboardData.kpis.isDataFresh,
     })
 
-    // STEP 6.5: Guard against stale Pro — verify active membership ONLY if installation wasn't recently updated
-    // Skip check if installation was updated within last 60 seconds (webhook may have just upgraded)
+    // STEP 6.5: ALWAYS verify active membership for Pro users to detect cancellations
+    // This is critical since webhooks may not be sent for cancellations
     try {
       if (whopUser && whopUser.userId && installation && plan !== 'free') {
-        const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
-        const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
-        
-        if (wasRecentlyUpdated) {
-          console.log('[Dashboard View] ⚠️ Skipping membership check - installation updated', Math.round(updatedAgoMs / 1000), 'seconds ago (likely from webhook)')
-        } else {
+        // ALWAYS check membership status - don't skip even if recently updated
+        // This ensures we catch cancellations even if webhooks fail
+        console.log('[Dashboard View] 🔍 ALWAYS checking membership status for Pro user (cancellation detection)')
           // Check membership status via Whop API to detect cancellations
           // This is a fallback since webhooks may not be sent for cancellations
           console.log('[Dashboard View] 🔍 Checking membership status for cancellation detection...')
@@ -781,10 +778,12 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             })
           }
           if (shouldDowngrade && whopUser?.userId) {
+            console.log('[Dashboard View] 🚨 CANCELLATION DETECTED - Downgrading user plan')
+            
             // USER-LEVEL PLAN: Update UserPlan table (applies to ALL companies for this user)
             const { setUserPlan } = await import('@/lib/plan')
             await setUserPlan(whopUser.userId, 'free')
-            console.log('[Dashboard View] ✅ Downgraded USER-LEVEL plan to free (confirmed no active membership found')
+            console.log('[Dashboard View] ✅ Downgraded USER-LEVEL plan to free (confirmed no active membership found)')
             
             // Update installation timestamp for UI consistency
             if (installation.userId) {
@@ -799,12 +798,19 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               })
             }
             
+            // Update plan variable for this request
             plan = 'free'
+            
+            // Reset onboarding
             const { setCompanyPrefs } = await import('@/lib/company')
             await setCompanyPrefs(finalCompanyId, { completedAt: null })
             console.log('[Dashboard View] ✅ Reset onboarding due to downgrade')
+            
+            // IMPORTANT: Reload the page to reflect the change
+            // The plan variable is updated, but we need to ensure UI reflects it
           } else if (shouldDowngrade && !whopUser?.userId) {
             // Fallback: Update installation.plan if no userId (legacy)
+            console.log('[Dashboard View] ⚠️ Downgrading without userId (legacy fallback)')
             if (installation.userId) {
               await prisma.whopInstallation.update({
                 where: {
@@ -823,6 +829,10 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             }
             plan = 'free'
             console.log('[Dashboard View] ✅ Downgraded installation.plan to free (no userId available)')
+          } else if (!shouldDowngrade && membershipResult.hasActivePro) {
+            console.log('[Dashboard View] ✅ User has active Pro membership - plan is correct')
+          } else if (!shouldDowngrade && !membershipResult.hasActivePro && plan === 'free') {
+            console.log('[Dashboard View] ✅ User is free - plan is correct')
           }
         }
       }
