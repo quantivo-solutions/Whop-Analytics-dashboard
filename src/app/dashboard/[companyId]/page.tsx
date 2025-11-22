@@ -670,16 +670,18 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
     
     // Onboarding IS complete - now check for Pro Welcome (upgrade scenario)
+    // IMPORTANT: Use planVerified (from verification step) not isPro (from earlier)
     const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
     const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
     const proWelcomeNotShown = prefs.proWelcomeShownAt === null
+    const isProUser = plan === 'pro' || plan === 'business'
     
     // Only show Pro Welcome if:
-    // 1. User is Pro
+    // 1. User is Pro (verified plan)
     // 2. Installation was recently updated (upgrade happened)
     // 3. Pro Welcome hasn't been shown yet
     // Note: onboardingComplete is already checked above
-    const showProWelcome = isPro && wasRecentlyUpdated && proWelcomeNotShown
+    const showProWelcome = isProUser && wasRecentlyUpdated && proWelcomeNotShown
     
     if (showProWelcome) {
       console.log('[Dashboard View] ✅ Pro upgrade detected - showing Pro welcome modal')
@@ -768,8 +770,10 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       isDataFresh: dashboardData.kpis.isDataFresh,
     })
 
-    // STEP 6.5: ALWAYS verify plan status on page load
+    // STEP 6.5: ALWAYS verify plan status on page load BEFORE checking modals
     // Check if user has Pro in DB but no active membership - downgrade if needed
+    // If downgraded, redirect immediately (don't show modals)
+    let planVerified = plan
     if (whopUser && whopUser.userId) {
       try {
         const dbPlan = plan // Current plan from DB
@@ -787,37 +791,45 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             membershipsCount: membershipResult.memberships.length,
           })
           
-          // If API check succeeded and confirmed NO active Pro membership, downgrade
-          if (!membershipResult.error && !membershipResult.hasActivePro && membershipResult.memberships.length === 0) {
-            console.log('[Dashboard View] 🚨 CANCELLATION DETECTED - No active membership found')
+          // CRITICAL FIX: Check hasActivePro, not memberships.length
+          // A cancelled membership still exists but is not active (status: 'completed')
+          if (!membershipResult.error && !membershipResult.hasActivePro) {
+            console.log('[Dashboard View] 🚨 CANCELLATION DETECTED - No active Pro membership found')
             console.log('[Dashboard View] 🚨 Downgrading from', dbPlan, 'to free')
             
             const { setUserPlan } = await import('@/lib/plan')
             await setUserPlan(whopUser.userId, 'free')
             console.log('[Dashboard View] ✅ Plan downgraded to free in DB')
             
-            // Reset onboarding
-            try {
-              const { setCompanyPrefs } = await import('@/lib/company')
-              await setCompanyPrefs(finalCompanyId, { completedAt: null })
-            } catch (prefsErr) {
-              console.error('[Dashboard View] Error resetting onboarding:', prefsErr)
-            }
+            // IMPORTANT: Do NOT reset onboarding when downgrading
+            // Onboarding should only be reset on first install, not on plan changes
             
-            // CRITICAL: Redirect to reload page with Free plan
-            console.log('[Dashboard View] 🔄 Redirecting to reload page...')
+            // Update plan variable for this request
+            planVerified = 'free'
+            plan = 'free'
+            
+            // CRITICAL: Redirect immediately to reload page with Free plan
+            console.log('[Dashboard View] 🔄 Redirecting to reload page with Free plan...')
             redirect(`/dashboard/${companyId}?reload=${Date.now()}`)
           } else if (membershipResult.hasActivePro) {
             console.log('[Dashboard View] ✅ Active Pro membership confirmed - keeping Pro plan')
+            planVerified = dbPlan
           } else if (membershipResult.error) {
             console.log('[Dashboard View] ⚠️ API check failed - keeping current plan (trusting DB/webhooks)')
+            planVerified = dbPlan
           }
+        } else if (plan === 'free') {
+          planVerified = 'free'
         }
       } catch (checkError) {
         console.error('[Dashboard View] ❌ Error checking membership:', checkError)
-        // Don't downgrade on error - keep current plan
+        // On error, keep current plan
+        planVerified = plan
       }
     }
+    
+    // Use verified plan for rest of the page
+    plan = planVerified
   } catch (error) {
     console.error('[Dashboard View] Error loading dashboard data:', error)
     return (
