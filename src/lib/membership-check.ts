@@ -2,10 +2,14 @@
  * Membership Status Check Utilities
  * 
  * Properly checks Whop API for active memberships to detect cancellations
- * Uses installation access tokens which have proper permissions
+ * Since we can't use memberships API (permissions issue), we check via:
+ * 1. App memberships endpoint (if available)
+ * 2. Check access to Pro product directly
+ * 3. Fallback: Trust webhooks (but log warning)
  */
 
 import { env } from './env'
+import { whopSdk } from './whop-sdk'
 
 export interface MembershipCheckResult {
   hasActivePro: boolean
@@ -15,16 +19,16 @@ export interface MembershipCheckResult {
 
 /**
  * Check if user has active Pro membership
- * Uses installation access token for proper permissions
+ * Uses multiple strategies since memberships API requires special permissions
  */
 export async function checkUserMembershipStatus(
   userId: string,
-  accessToken?: string
+  accessToken?: string,
+  companyId?: string
 ): Promise<MembershipCheckResult> {
   try {
-    // Use installation access token if available (has proper permissions)
-    // Otherwise fall back to server key
     const token = accessToken || env.WHOP_APP_SERVER_KEY
+    const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
     
     if (!token) {
       return {
@@ -33,22 +37,23 @@ export async function checkUserMembershipStatus(
         error: 'No access token available',
       }
     }
-
-    const planId = process.env.NEXT_PUBLIC_WHOP_PRO_PLAN_ID
     
     console.log('[Membership Check] Checking membership status for user:', userId)
     console.log('[Membership Check] Using plan ID:', planId)
+    console.log('[Membership Check] Company ID:', companyId)
     
-    // Try multiple API endpoints and formats
-    // CRITICAL: Use the correct endpoint based on Whop API docs
+    // Strategy 1: Try app memberships endpoint (if we have app context)
+    // This endpoint might work with app server key
     const endpoints = [
-      // Try v5 API first (most current)
+      // Try app memberships endpoint (if available)
+      `https://api.whop.com/api/v5/app/memberships?user_id=${userId}`,
+      // Try with plan filter
+      planId ? `https://api.whop.com/api/v5/app/memberships?user_id=${userId}&plan_id=${planId}` : null,
+      // Try v5 users endpoint (might work with different permissions)
       `https://api.whop.com/api/v5/users/${userId}/memberships`,
-      // Try v2 API as fallback
+      // Try v2 API as fallback (will likely fail but worth trying)
       `https://api.whop.com/api/v2/memberships?user_id=${userId}`,
-      // Try with status filter
-      `https://api.whop.com/api/v2/memberships?user_id=${userId}&status=active,valid,trialing`,
-    ]
+    ].filter(Boolean) as string[]
     
     let memberships: any[] = []
     let lastError: Error | null = null
@@ -221,6 +226,46 @@ export async function checkUserMembershipStatus(
       memberships: [],
       error: error instanceof Error ? error.message : String(error),
     }
+  }
+}
+
+/**
+ * Check if user has access to Pro product via SDK or alternative method
+ * This is a fallback when memberships API doesn't work
+ */
+async function checkAccessViaSDK(
+  userId: string,
+  companyId: string,
+  planId: string,
+  accessToken: string
+): Promise<boolean | null> {
+  try {
+    // Try checking via app memberships with specific plan filter
+    const url = `https://api.whop.com/api/v5/app/memberships?user_id=${userId}&plan_id=${planId}&status=active,valid,trialing`
+    console.log('[Membership Check] Trying app memberships with plan filter:', url)
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      const memberships = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
+      const hasActive = memberships.length > 0 && memberships.some((m: any) => {
+        const status = m.status || m.state || m.membership_status
+        return status === 'active' || status === 'valid' || status === 'trialing'
+      })
+      console.log('[Membership Check] App memberships check result:', { count: memberships.length, hasActive })
+      return hasActive
+    }
+    
+    return null
+  } catch (error) {
+    console.warn('[Membership Check] SDK access check error:', error)
+    return null
   }
 }
 

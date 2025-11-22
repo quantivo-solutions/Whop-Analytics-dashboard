@@ -758,14 +758,27 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         const accessToken = installation?.accessToken || env.WHOP_APP_SERVER_KEY
         
         const { checkUserMembershipStatus } = await import('@/lib/membership-check')
-        const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken)
+        const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken, finalCompanyId)
         
         let shouldDowngrade = false
         
         if (membershipResult.error) {
-          // Don't downgrade on API errors - only downgrade if we can confirm no membership
-          console.warn('[Dashboard View] ⚠️ Unable to verify memberships:', membershipResult.error, '- NOT downgrading (API may be unavailable)')
-          shouldDowngrade = false
+          // If error indicates we can't verify (permissions issue), don't downgrade
+          // Only downgrade if we explicitly confirmed no membership
+          const isPermissionError = membershipResult.error.includes('permissions') || 
+                                   membershipResult.error.includes('Unauthorized') ||
+                                   membershipResult.error.includes('Cannot verify')
+          
+          if (isPermissionError) {
+            console.warn('[Dashboard View] ⚠️ Cannot verify memberships due to API permissions:', membershipResult.error)
+            console.warn('[Dashboard View] ⚠️ Relying on webhooks for cancellation detection')
+            console.warn('[Dashboard View] ⚠️ To enable API-based cancellation detection, enable "list_memberships" permission in Whop Developer Portal')
+            shouldDowngrade = false
+          } else {
+            // Other errors - don't downgrade
+            console.warn('[Dashboard View] ⚠️ Unable to verify memberships:', membershipResult.error, '- NOT downgrading')
+            shouldDowngrade = false
+          }
         } else {
           // Only downgrade if user has Pro plan in DB but no active membership found
           const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
