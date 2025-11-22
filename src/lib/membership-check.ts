@@ -43,12 +43,14 @@ export async function checkUserMembershipStatus(
     console.log('[Membership Check] Company ID:', companyId)
     
     // Strategy 1: Try app memberships endpoint (if we have app context)
-    // This endpoint might work with app server key
+    // This endpoint might work with "Manage members" or "Update memberships" permissions
     const endpoints = [
-      // Try app memberships endpoint (if available)
+      // Try app memberships endpoint with plan filter (most specific)
+      planId ? `https://api.whop.com/api/v5/app/memberships?user_id=${userId}&plan_id=${planId}&status=active,valid,trialing` : null,
+      // Try app memberships endpoint (all memberships for user)
       `https://api.whop.com/api/v5/app/memberships?user_id=${userId}`,
-      // Try with plan filter
-      planId ? `https://api.whop.com/api/v5/app/memberships?user_id=${userId}&plan_id=${planId}` : null,
+      // Try checking access to specific plan/product
+      planId ? `https://api.whop.com/api/v5/users/${userId}/access/${planId}` : null,
       // Try v5 users endpoint (might work with different permissions)
       `https://api.whop.com/api/v5/users/${userId}/memberships`,
       // Try v2 API as fallback (will likely fail but worth trying)
@@ -112,6 +114,7 @@ export async function checkUserMembershipStatus(
         })
         
         // Handle different response formats
+        // Also handle access check responses (single object, not array)
         if (Array.isArray(data)) {
           memberships = data
           console.log(`[Membership Check] ✅ Found ${memberships.length} membership(s) in array`)
@@ -124,6 +127,22 @@ export async function checkUserMembershipStatus(
         } else if (data.results && Array.isArray(data.results)) {
           memberships = data.results
           console.log(`[Membership Check] ✅ Found ${memberships.length} membership(s) in results array`)
+        } else if (data.hasAccess !== undefined || data.access !== undefined || data.valid !== undefined) {
+          // This might be an access check response (single object)
+          // Convert to membership-like object for processing
+          const hasAccess = data.hasAccess || data.access || data.valid
+          if (hasAccess) {
+            memberships = [{
+              id: data.id || 'access_check',
+              status: 'valid',
+              plan_id: planId,
+              product_id: planId,
+            }]
+            console.log(`[Membership Check] ✅ Access check response: user has access`)
+          } else {
+            memberships = []
+            console.log(`[Membership Check] ✅ Access check response: user does NOT have access`)
+          }
         } else {
           console.warn('[Membership Check] ⚠️ Unexpected response format:', {
             keys: Object.keys(data),
