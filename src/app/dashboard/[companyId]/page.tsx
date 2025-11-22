@@ -649,8 +649,28 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     prefs = await getCompanyPrefs(finalCompanyId) // Always use URL companyId for isolation
     onboardingComplete = await isOnboardingComplete(finalCompanyId)
     
-    // Check for Pro Welcome modal ONLY if onboarding is already completed
-    // This ensures Welcome wizard shows first on first installation, Pro Welcome shows on upgrade
+    // CRITICAL: Check onboarding FIRST, then Pro Welcome
+    // This ensures Welcome wizard shows on first installation, Pro Welcome shows on upgrade
+    
+    // If onboarding is NOT complete, show Welcome wizard (first installation)
+    if (!onboardingComplete) {
+      console.log('[Dashboard View] Onboarding NOT complete - showing wizard (first installation)')
+      const sessionTokenForClient = (global as any).__whopSessionToken
+      return (
+        <div className="min-h-screen bg-background">
+          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+          <WizardWrapper
+            companyId={finalCompanyId}
+            initialPrefs={{
+              goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
+              completedAt: prefs.completedAt?.toISOString() || null,
+            }}
+          />
+        </div>
+      )
+    }
+    
+    // Onboarding IS complete - now check for Pro Welcome (upgrade scenario)
     const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
     const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
     const proWelcomeNotShown = prefs.proWelcomeShownAt === null
@@ -658,9 +678,9 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     // Only show Pro Welcome if:
     // 1. User is Pro
     // 2. Installation was recently updated (upgrade happened)
-    // 3. Onboarding is already completed (not first installation)
-    // 4. Pro Welcome hasn't been shown yet
-    const showProWelcome = isPro && wasRecentlyUpdated && onboardingComplete && proWelcomeNotShown
+    // 3. Pro Welcome hasn't been shown yet
+    // Note: onboardingComplete is already checked above
+    const showProWelcome = isPro && wasRecentlyUpdated && proWelcomeNotShown
     
     if (showProWelcome) {
       console.log('[Dashboard View] ✅ Pro upgrade detected - showing Pro welcome modal')
@@ -695,15 +715,16 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     } as any
   }
 
-  // BLOCK dashboard access until onboarding is complete
+  // Note: Onboarding check is now done earlier (before Pro Welcome check)
+  // This block should not be reached if onboarding is incomplete, but keeping as safety
   if (!onboardingComplete) {
-    console.log('[Dashboard View] Onboarding NOT complete - showing wizard')
+    console.log('[Dashboard View] Onboarding NOT complete - showing wizard (fallback)')
     const sessionTokenForClient = (global as any).__whopSessionToken
     return (
       <div className="min-h-screen bg-background">
         {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-          <WizardWrapper
-            companyId={finalCompanyId} // Use URL companyId for isolation
+        <WizardWrapper
+          companyId={finalCompanyId}
           initialPrefs={{
             goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
             completedAt: prefs.completedAt?.toISOString() || null,
