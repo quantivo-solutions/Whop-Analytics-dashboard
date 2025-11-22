@@ -823,16 +823,14 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               })
             }
             
-            // Update plan variable for this request
-            plan = 'free'
-            
             // Reset onboarding
             const { setCompanyPrefs } = await import('@/lib/company')
             await setCompanyPrefs(finalCompanyId, { completedAt: null })
             console.log('[Dashboard View] ✅ Reset onboarding due to downgrade')
             
-            // IMPORTANT: Reload the page to reflect the change
-            // The plan variable is updated, but we need to ensure UI reflects it
+            // CRITICAL: Reload page immediately to reflect plan change
+            console.log('[Dashboard View] 🔄 Reloading page to reflect plan downgrade...')
+            redirect(`/dashboard/${companyId}?reload=${Date.now()}`)
           } else if (shouldDowngrade && !whopUser?.userId) {
             // Fallback: Update installation.plan if no userId (legacy)
             console.log('[Dashboard View] ⚠️ Downgrading without userId (legacy fallback)')
