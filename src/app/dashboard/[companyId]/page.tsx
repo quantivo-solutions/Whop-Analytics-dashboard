@@ -768,62 +768,55 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       isDataFresh: dashboardData.kpis.isDataFresh,
     })
 
-    // STEP 6.5: Check plan status on EVERY page load
-    // If user has Pro in DB but no active membership, downgrade immediately
-    // This ensures plan is always correct without relying on webhooks or polling
-    if (whopUser && whopUser.userId && plan !== 'free') {
+    // STEP 6.5: ALWAYS verify plan status on page load
+    // Check if user has Pro in DB but no active membership - downgrade if needed
+    if (whopUser && whopUser.userId) {
       try {
-        console.log('[Dashboard View] 🔍 Verifying Pro plan status on page load...')
+        const dbPlan = plan // Current plan from DB
+        console.log('[Dashboard View] 🔍 Verifying plan status - DB plan:', dbPlan)
         
-        const accessToken = installation?.accessToken || env.WHOP_APP_SERVER_KEY
-        const { checkUserMembershipStatus } = await import('@/lib/membership-check')
-        const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken, finalCompanyId)
-        
-        // If API check succeeded and found NO active Pro membership, downgrade
-        if (!membershipResult.error && !membershipResult.hasActivePro && membershipResult.memberships.length === 0) {
-          console.log('[Dashboard View] 🚨 No active Pro membership found - downgrading plan')
+        // Only check if user has Pro/Business in DB (skip check for Free users)
+        if (dbPlan === 'pro' || dbPlan === 'business') {
+          const accessToken = installation?.accessToken || env.WHOP_APP_SERVER_KEY
+          const { checkUserMembershipStatus } = await import('@/lib/membership-check')
+          const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken, finalCompanyId)
           
-          const { setUserPlan } = await import('@/lib/plan')
-          await setUserPlan(whopUser.userId, 'free')
-          console.log('[Dashboard View] ✅ Plan downgraded to free')
+          console.log('[Dashboard View] Membership check result:', {
+            error: membershipResult.error,
+            hasActivePro: membershipResult.hasActivePro,
+            membershipsCount: membershipResult.memberships.length,
+          })
           
-          // Reload page immediately to show Free plan
-          redirect(`/dashboard/${companyId}?reload=${Date.now()}`)
-        } else if (membershipResult.hasActivePro) {
-          console.log('[Dashboard View] ✅ Active Pro membership confirmed')
-        } else if (membershipResult.error) {
-          console.log('[Dashboard View] ⚠️ Could not verify membership (API error) - keeping current plan')
-        }
-      } catch (checkError) {
-        console.error('[Dashboard View] Error checking membership:', checkError)
-        // Don't downgrade on error - keep current plan
-      }
-    } else if (shouldDowngrade && !whopUser?.userId) {
-            // Fallback: Update installation.plan if no userId (legacy)
-            console.log('[Dashboard View] ⚠️ Downgrading without userId (legacy fallback)')
-            if (installation.userId) {
-              await prisma.whopInstallation.update({
-                where: {
-                  companyId_userId: {
-                    companyId: installation.companyId,
-                    userId: installation.userId,
-                  },
-                },
-                data: { plan: 'free', updatedAt: new Date() },
-              })
-            } else {
-              await prisma.whopInstallation.updateMany({
-                where: { companyId: installation.companyId },
-                data: { plan: 'free', updatedAt: new Date() },
-              })
+          // If API check succeeded and confirmed NO active Pro membership, downgrade
+          if (!membershipResult.error && !membershipResult.hasActivePro && membershipResult.memberships.length === 0) {
+            console.log('[Dashboard View] 🚨 CANCELLATION DETECTED - No active membership found')
+            console.log('[Dashboard View] 🚨 Downgrading from', dbPlan, 'to free')
+            
+            const { setUserPlan } = await import('@/lib/plan')
+            await setUserPlan(whopUser.userId, 'free')
+            console.log('[Dashboard View] ✅ Plan downgraded to free in DB')
+            
+            // Reset onboarding
+            try {
+              const { setCompanyPrefs } = await import('@/lib/company')
+              await setCompanyPrefs(finalCompanyId, { completedAt: null })
+            } catch (prefsErr) {
+              console.error('[Dashboard View] Error resetting onboarding:', prefsErr)
             }
-            plan = 'free'
-            console.log('[Dashboard View] ✅ Downgraded installation.plan to free (no userId available)')
+            
+            // CRITICAL: Redirect to reload page with Free plan
+            console.log('[Dashboard View] 🔄 Redirecting to reload page...')
+            redirect(`/dashboard/${companyId}?reload=${Date.now()}`)
+          } else if (membershipResult.hasActivePro) {
+            console.log('[Dashboard View] ✅ Active Pro membership confirmed - keeping Pro plan')
+          } else if (membershipResult.error) {
+            console.log('[Dashboard View] ⚠️ API check failed - keeping current plan (trusting DB/webhooks)')
           }
         }
+      } catch (checkError) {
+        console.error('[Dashboard View] ❌ Error checking membership:', checkError)
+        // Don't downgrade on error - keep current plan
       }
-    } catch (verifyErr) {
-      console.error('[Dashboard View] Error verifying memberships:', verifyErr)
     }
   } catch (error) {
     console.error('[Dashboard View] Error loading dashboard data:', error)
