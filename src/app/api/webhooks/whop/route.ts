@@ -920,8 +920,7 @@ async function handleMembershipCancelled(data: any) {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     })
-    // Return without throwing - webhook handler will return 200 OK
-    return
+    // Don't throw - let webhook handler return 200 OK
   }
 }
 
