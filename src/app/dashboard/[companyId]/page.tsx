@@ -834,7 +834,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
           } else if (!shouldDowngrade && !membershipResult.hasActivePro && plan === 'free') {
             console.log('[Dashboard View] ✅ User is free - plan is correct')
           }
-        }
       }
     } catch (verifyErr) {
       console.error('[Dashboard View] Error verifying memberships:', verifyErr)
