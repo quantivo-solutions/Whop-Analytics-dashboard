@@ -199,7 +199,14 @@ export async function POST(request: Request) {
         }
     }
 
-    return NextResponse.json({ ok: true, action })
+    // Return proper response format for Whop webhooks
+    // Whop expects a simple 200 OK response
+    return NextResponse.json({ 
+      ok: true, 
+      received: true,
+      action: action || 'unknown',
+      timestamp: new Date().toISOString(),
+    }, { status: 200 })
   } catch (error) {
     console.error('❌ Webhook error:', error)
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -219,13 +226,18 @@ export async function POST(request: Request) {
       console.error('[WHOP] Database error meta:', (error as any).meta)
     }
     
+    // IMPORTANT: Return 200 OK even on errors to prevent Whop from retrying
+    // Log the error but don't fail the webhook - this prevents infinite retries
+    // Whop's test webhook feature might show this as an error, but production webhooks will work
     return NextResponse.json(
       { 
+        ok: false,
         error: 'Webhook processing failed', 
         details: errorMessage,
-        action: action || 'unknown'
+        action: action || 'unknown',
+        timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 200 } // Return 200 OK to prevent retries
     )
   }
 }
@@ -898,6 +910,16 @@ async function handleMembershipCancelled(data: any) {
         console.warn(`[WHOP] ⚠️ Plan downgrade skipped - will sync on next dashboard access`)
       }
     }
+  } catch (error) {
+    // Catch any errors in cancellation handler and log them
+    // Don't throw - webhook should return 200 OK to prevent retries
+    console.error('[WHOP] ❌ Error in handleMembershipCancelled:', error)
+    console.error('[WHOP] Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+    // Return without throwing - webhook handler will return 200 OK
+    return
   }
 }
 
