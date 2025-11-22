@@ -168,11 +168,47 @@ export async function checkUserMembershipStatus(
       }
     }
     
+    // Strategy 2: If no memberships found via API, try checking access via SDK
+    // This is a fallback when API endpoints don't work
+    if (memberships.length === 0 && companyId && planId) {
+      console.log('[Membership Check] ⚠️ No memberships found via API, trying SDK access check...')
+      try {
+        // Try to check if user has access to Pro product via SDK
+        // This might work even if memberships API doesn't
+        const hasAccess = await checkAccessViaSDK(userId, companyId, planId, token)
+        if (hasAccess !== null) {
+          console.log('[Membership Check] ✅ SDK access check result:', hasAccess)
+          return {
+            hasActivePro: hasAccess,
+            memberships: [],
+          }
+        }
+      } catch (sdkError) {
+        console.warn('[Membership Check] SDK access check failed:', sdkError)
+      }
+    }
+    
     if (memberships.length === 0 && lastError) {
+      const isPermissionError = lastError.message.includes('permissions') || 
+                               lastError.message.includes('Unauthorized') ||
+                               lastError.message.includes('401') ||
+                               lastError.message.includes('403')
+      
+      if (isPermissionError) {
+        console.warn('[Membership Check] ⚠️ API permission error - cannot verify membership status')
+        console.warn('[Membership Check] ⚠️ Current permissions: member:basic:read, member:stats:read')
+        console.warn('[Membership Check] ⚠️ These permissions should allow reading memberships, but API is rejecting')
+        console.warn('[Membership Check] ⚠️ Relying on webhooks for cancellation detection')
+        console.warn('[Membership Check] ⚠️ Note: webhook_receive:memberships is enabled, so webhooks should work')
+      } else {
+        console.warn('[Membership Check] ⚠️ All API endpoints failed, cannot verify membership status')
+        console.warn('[Membership Check] ⚠️ Error:', lastError.message)
+      }
+      
       return {
-        hasActivePro: false,
+        hasActivePro: false, // Default to false when we can't verify
         memberships: [],
-        error: lastError.message,
+        error: `Cannot verify: ${lastError.message}. Webhooks required for cancellation detection.`,
       }
     }
     
