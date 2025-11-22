@@ -833,8 +833,11 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
             console.log('[Dashboard View] ✅ Downgraded installation.plan to free (no userId available)')
           } else if (!shouldDowngrade && membershipResult.hasActivePro) {
             console.log('[Dashboard View] ✅ User has active Pro membership - plan is correct')
-          } else if (!shouldDowngrade && !membershipResult.hasActivePro && plan === 'free') {
-            console.log('[Dashboard View] ✅ User is free - plan is correct')
+          } else if (!shouldDowngrade && !membershipResult.hasActivePro) {
+            const currentUserPlan = await (await import('@/lib/plan')).getUserPlan(whopUser.userId)
+            if (currentUserPlan === 'free') {
+              console.log('[Dashboard View] ✅ User is free - plan is correct')
+            }
           }
       }
     } catch (verifyErr) {
