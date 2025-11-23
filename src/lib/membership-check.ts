@@ -266,17 +266,24 @@ export async function checkUserMembershipStatus(
       const isActive = (isValid || isActiveStatus) && !isCancelled
       
       // Check product/plan match - try multiple fields
-      const productId = m.product?.id || 
+      // CRITICAL: Check plan_id FIRST (most specific), then product_id as fallback
+      const membershipPlanId = m.plan_id || 
+                               m.plan?.id ||
+                               m.access_pass?.plan_id ||
+                               m.product?.plan_id
+      
+      const productId = m.product_id ||
+                       m.product?.id || 
                        m.access_pass?.id || 
-                       m.product_id || 
-                       m.plan?.id ||
-                       m.plan_id ||
                        m.accessPass?.id ||
                        m.accessPassId
       
+      // If planId is configured, check if membership's plan_id matches
       // If no planId configured, any active membership = Pro
-      // If planId configured, must match
-      const matchesPlan = !planId || productId === planId
+      // Fallback: if plan_id doesn't match but product_id matches, that's also valid
+      const matchesPlan = !planId || 
+                         (membershipPlanId === planId) || 
+                         (productId === planId)
       
       const isPro = isActive && matchesPlan
       
@@ -288,8 +295,9 @@ export async function checkUserMembershipStatus(
         isActiveStatus,
         isCancelled,
         isActive,
+        membershipPlanId,
         productId,
-        planId,
+        expectedPlanId: planId,
         matchesPlan,
         isPro,
       })
