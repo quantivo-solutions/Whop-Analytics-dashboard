@@ -372,15 +372,16 @@ async function handleAppInstalled(data: any) {
     // Trigger bootstrap backfill asynchronously (don't block webhook response)
     if (isNewInstallation) {
       try {
-        const bootstrapUrl = new URL('/api/ingest/whop/bootstrap', process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app')
-        bootstrapUrl.searchParams.set('secret', env.CRON_SECRET)
-        bootstrapUrl.searchParams.set('companyId', company_id)
-        bootstrapUrl.searchParams.set('days', '30') // Backfill last 30 days on install
+        // Use backfill endpoint (bootstrap route may not be deployed yet)
+        const backfillUrl = new URL('/api/ingest/whop/backfill', process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app')
+        backfillUrl.searchParams.set('secret', env.CRON_SECRET)
+        backfillUrl.searchParams.set('companyId', company_id)
+        backfillUrl.searchParams.set('days', '30') // Backfill last 30 days on install
 
         console.log(`[WHOP] 🚀 Triggering bootstrap backfill for new installation: ${company_id}`)
         
         // Fire and forget - don't await to avoid blocking webhook response
-        fetch(bootstrapUrl.toString(), {
+        fetch(backfillUrl.toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         }).catch((bootstrapError) => {

@@ -337,6 +337,27 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
           } catch (prefsError) {
             console.error('[Experience Page] Error ensuring CompanyPrefs:', prefsError)
           }
+          
+          // Trigger bootstrap backfill asynchronously for new installation
+          try {
+            const { env } = await import('@/lib/env')
+            const bootstrapUrl = new URL('/api/ingest/whop/backfill', process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app')
+            bootstrapUrl.searchParams.set('secret', env.CRON_SECRET)
+            bootstrapUrl.searchParams.set('companyId', resolvedCompanyId)
+            bootstrapUrl.searchParams.set('days', '30') // Backfill last 30 days on install
+            
+            console.log(`[Experience Page] 🚀 Triggering bootstrap backfill for new installation: ${resolvedCompanyId}`)
+            
+            // Fire and forget - don't await to avoid blocking page load
+            fetch(bootstrapUrl.toString(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+            }).catch((bootstrapError) => {
+              console.error(`[Experience Page] ⚠️ Bootstrap backfill request failed (non-critical):`, bootstrapError)
+            })
+          } catch (bootstrapError) {
+            console.error(`[Experience Page] ⚠️ Error triggering bootstrap backfill:`, bootstrapError)
+          }
         } else {
           console.warn('[Experience Page] Could not resolve companyId from session or experience API')
         }
@@ -408,6 +429,26 @@ export default async function ExperienceDashboardPage({ params, searchParams }: 
                 await getCompanyPrefs(resolvedCompanyId)
               } catch (prefsError) {
                 console.error('[Experience Page] Error ensuring CompanyPrefs after conflict update:', prefsError)
+              }
+              
+              // Trigger bootstrap backfill asynchronously after update (treat as new install)
+              try {
+                const { env } = await import('@/lib/env')
+                const bootstrapUrl = new URL('/api/ingest/whop/backfill', process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app')
+                bootstrapUrl.searchParams.set('secret', env.CRON_SECRET)
+                bootstrapUrl.searchParams.set('companyId', resolvedCompanyId)
+                bootstrapUrl.searchParams.set('days', '30')
+                
+                console.log(`[Experience Page] 🚀 Triggering bootstrap backfill after update: ${resolvedCompanyId}`)
+                
+                fetch(bootstrapUrl.toString(), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                }).catch((bootstrapError) => {
+                  console.error(`[Experience Page] ⚠️ Bootstrap backfill request failed (non-critical):`, bootstrapError)
+                })
+              } catch (bootstrapError) {
+                console.error(`[Experience Page] ⚠️ Error triggering bootstrap backfill:`, bootstrapError)
               }
             }
           } else if (createErr.meta?.target?.includes('experienceId')) {
