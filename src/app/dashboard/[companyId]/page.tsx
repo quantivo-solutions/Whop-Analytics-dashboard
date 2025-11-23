@@ -949,6 +949,12 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     </div>
   )
   } catch (error: any) {
+    // CRITICAL: redirect() throws NEXT_REDIRECT error - must re-throw it, don't catch it
+    if (error && typeof error === 'object' && (error.message === 'NEXT_REDIRECT' || error.digest?.startsWith('NEXT_REDIRECT'))) {
+      console.log('[Dashboard View] 🔄 Redirect detected, re-throwing...')
+      throw error
+    }
+    
     // CRITICAL: Never 500 on unknown IDs - return friendly 200 OK response instead
     console.error('[Whoplytics] Error loading dashboard:', {
       companyId,
