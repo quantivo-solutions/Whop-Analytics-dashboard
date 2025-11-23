@@ -941,7 +941,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
         {/* Insights Panel */}
         <div className="mt-8">
-          <InsightsPanel data={dashboardData} plan={plan} goalAmount={goalAmount} />
+          <InsightsPanel data={dashboardData} plan={currentPlan} goalAmount={goalAmount} />
         </div>
       </div>
     </div>
