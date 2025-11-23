@@ -368,6 +368,30 @@ async function handleAppInstalled(data: any) {
       console.warn(`[WHOP] Failed to fetch company name:`, nameError)
       // Non-critical, continue
     }
+
+    // Trigger bootstrap backfill asynchronously (don't block webhook response)
+    if (isNewInstallation) {
+      try {
+        const bootstrapUrl = new URL('/api/ingest/whop/bootstrap', process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app')
+        bootstrapUrl.searchParams.set('secret', env.CRON_SECRET)
+        bootstrapUrl.searchParams.set('companyId', company_id)
+        bootstrapUrl.searchParams.set('days', '30') // Backfill last 30 days on install
+
+        console.log(`[WHOP] 🚀 Triggering bootstrap backfill for new installation: ${company_id}`)
+        
+        // Fire and forget - don't await to avoid blocking webhook response
+        fetch(bootstrapUrl.toString(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch((bootstrapError) => {
+          console.error(`[WHOP] ⚠️ Bootstrap backfill request failed (non-critical):`, bootstrapError)
+          // Non-critical - backfill can be retried manually
+        })
+      } catch (bootstrapError) {
+        console.error(`[WHOP] ⚠️ Error triggering bootstrap backfill:`, bootstrapError)
+        // Non-critical - webhook should still succeed
+      }
+    }
   } catch (error: any) {
     // Handle unique constraint violations (e.g., duplicate experienceId)
     console.error(`[WHOP] ❌ Error during installation upsert:`, {

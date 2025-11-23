@@ -25,8 +25,8 @@ export async function performBackfill(
     const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
 
     try {
-      console.log(`  Processing ${dateStr}...`)
-      const summary = await fetchDailySummary(dateStr, accessToken)
+      console.log(`[Whoplytics] Processing ${dateStr} for company ${companyId}...`)
+      const summary = await fetchDailySummary(dateStr, accessToken, companyId)
 
       await prisma.metricsDaily.upsert({
         where: {
@@ -64,8 +64,8 @@ export async function performBackfill(
         console.log(`  ✅ ${dateStr}: No activity (all zeros) - Whop has no members/payments yet`)
       }
 
-      // Small delay to avoid rate limiting (100ms between requests)
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Rate-limit calls to avoid Whop throttling (200ms between requests for safety)
+      await new Promise(resolve => setTimeout(resolve, 200))
     } catch (error) {
       console.error(`  ❌ Error processing ${dateStr}:`, error)
       // Continue processing remaining days even if one fails

@@ -161,7 +161,7 @@ export async function getWhopClient() {
  * TASK 7 - Add assertions & logs in data layer
  * INTEGRITY: companyId must always be provided
  */
-export async function fetchDailySummary(dateStr: string, accessToken: string, companyId?: string): Promise<DailySummary> {
+export async function fetchDailySummary(dateStr: string, accessToken: string, companyId: string): Promise<DailySummary> {
   // INTEGRITY: Runtime assert - companyId and token must be provided
   if (!companyId) {
     throw new Error('[Whoplytics] Missing companyId parameter in fetchDailySummary')
@@ -170,15 +170,15 @@ export async function fetchDailySummary(dateStr: string, accessToken: string, co
     throw new Error('[Whoplytics] Missing accessToken parameter in fetchDailySummary')
   }
   
-  console.log('[Whoplytics] fetch', { path: 'daily-summary', companyId, startISO: dateStr, endISO: dateStr })
-  console.log(`📊 Fetching complete daily summary for ${dateStr}...`)
+  console.log('[Whoplytics] fetch', { path: 'daily-summary', companyId, dateStr })
+  console.log(`[Whoplytics] 📊 Fetching complete daily summary for ${dateStr} (company: ${companyId})...`)
   
   // Fetch revenue with error handling
-  const grossRevenue = await sumPaidRevenueForDay(dateStr, accessToken).catch(() => 0)
+  const grossRevenue = await sumPaidRevenueForDay(dateStr, accessToken, companyId).catch(() => 0)
 
   // Fetch new memberships and cancellations with error handling
-  const newMembersArr = await listMembershipsForDay(dateStr, accessToken).catch(() => [])
-  const cancelsArr = await listCancellationsForDay(dateStr, accessToken).catch(() => [])
+  const newMembersArr = await listMembershipsForDay(dateStr, accessToken, companyId).catch(() => [])
+  const cancelsArr = await listCancellationsForDay(dateStr, accessToken, companyId).catch(() => [])
 
   const newMembers = newMembersArr.length || 0
   const cancellations = cancelsArr.length || 0
@@ -186,7 +186,7 @@ export async function fetchDailySummary(dateStr: string, accessToken: string, co
   // Active snapshot (try API-based, else rolling calculation)
   let activeMembers = 0
   try {
-    activeMembers = await countActiveAtEndOfDay(dateStr, accessToken)
+    activeMembers = await countActiveAtEndOfDay(dateStr, accessToken, companyId)
   } catch (error) {
     console.log('  Using rolling calculation fallback for active members...')
     
@@ -294,9 +294,9 @@ export async function testWhopConnection(): Promise<boolean> {
  * const revenue = await sumPaidRevenueForDay('2025-10-24', 'whop_access_token')
  * console.log(`Revenue: $${revenue.toFixed(2)}`)
  */
-export async function sumPaidRevenueForDay(dateStr: string, accessToken: string): Promise<number> {
+export async function sumPaidRevenueForDay(dateStr: string, accessToken: string, companyId: string): Promise<number> {
   try {
-    console.log(`💰 Calculating paid revenue for ${dateStr}...`)
+    console.log(`[Whoplytics] 💰 Calculating paid revenue for ${dateStr} (company: ${companyId})...`)
     
     const startTime = startOfUtcDay(dateStr)
     const endTime = endOfUtcDay(dateStr)
@@ -307,9 +307,9 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string)
     const limit = 100
     
     while (hasMorePages) {
-      console.log(`  Fetching page ${page} of payments...`)
+      console.log(`[Whoplytics]   Fetching page ${page} of payments...`)
       
-      // Fetch payments for the date range
+      // Fetch payments for the date range, filtered by company
       const response = await whopGET<{ 
         data?: any[]
         pagination?: { 
@@ -321,15 +321,24 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string)
         status: 'paid',
         created_after: startTime,
         created_before: endTime,
+        company_id: companyId, // Filter by company
         limit,
         page,
       }, accessToken)
       
       const payments = response.data || []
-      console.log(`  Found ${payments.length} payments on page ${page}`)
+      console.log(`[Whoplytics]   Found ${payments.length} payments on page ${page}`)
       
       // Sum up revenue from this page
+      // Filter by companyId if payment has company_id field (additional safety check)
       for (const payment of payments) {
+        // Additional safety: verify payment belongs to this company if company_id field exists
+        const paymentCompanyId = payment.company_id || payment.companyId || payment.company?.id
+        if (paymentCompanyId && paymentCompanyId !== companyId) {
+          console.warn(`[Whoplytics]   ⚠️  Payment ${payment.id} belongs to different company ${paymentCompanyId}, skipping`)
+          continue
+        }
+        
         // Try to find the revenue field (could be 'amount', 'final_amount', 'total', etc.)
         let amount = 0
         
@@ -342,7 +351,7 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string)
           amount = payment.total / 100
         } else {
           // Unknown field structure, log for debugging
-          console.warn(`  ⚠️  Unknown payment structure, available keys:`, Object.keys(payment))
+          console.warn(`[Whoplytics]   ⚠️  Unknown payment structure, available keys:`, Object.keys(payment))
           amount = 0
         }
         
@@ -375,10 +384,10 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string)
       }
     }
     
-    console.log(`✅ Total paid revenue for ${dateStr}: $${totalRevenue.toFixed(2)}`)
+    console.log(`[Whoplytics] ✅ Total paid revenue for ${dateStr}: $${totalRevenue.toFixed(2)}`)
     return totalRevenue
   } catch (error) {
-    console.error(`❌ Error calculating revenue for ${dateStr}:`, error)
+    console.error(`[Whoplytics] ❌ Error calculating revenue for ${dateStr}:`, error)
     return 0
   }
 }
@@ -394,9 +403,9 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string)
  * const newMembers = await listMembershipsForDay('2025-10-24', 'whop_access_token')
  * console.log(`New memberships: ${newMembers.length}`)
  */
-export async function listMembershipsForDay(dateStr: string, accessToken: string): Promise<any[]> {
+export async function listMembershipsForDay(dateStr: string, accessToken: string, companyId: string): Promise<any[]> {
   try {
-    console.log(`👥 Fetching memberships created on ${dateStr}...`)
+    console.log(`[Whoplytics] 👥 Fetching memberships created on ${dateStr} (company: ${companyId})...`)
     
     const startTime = startOfUtcDay(dateStr)
     const endTime = endOfUtcDay(dateStr)
@@ -407,9 +416,9 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
     const limit = 100
     
     while (hasMorePages) {
-      console.log(`  Fetching page ${page} of memberships...`)
+      console.log(`[Whoplytics]   Fetching page ${page} of memberships...`)
       
-      // Fetch memberships for the date range
+      // Fetch memberships for the date range, filtered by company
       const response = await whopGET<{ 
         data?: any[]
         pagination?: { 
@@ -420,14 +429,25 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
       }>('/memberships', {
         created_after: startTime,
         created_before: endTime,
+        company_id: companyId, // Filter by company
         limit,
         page,
       }, accessToken)
       
       const memberships = response.data || []
-      console.log(`  Found ${memberships.length} memberships on page ${page}`)
+      console.log(`[Whoplytics]   Found ${memberships.length} memberships on page ${page}`)
       
-      allMemberships = allMemberships.concat(memberships)
+      // Additional safety: filter by companyId if membership has company_id field
+      const filteredMemberships = memberships.filter((m: any) => {
+        const membershipCompanyId = m.company_id || m.companyId || m.company?.id
+        if (membershipCompanyId && membershipCompanyId !== companyId) {
+          console.warn(`[Whoplytics]   ⚠️  Membership ${m.id} belongs to different company ${membershipCompanyId}, filtering out`)
+          return false
+        }
+        return true
+      })
+      
+      allMemberships = allMemberships.concat(filteredMemberships)
       
       // Check if there are more pages
       if (response.pagination) {
@@ -453,10 +473,10 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
       }
     }
     
-    console.log(`✅ Total memberships created on ${dateStr}: ${allMemberships.length}`)
+    console.log(`[Whoplytics] ✅ Total memberships created on ${dateStr}: ${allMemberships.length}`)
     return allMemberships
   } catch (error) {
-    console.error(`❌ Error fetching memberships for ${dateStr}:`, error)
+    console.error(`[Whoplytics] ❌ Error fetching memberships for ${dateStr}:`, error)
     return []
   }
 }
@@ -472,9 +492,9 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
  * const canceledMembers = await listCancellationsForDay('2025-10-24', 'whop_access_token')
  * console.log(`Cancellations: ${canceledMembers.length}`)
  */
-export async function listCancellationsForDay(dateStr: string, accessToken: string): Promise<any[]> {
+export async function listCancellationsForDay(dateStr: string, accessToken: string, companyId: string): Promise<any[]> {
   try {
-    console.log(`❌ Fetching cancellations on ${dateStr}...`)
+    console.log(`[Whoplytics] ❌ Fetching cancellations on ${dateStr} (company: ${companyId})...`)
     
     const startTime = startOfUtcDay(dateStr)
     const endTime = endOfUtcDay(dateStr)
@@ -485,9 +505,9 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
     const limit = 100
     
     while (hasMorePages) {
-      console.log(`  Fetching page ${page} of cancellations...`)
+      console.log(`[Whoplytics]   Fetching page ${page} of cancellations...`)
       
-      // Fetch canceled memberships for the date range
+      // Fetch canceled memberships for the date range, filtered by company
       const response = await whopGET<{ 
         data?: any[]
         pagination?: { 
@@ -498,14 +518,25 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
       }>('/memberships', {
         canceled_after: startTime,
         canceled_before: endTime,
+        company_id: companyId, // Filter by company
         limit,
         page,
       }, accessToken)
       
       const cancellations = response.data || []
-      console.log(`  Found ${cancellations.length} cancellations on page ${page}`)
+      console.log(`[Whoplytics]   Found ${cancellations.length} cancellations on page ${page}`)
       
-      allCancellations = allCancellations.concat(cancellations)
+      // Additional safety: filter by companyId if cancellation has company_id field
+      const filteredCancellations = cancellations.filter((c: any) => {
+        const cancellationCompanyId = c.company_id || c.companyId || c.company?.id
+        if (cancellationCompanyId && cancellationCompanyId !== companyId) {
+          console.warn(`[Whoplytics]   ⚠️  Cancellation ${c.id} belongs to different company ${cancellationCompanyId}, filtering out`)
+          return false
+        }
+        return true
+      })
+      
+      allCancellations = allCancellations.concat(filteredCancellations)
       
       // Check if there are more pages
       if (response.pagination) {
@@ -531,10 +562,10 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
       }
     }
     
-    console.log(`✅ Total cancellations on ${dateStr}: ${allCancellations.length}`)
+    console.log(`[Whoplytics] ✅ Total cancellations on ${dateStr}: ${allCancellations.length}`)
     return allCancellations
   } catch (error) {
-    console.error(`❌ Error fetching cancellations for ${dateStr}:`, error)
+    console.error(`[Whoplytics] ❌ Error fetching cancellations for ${dateStr}:`, error)
     return []
   }
 }
@@ -554,16 +585,17 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
  * const activeCount = await countActiveAtEndOfDay('2025-10-24', 'whop_access_token')
  * console.log(`Active members: ${activeCount}`)
  */
-export async function countActiveAtEndOfDay(dateStr: string, accessToken: string): Promise<number> {
+export async function countActiveAtEndOfDay(dateStr: string, accessToken: string, companyId: string): Promise<number> {
   try {
-    console.log(`🔢 Counting active memberships at end of ${dateStr}...`)
+    console.log(`[Whoplytics] 🔢 Counting active memberships at end of ${dateStr} (company: ${companyId})...`)
     
     const endTime = endOfUtcDay(dateStr)
     
-    // Strategy 1: Try to query with status filters
+    // Strategy 1: Try to query with status filters and company filter
     try {
-      console.log('  Attempting to fetch active memberships with status filters...')
+      console.log('[Whoplytics]   Attempting to fetch active memberships with status filters...')
       
+      // Try company-scoped endpoint first
       const response = await whopGET<{ 
         data?: any[]
         pagination?: { 
@@ -573,73 +605,72 @@ export async function countActiveAtEndOfDay(dateStr: string, accessToken: string
       }>('/memberships', {
         status: 'active,trialing,past_due', // Common active statuses
         created_before: endTime,
+        company_id: companyId, // Filter by company
         limit: 1, // We only need the count
       }, accessToken)
       
       // Check if API provides a total count
       if (response.pagination?.total !== undefined) {
         const count = response.pagination.total
-        console.log(`✅ Active memberships via API: ${count}`)
+        console.log(`[Whoplytics] ✅ Active memberships via API: ${count}`)
         return count
       } else if (response.pagination?.total_count !== undefined) {
         const count = response.pagination.total_count
-        console.log(`✅ Active memberships via API: ${count}`)
+        console.log(`[Whoplytics] ✅ Active memberships via API: ${count}`)
         return count
       } else if (response.data) {
         // If no count provided, we'd need to paginate through all - skip this approach
-        console.log('  ⚠️  API does not provide total count, falling back to calculation...')
+        console.log('[Whoplytics]   ⚠️  API does not provide total count, falling back to calculation...')
         throw new Error('No total count available')
       }
     } catch (statusError) {
-      console.log('  ℹ️  Status filter approach not available, using calculation fallback')
+      console.log('[Whoplytics]   ℹ️  Status filter approach not available, using calculation fallback')
     }
     
     // Strategy 2: Fallback to calculation
-    console.log('  Calculating active count: previousActive + newMembers - cancellations')
+    console.log('[Whoplytics]   Calculating active count: previousActive + newMembers - cancellations')
     
     // Get yesterday's active count (if exists)
     // INTEGRITY: Must filter by companyId for multi-tenant isolation
     const yesterday = new Date(dateStr)
     yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    const yesterdayDate = new Date(yesterday.toISOString().split('T')[0])
     
     // Check if we have yesterday's data in our database
-    // INTEGRITY: Always filter by companyId when available
+    // INTEGRITY: Always filter by companyId
     let previousActive = 0
     try {
-      // Note: companyId is not available in this function signature
-      // This is a limitation - ideally we should pass companyId here
-      // For now, this is used as a fallback when API doesn't provide count
-      // In production, this should be filtered by companyId if available
       const yesterdayMetric = await prisma.metricsDaily.findFirst({
-        where: { date: new Date(yesterdayStr) },
+        where: { 
+          companyId, // INTEGRITY: Filter by companyId
+          date: yesterdayDate 
+        },
         orderBy: { date: 'desc' },
       })
       
       if (yesterdayMetric) {
         previousActive = yesterdayMetric.activeMembers
-        console.log(`  Previous active (${yesterdayStr}): ${previousActive}`)
-        console.log(`  ⚠️  Note: This query does not filter by companyId (function limitation)`)
+        console.log(`[Whoplytics]   Previous active (${yesterday.toISOString().split('T')[0]}): ${previousActive}`)
       } else {
-        console.log(`  No previous data found for ${yesterdayStr}, starting from 0`)
+        console.log(`[Whoplytics]   No previous data found for ${yesterday.toISOString().split('T')[0]}, starting from 0`)
       }
     } catch (dbError) {
-      console.log('  Could not fetch previous day data, starting from 0')
+      console.log('[Whoplytics]   Could not fetch previous day data, starting from 0')
     }
     
     // Get today's new members and cancellations
-    const newMembers = await listMembershipsForDay(dateStr, accessToken)
-    const cancellations = await listCancellationsForDay(dateStr, accessToken)
+    const newMembers = await listMembershipsForDay(dateStr, accessToken, companyId)
+    const cancellations = await listCancellationsForDay(dateStr, accessToken, companyId)
     
     // Calculate: previousActive + new - canceled
     const activeCount = Math.max(0, previousActive + newMembers.length - cancellations.length)
     
-    console.log(`  Calculation: ${previousActive} + ${newMembers.length} - ${cancellations.length} = ${activeCount}`)
-    console.log(`✅ Active memberships at end of ${dateStr}: ${activeCount}`)
+    console.log(`[Whoplytics]   Calculation: ${previousActive} + ${newMembers.length} - ${cancellations.length} = ${activeCount}`)
+    console.log(`[Whoplytics] ✅ Active memberships at end of ${dateStr}: ${activeCount}`)
     
     return activeCount
   } catch (error) {
-    console.error(`❌ Error counting active memberships for ${dateStr}:`, error)
+    console.error(`[Whoplytics] ❌ Error counting active memberships for ${dateStr}:`, error)
     return 0
   }
 }

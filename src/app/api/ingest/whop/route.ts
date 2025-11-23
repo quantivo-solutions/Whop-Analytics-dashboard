@@ -62,8 +62,8 @@ export async function POST(request: Request) {
         continue
       }
 
-      console.log(`[Whoplytics] fetch`, { path: 'daily-summary', companyId, startISO: yesterdayUTC, endISO: yesterdayUTC })
-      console.log(`🚀 Starting daily Whop data ingestion for company ${companyId} for date: ${yesterdayUTC}`)
+      console.log(`[Whoplytics] fetch`, { path: 'daily-summary', companyId, dateStr: yesterdayUTC })
+      console.log(`[Whoplytics] 🚀 Starting daily Whop data ingestion for company ${companyId} for date: ${yesterdayUTC}`)
 
       try {
         // Fetch daily summary from Whop using THIS installation's token
