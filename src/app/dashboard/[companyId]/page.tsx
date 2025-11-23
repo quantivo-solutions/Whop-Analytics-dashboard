@@ -631,10 +631,12 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         membershipsCount: membershipResult.memberships.length,
       })
       
-      // CRITICAL FIX: Check hasActivePro, not memberships.length === 0
-      // A cancelled membership still exists but is not active (status: 'completed')
-      // If API check succeeded (no error) AND no active Pro membership found, downgrade
-      if (!membershipResult.error && !membershipResult.hasActivePro) {
+      // CRITICAL FIX: Only downgrade if:
+      // 1. API check succeeded (no error)
+      // 2. User has Pro in DB but NO active Pro membership found
+      // 3. This means membership was cancelled/expired
+      // NOTE: 'completed' status means purchase completed (active), not cancelled!
+      if (!membershipResult.error && !membershipResult.hasActivePro && currentPlan === 'pro') {
         console.log('[Dashboard View] 🚨 CANCELLATION DETECTED')
         console.log('[Dashboard View] 🚨 Membership check details:', {
           error: membershipResult.error,

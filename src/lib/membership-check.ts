@@ -237,15 +237,33 @@ export async function checkUserMembershipStatus(
       // Check status - Whop uses various status values
       const status = m.status || m.state || m.membership_status || m.access_status || m.accessStatus
       
-      // More comprehensive status check
-      const isActive = status === 'valid' || 
-                      status === 'active' || 
-                      status === 'trialing' ||
-                      status === 'past_due' ||
-                      status === 'paid' ||
-                      status === 'subscribed' ||
-                      (typeof status === 'string' && status.toLowerCase().includes('active')) ||
-                      (typeof status === 'string' && status.toLowerCase().includes('valid'))
+      // CRITICAL: Check the 'valid' field first - this is the most reliable indicator
+      // A membership with valid: true is active, regardless of status
+      const isValid = m.valid === true || m.isValid === true || m.is_valid === true
+      
+      // Status check - 'completed' means purchase completed (active), not cancelled!
+      // Cancelled memberships typically have status: 'cancelled', 'expired', or 'refunded'
+      const isActiveStatus = status === 'valid' || 
+                            status === 'active' || 
+                            status === 'trialing' ||
+                            status === 'past_due' ||
+                            status === 'paid' ||
+                            status === 'subscribed' ||
+                            status === 'completed' || // Purchase completed = active!
+                            (typeof status === 'string' && status.toLowerCase().includes('active')) ||
+                            (typeof status === 'string' && status.toLowerCase().includes('valid'))
+      
+      // A membership is active if:
+      // 1. valid field is true (most reliable), OR
+      // 2. status indicates active (and not explicitly cancelled/expired/refunded)
+      const isCancelled = status === 'cancelled' || 
+                         status === 'expired' || 
+                         status === 'refunded' ||
+                         status === 'invalid' ||
+                         (typeof status === 'string' && status.toLowerCase().includes('cancel')) ||
+                         (typeof status === 'string' && status.toLowerCase().includes('expire'))
+      
+      const isActive = (isValid || isActiveStatus) && !isCancelled
       
       // Check product/plan match - try multiple fields
       const productId = m.product?.id || 
@@ -265,9 +283,13 @@ export async function checkUserMembershipStatus(
       console.log('[Membership Check] Membership analysis:', {
         id: m.id,
         status,
+        valid: m.valid,
+        isValid,
+        isActiveStatus,
+        isCancelled,
+        isActive,
         productId,
         planId,
-        isActive,
         matchesPlan,
         isPro,
       })
