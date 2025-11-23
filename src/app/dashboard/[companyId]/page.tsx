@@ -610,7 +610,72 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
   }
 
-  // CRITICAL: Check onboarding status FIRST before fetching dashboard data
+  // STEP 5.5: VERIFY PLAN STATUS FIRST (before modals)
+  // Get plan from DB and verify membership status
+  // If cancelled, downgrade immediately and redirect (don't show modals)
+  let currentPlan: 'free' | 'pro' | 'business' = 'free'
+  if (whopUser?.userId) {
+    const { getUserPlan } = await import('@/lib/plan')
+    currentPlan = await getUserPlan(whopUser.userId)
+    console.log('[Dashboard View] Current plan from DB:', currentPlan)
+    
+    // If user has Pro/Business in DB, verify membership is still active
+    if (currentPlan === 'pro' || currentPlan === 'business') {
+      const accessToken = installation?.accessToken || env.WHOP_APP_SERVER_KEY
+      const { checkUserMembershipStatus } = await import('@/lib/membership-check')
+      const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken, finalCompanyId)
+      
+      console.log('[Dashboard View] Membership check result:', {
+        error: membershipResult.error,
+        hasActivePro: membershipResult.hasActivePro,
+        membershipsCount: membershipResult.memberships.length,
+      })
+      
+      // CRITICAL FIX: Check hasActivePro, not memberships.length === 0
+      // A cancelled membership still exists but is not active (status: 'completed')
+      // If API check succeeded (no error) AND no active Pro membership found, downgrade
+      if (!membershipResult.error && !membershipResult.hasActivePro) {
+        console.log('[Dashboard View] 🚨 CANCELLATION DETECTED')
+        console.log('[Dashboard View] 🚨 Membership check details:', {
+          error: membershipResult.error,
+          hasActivePro: membershipResult.hasActivePro,
+          membershipsCount: membershipResult.memberships.length,
+          memberships: membershipResult.memberships.map((m: any) => ({
+            id: m.id,
+            status: m.status,
+            planId: m.plan_id,
+          })),
+        })
+        console.log('[Dashboard View] 🚨 Downgrading from', currentPlan, 'to free')
+        
+        const { setUserPlan } = await import('@/lib/plan')
+        await setUserPlan(whopUser.userId, 'free')
+        console.log('[Dashboard View] ✅ Plan downgraded to free in DB')
+        
+        // IMPORTANT: Do NOT reset onboarding when downgrading
+        // Onboarding should only be reset on first install, not on plan changes
+        
+        // CRITICAL: Redirect immediately to reload page with Free plan
+        // This MUST be the last statement before any other code runs
+        console.log('[Dashboard View] 🔄 Redirecting to reload page with Free plan...')
+        redirect(`/dashboard/${companyId}?reload=${Date.now()}`)
+        // Code after redirect() should never execute, but TypeScript requires it
+        return
+      } else if (membershipResult.hasActivePro) {
+        console.log('[Dashboard View] ✅ Active Pro membership confirmed - keeping Pro plan')
+      } else if (membershipResult.error) {
+        console.log('[Dashboard View] ⚠️ API check failed - keeping current plan (trusting DB/webhooks)')
+        console.log('[Dashboard View] ⚠️ Error details:', membershipResult.error)
+      } else {
+        console.log('[Dashboard View] ⚠️ Unexpected membership check result:', membershipResult)
+      }
+    }
+  } else {
+    // Fallback to installation.plan for old installations (migration period)
+    currentPlan = (installation?.plan as 'free' | 'pro' | 'business') || 'free'
+  }
+
+  // CRITICAL: Check onboarding status AFTER plan verification
   // Always use URL companyId for prefs to ensure each dashboard is isolated
   console.log('[Dashboard View] Checking onboarding status for companyId:', finalCompanyId)
   
@@ -618,33 +683,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   let onboardingComplete = false
   
   try {
-    // USER-LEVEL PLAN: Check if user has Pro FIRST (before safety reset)
-    // This prevents resetting onboarding when user upgrades to Pro
-    let isPro = false
-    if (whopUser?.userId) {
-      const { getUserPlan } = await import('@/lib/plan')
-      const userPlan = await getUserPlan(whopUser.userId)
-      isPro = userPlan === 'pro' || userPlan === 'business'
-    } else {
-      // Fallback to installation.plan for old installations (migration period)
-      isPro = installation && (installation.plan === 'pro' || installation.plan === 'business')
-    }
-    
-    // SAFETY: If installation was just updated moments ago AND user is NOT Pro, treat as fresh and reset onboarding
-    // BUT: Don't reset if user just upgraded to Pro (would interfere with Pro welcome modal)
-    if (installation && !isPro) {
-      const updatedAgoMs = Date.now() - new Date(installation.updatedAt).getTime()
-      if (updatedAgoMs < 5000) {
-        try {
-          const { setCompanyPrefs } = await import('@/lib/company')
-          await setCompanyPrefs(finalCompanyId, { completedAt: null })
-          console.log('[Dashboard View] ✅ [SAFETY] Reset onboarding due to recent installation update (', updatedAgoMs, 'ms )')
-        } catch (sErr) {
-          console.error('[Dashboard View] Error in safety onboarding reset:', sErr)
-        }
-      }
-    }
-
     prefs = await getCompanyPrefs(finalCompanyId) // Always use URL companyId for isolation
     onboardingComplete = await isOnboardingComplete(finalCompanyId)
     
@@ -670,22 +708,14 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     }
     
     // Onboarding IS complete - now check for Pro Welcome (upgrade scenario)
-    // Get current plan from DB to check if user is Pro
-    let isProUser = false
-    if (whopUser?.userId) {
-      const { getUserPlan } = await import('@/lib/plan')
-      const userPlan = await getUserPlan(whopUser.userId)
-      isProUser = userPlan === 'pro' || userPlan === 'business'
-    } else {
-      isProUser = installation && (installation.plan === 'pro' || installation.plan === 'business')
-    }
-    
+    // Use currentPlan from verification step above
+    const isProUser = currentPlan === 'pro' || currentPlan === 'business'
     const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
     const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
     const proWelcomeNotShown = prefs.proWelcomeShownAt === null
     
     // Only show Pro Welcome if:
-    // 1. User is Pro
+    // 1. User is Pro (verified plan)
     // 2. Installation was recently updated (upgrade happened)
     // 3. Pro Welcome hasn't been shown yet
     // Note: onboardingComplete is already checked above
@@ -746,29 +776,18 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   console.log('[Dashboard View] Onboarding complete - proceeding to dashboard')
 
   // STEP 6: Fetch dashboard data (only after onboarding check)
+  // Use currentPlan from verification step above
   let dashboardData
-  let plan: 'free' | 'pro' | 'business' = 'free'
   
   try {
-    // USER-LEVEL PLAN: Get plan from UserPlan table (applies to all companies for this user)
-    if (whopUser?.userId) {
-      const { getUserPlan } = await import('@/lib/plan')
-      plan = await getUserPlan(whopUser.userId)
-      console.log('[Dashboard View] User-level plan:', plan, 'for userId:', whopUser.userId)
-    } else {
-      // Fallback to installation.plan for old installations without userId (migration period)
-      plan = (installation?.plan as 'free' | 'pro' | 'business') || 'free'
-      console.log('[Dashboard View] Using installation.plan fallback:', plan)
-    }
-    
     // CRITICAL: Use dataCompanyId (may be userId-based if migration needed)
     // This handles cases where data exists under old user-based companyId
     // Pro users get 90 days extended history, Free users get 7 days
     const { getDaysForPlan } = await import('@/lib/data-window')
-    const daysToFetch = getDaysForPlan(plan)
+    const daysToFetch = getDaysForPlan(currentPlan)
     console.log('[Dashboard View] Fetching data for companyId:', finalCompanyId, '(URL:', companyId, ', days:', daysToFetch, ')')
     dashboardData = await getCompanySeries(finalCompanyId, daysToFetch)
-    console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', plan)
+    console.log('[Dashboard View] ✅ Dashboard data loaded for companyId:', companyId, 'plan:', currentPlan)
     console.log('[Dashboard View] Dashboard data companyId:', dashboardData.companyId, 'hasData:', dashboardData.hasData)
     console.log('[Dashboard View] Dashboard data series length:', dashboardData.series.length)
     console.log('[Dashboard View] Dashboard data KPIs:', {
@@ -777,67 +796,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
       latestDate: dashboardData.kpis.latestDate,
       isDataFresh: dashboardData.kpis.isDataFresh,
     })
-
-    // STEP 6.5: ALWAYS verify plan status on page load BEFORE checking modals
-    // Check if user has Pro in DB but no active membership - downgrade if needed
-    // If downgraded, redirect immediately (don't show modals)
-    let planVerified = plan
-    if (whopUser && whopUser.userId) {
-      try {
-        const dbPlan = plan // Current plan from DB
-        console.log('[Dashboard View] 🔍 Verifying plan status - DB plan:', dbPlan)
-        
-        // Only check if user has Pro/Business in DB (skip check for Free users)
-        if (dbPlan === 'pro' || dbPlan === 'business') {
-          const accessToken = installation?.accessToken || env.WHOP_APP_SERVER_KEY
-          const { checkUserMembershipStatus } = await import('@/lib/membership-check')
-          const membershipResult = await checkUserMembershipStatus(whopUser.userId, accessToken, finalCompanyId)
-          
-          console.log('[Dashboard View] Membership check result:', {
-            error: membershipResult.error,
-            hasActivePro: membershipResult.hasActivePro,
-            membershipsCount: membershipResult.memberships.length,
-          })
-          
-          // CRITICAL FIX: Check hasActivePro, not memberships.length
-          // A cancelled membership still exists but is not active (status: 'completed')
-          if (!membershipResult.error && !membershipResult.hasActivePro) {
-            console.log('[Dashboard View] 🚨 CANCELLATION DETECTED - No active Pro membership found')
-            console.log('[Dashboard View] 🚨 Downgrading from', dbPlan, 'to free')
-            
-            const { setUserPlan } = await import('@/lib/plan')
-            await setUserPlan(whopUser.userId, 'free')
-            console.log('[Dashboard View] ✅ Plan downgraded to free in DB')
-            
-            // IMPORTANT: Do NOT reset onboarding when downgrading
-            // Onboarding should only be reset on first install, not on plan changes
-            
-            // Update plan variable for this request
-            planVerified = 'free'
-            plan = 'free'
-            
-            // CRITICAL: Redirect immediately to reload page with Free plan
-            console.log('[Dashboard View] 🔄 Redirecting to reload page with Free plan...')
-            redirect(`/dashboard/${companyId}?reload=${Date.now()}`)
-          } else if (membershipResult.hasActivePro) {
-            console.log('[Dashboard View] ✅ Active Pro membership confirmed - keeping Pro plan')
-            planVerified = dbPlan
-          } else if (membershipResult.error) {
-            console.log('[Dashboard View] ⚠️ API check failed - keeping current plan (trusting DB/webhooks)')
-            planVerified = dbPlan
-          }
-        } else if (plan === 'free') {
-          planVerified = 'free'
-        }
-      } catch (checkError) {
-        console.error('[Dashboard View] ❌ Error checking membership:', checkError)
-        // On error, keep current plan
-        planVerified = plan
-      }
-    }
-    
-    // Use verified plan for rest of the page
-    plan = planVerified
   } catch (error) {
     console.error('[Dashboard View] Error loading dashboard data:', error)
     return (
@@ -979,7 +937,7 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
         </div>
 
         {/* Dashboard view */}
-        <DashboardView data={dashboardData} showBadge={true} plan={plan} upgradeUrl={upgradeUrl} companyId={finalCompanyId} />
+        <DashboardView data={dashboardData} showBadge={true} plan={currentPlan} upgradeUrl={upgradeUrl} companyId={finalCompanyId} />
 
         {/* Insights Panel */}
         <div className="mt-8">
