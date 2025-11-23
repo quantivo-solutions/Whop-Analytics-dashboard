@@ -907,15 +907,15 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
-              <PlanBadge plan={plan} />
-              {plan === 'free' && <UpgradeButtonIframe plan={plan} />}
+              <PlanBadge plan={currentPlan} />
+              {currentPlan === 'free' && <UpgradeButtonIframe plan={currentPlan} />}
               {installation && (
                 <UserProfileMenuClient
                   companyId={finalCompanyId} // Use URL companyId for isolation
                   username={installation.username}
                   email={installation.email}
                   profilePicUrl={installation.profilePicUrl}
-                  plan={plan}
+                  plan={currentPlan}
                   prefs={{
                     goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
                     completedAt: prefs.completedAt?.toISOString() || null,
