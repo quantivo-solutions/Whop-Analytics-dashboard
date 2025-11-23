@@ -37,7 +37,6 @@ import { SessionSetter } from '@/components/session-setter'
 import { WizardWrapper } from '@/components/onboarding/WizardWrapper'
 import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
-import { PlanAutoSync } from '@/components/plan-auto-sync'
 import { env } from '@/lib/env'
 import { RemoveScopeBadge } from '@/components/remove-scope-badge'
 
@@ -689,9 +688,37 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     prefs = await getCompanyPrefs(finalCompanyId) // Always use URL companyId for isolation
     onboardingComplete = await isOnboardingComplete(finalCompanyId)
     
-    // CRITICAL: Check onboarding FIRST, then Pro Welcome
-    // This ensures Welcome wizard shows on first installation, Pro Welcome shows on upgrade
+    // CRITICAL: Check Pro Welcome FIRST (for upgrades), then onboarding (for first install)
+    // This ensures Pro Welcome shows immediately when upgrading, onboarding shows on first install
     
+    // Check for Pro Welcome FIRST (upgrade scenario)
+    // Use currentPlan from verification step above
+    const isProUser = currentPlan === 'pro' || currentPlan === 'business'
+    const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
+    const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
+    const proWelcomeNotShown = prefs.proWelcomeShownAt === null
+    
+    // Only show Pro Welcome if:
+    // 1. User is Pro (verified plan)
+    // 2. Installation was recently updated (upgrade happened)
+    // 3. Pro Welcome hasn't been shown yet
+    // This takes priority over onboarding - upgrades should see Pro Welcome first
+    const showProWelcome = isProUser && wasRecentlyUpdated && proWelcomeNotShown
+    
+    if (showProWelcome) {
+      console.log('[Dashboard View] ✅ Pro upgrade detected - showing Pro welcome modal FIRST')
+      const sessionTokenForClient = (global as any).__whopSessionToken
+      return (
+        <div className="min-h-screen bg-background">
+          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+          <ProWelcomeWrapper
+            companyId={finalCompanyId}
+          />
+        </div>
+      )
+    }
+    
+    // Pro Welcome check done - now check onboarding (first installation scenario)
     // If onboarding is NOT complete, show Welcome wizard (first installation)
     if (!onboardingComplete) {
       console.log('[Dashboard View] Onboarding NOT complete - showing wizard (first installation)')
@@ -705,33 +732,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
               goalAmount: prefs.goalAmount ? Number(prefs.goalAmount) : null,
               completedAt: prefs.completedAt?.toISOString() || null,
             }}
-          />
-        </div>
-      )
-    }
-    
-    // Onboarding IS complete - now check for Pro Welcome (upgrade scenario)
-    // Use currentPlan from verification step above
-    const isProUser = currentPlan === 'pro' || currentPlan === 'business'
-    const updatedAgoMs = installation ? Date.now() - new Date(installation.updatedAt).getTime() : 0
-    const wasRecentlyUpdated = updatedAgoMs < 60000 // 60 seconds
-    const proWelcomeNotShown = prefs.proWelcomeShownAt === null
-    
-    // Only show Pro Welcome if:
-    // 1. User is Pro (verified plan)
-    // 2. Installation was recently updated (upgrade happened)
-    // 3. Pro Welcome hasn't been shown yet
-    // Note: onboardingComplete is already checked above
-    const showProWelcome = isProUser && wasRecentlyUpdated && proWelcomeNotShown
-    
-    if (showProWelcome) {
-      console.log('[Dashboard View] ✅ Pro upgrade detected - showing Pro welcome modal')
-      const sessionTokenForClient = (global as any).__whopSessionToken
-      return (
-        <div className="min-h-screen bg-background">
-          {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-          <ProWelcomeWrapper
-            companyId={finalCompanyId}
           />
         </div>
       )
@@ -892,15 +892,6 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
     <div className="min-h-screen bg-background">
       {/* Set session cookie if needed */}
       {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
-      
-      {/* Background plan sync check - verifies plan status on load */}
-      {whopUser?.userId && (
-        <PlanAutoSync 
-          currentPlan={currentPlan} 
-          userId={whopUser.userId}
-          companyId={finalCompanyId}
-        />
-      )}
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-7xl">
         <RemoveScopeBadge />
