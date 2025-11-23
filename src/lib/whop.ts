@@ -507,7 +507,8 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
     while (hasMorePages) {
       console.log(`[Whoplytics]   Fetching page ${page} of cancellations...`)
       
-      // Fetch canceled memberships for the date range, filtered by company
+      // NOTE: Whop API may not support company_id filter for memberships
+      // Fetch all cancellations and filter client-side
       const response = await whopGET<{ 
         data?: any[]
         pagination?: { 
@@ -518,24 +519,41 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
       }>('/memberships', {
         canceled_after: startTime,
         canceled_before: endTime,
-        company_id: companyId, // Filter by company
+        // Removed company_id filter - API may not support it
         limit,
         page,
       }, accessToken)
       
       const cancellations = response.data || []
-      console.log(`[Whoplytics]   Found ${cancellations.length} cancellations on page ${page}`)
+      console.log(`[Whoplytics]   Found ${cancellations.length} raw cancellations on page ${page}`)
       
-      // Additional safety: filter by companyId if cancellation has company_id field
+      // Filter by companyId client-side
       const filteredCancellations = cancellations.filter((c: any) => {
-        const cancellationCompanyId = c.company_id || c.companyId || c.company?.id
-        if (cancellationCompanyId && cancellationCompanyId !== companyId) {
-          console.warn(`[Whoplytics]   ⚠️  Cancellation ${c.id} belongs to different company ${cancellationCompanyId}, filtering out`)
-          return false
+        const cancellationCompanyId = 
+          c.company_id || 
+          c.companyId || 
+          c.company?.id ||
+          c.product?.company_id ||
+          c.product?.companyId ||
+          c.plan?.company_id ||
+          c.plan?.companyId ||
+          c.workspace?.company_id ||
+          c.workspace?.companyId
+        
+        if (cancellationCompanyId) {
+          if (cancellationCompanyId !== companyId) {
+            console.log(`[Whoplytics]   ⚠️  Cancellation ${c.id} belongs to company ${cancellationCompanyId}, filtering out (expected: ${companyId})`)
+            return false
+          }
+          return true
         }
+        
+        // If no company_id found, include it (might be app-level cancellation)
+        console.log(`[Whoplytics]   ⚠️  Cancellation ${c.id} has no company_id field, including anyway`)
         return true
       })
       
+      console.log(`[Whoplytics]   Filtered to ${filteredCancellations.length} cancellations for company ${companyId}`)
       allCancellations = allCancellations.concat(filteredCancellations)
       
       // Check if there are more pages
