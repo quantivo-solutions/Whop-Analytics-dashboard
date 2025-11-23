@@ -60,13 +60,14 @@ async function backfillAllInstallations() {
       console.log(`\n🔄 Processing installation: ${companyId}...`)
 
       try {
-        const bootstrapUrl = new URL('/api/ingest/whop/bootstrap', APP_URL)
-        bootstrapUrl.searchParams.set('secret', CRON_SECRET)
-        bootstrapUrl.searchParams.set('companyId', companyId)
-        bootstrapUrl.searchParams.set('days', '90') // Backfill last 90 days
+        // Use the existing backfill endpoint (bootstrap route may not be deployed yet)
+        const backfillUrl = new URL('/api/ingest/whop/backfill', APP_URL)
+        backfillUrl.searchParams.set('secret', CRON_SECRET)
+        backfillUrl.searchParams.set('companyId', companyId)
+        backfillUrl.searchParams.set('days', '90') // Backfill last 90 days
 
-        console.log(`  📡 Calling bootstrap endpoint...`)
-        const response = await fetch(bootstrapUrl.toString(), {
+        console.log(`  📡 Calling backfill endpoint...`)
+        const response = await fetch(backfillUrl.toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -82,8 +83,8 @@ async function backfillAllInstallations() {
         results.push({
           companyId,
           success: true,
-          daysWritten: result.daysWritten,
-          totalDays: result.totalDays,
+          daysWritten: result.daysWritten || result.daysWritten || 0,
+          totalDays: result.totalDays || result.totalDays || 0,
         })
 
         // Rate limit: wait 1 second between installations to avoid overwhelming the server
