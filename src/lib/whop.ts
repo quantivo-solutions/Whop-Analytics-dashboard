@@ -624,11 +624,14 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
     console.log(`[Whoplytics] 👥 Counting unique users for company ${companyId}...`)
     
     // Fetch ALL memberships ever created (including cancelled/inactive) for this company
+    // Try multiple approaches since /app/memberships might only return active ones
+    
     let allMemberships: any[] = []
     let page = 1
     let hasMorePages = true
     const limit = 100
     
+    // Approach 1: Fetch all memberships without valid filter
     while (hasMorePages) {
       const response = await whopGET<{ 
         data?: any[]
@@ -671,11 +674,57 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
       }
     }
     
+    // Approach 2: Also try fetching with valid=false to get cancelled/inactive memberships
+    // Some APIs require explicit filters to get inactive records
+    try {
+      console.log('[Whoplytics]   Also fetching invalid/cancelled memberships...')
+      page = 1
+      hasMorePages = true
+      
+      while (hasMorePages && page <= 10) { // Limit to 10 pages for this
+        const response = await whopGET<{ 
+          data?: any[]
+          pagination?: { 
+            current_page?: number
+            total_pages?: number
+            next?: string | null
+          }
+        }>('/app/memberships', {
+          company_id: companyId,
+          valid: false, // Try to get invalid/cancelled memberships
+          limit,
+          page,
+        }, accessToken)
+        
+        if (response.data && response.data.length > 0) {
+          // Add to our collection, avoiding duplicates
+          const existingIds = new Set(allMemberships.map(m => m.id))
+          const newMemberships = response.data.filter(m => !existingIds.has(m.id))
+          allMemberships = allMemberships.concat(newMemberships)
+          console.log(`[Whoplytics]   Added ${newMemberships.length} cancelled/inactive memberships`)
+        }
+        
+        if (response.pagination?.next) {
+          page++
+        } else {
+          hasMorePages = false
+        }
+      }
+    } catch (error) {
+      console.log('[Whoplytics]   Could not fetch invalid memberships (this is OK if endpoint doesn\'t support it)')
+    }
+    
     // Count unique users (Whop's "New users" = unique users who have ever created a membership)
     const uniqueUserIds = new Set(allMemberships.map(m => m.user_id).filter(Boolean))
     const uniqueUserCount = uniqueUserIds.size
     
     console.log(`[Whoplytics] ✅ Unique users: ${uniqueUserCount} (from ${allMemberships.length} total memberships)`)
+    
+    // If we still don't have enough, log a warning
+    if (uniqueUserCount < 16 && allMemberships.length === 10) {
+      console.warn(`[Whoplytics] ⚠️  Only found ${uniqueUserCount} unique users from ${allMemberships.length} memberships. Whop shows 16. The API might not return all historical memberships.`)
+    }
+    
     return uniqueUserCount
   } catch (error) {
     console.error(`[Whoplytics] ❌ Error counting unique users:`, error)
