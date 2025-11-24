@@ -628,10 +628,24 @@ export async function countActiveAtEndOfDay(dateStr: string, accessToken: string
     console.log(`[Whoplytics] 🔢 Counting active memberships at end of ${dateStr} (company: ${companyId})...`)
     
     const endTime = endOfUtcDay(dateStr)
+    const isToday = dateStr === new Date().toISOString().split('T')[0]
     
     // Strategy 1: Try to query with status filters and company filter
     try {
       console.log('[Whoplytics]   Attempting to fetch active memberships with status filters...')
+      
+      // For TODAY: Fetch ALL active memberships (no date filter) to match Whop dashboard exactly
+      // For HISTORICAL dates: Use created_before to get count as of that date
+      const params: Record<string, any> = {
+        status: 'active,trialing,past_due', // Common active statuses
+        company_id: companyId, // Filter by company
+      }
+      
+      if (!isToday) {
+        // Historical date: only count memberships created before end of that day
+        params.created_before = endTime
+      }
+      // For today: no created_before filter = ALL active memberships regardless of creation date
       
       // Try app-scoped endpoint (works with installation access token)
       // App-scoped endpoints have proper permissions for company apps
@@ -640,29 +654,75 @@ export async function countActiveAtEndOfDay(dateStr: string, accessToken: string
         pagination?: { 
           total?: number
           total_count?: number
+          current_page?: number
+          total_pages?: number
+          next?: string | null
         }
-      }>('/app/memberships', {
-        status: 'active,trialing,past_due', // Common active statuses
-        // For current date, don't filter by created_before to get ALL active members
-        // For historical dates, use created_before to get count as of that date
-        ...(dateStr !== new Date().toISOString().split('T')[0] ? { created_before: endTime } : {}),
-        company_id: companyId, // Filter by company
-        limit: 1, // We only need the count
-      }, accessToken)
+      }>('/app/memberships', params, accessToken)
       
       // Check if API provides a total count
       if (response.pagination?.total !== undefined) {
         const count = response.pagination.total
-        console.log(`[Whoplytics] ✅ Active memberships via API: ${count}`)
+        console.log(`[Whoplytics] ✅ Active memberships via API pagination.total: ${count}`)
         return count
       } else if (response.pagination?.total_count !== undefined) {
         const count = response.pagination.total_count
-        console.log(`[Whoplytics] ✅ Active memberships via API: ${count}`)
+        console.log(`[Whoplytics] ✅ Active memberships via API pagination.total_count: ${count}`)
         return count
       } else if (response.data) {
-        // If no count provided, we'd need to paginate through all - skip this approach
-        console.log('[Whoplytics]   ⚠️  API does not provide total count, falling back to calculation...')
-        throw new Error('No total count available')
+        // If no total count provided, paginate through all to get accurate count
+        console.log('[Whoplytics]   ⚠️  API does not provide total count, paginating through all memberships...')
+        
+        let allMemberships: any[] = []
+        let page = 1
+        let hasMorePages = true
+        const limit = 100
+        
+        while (hasMorePages) {
+          const pageResponse = await whopGET<{ 
+            data?: any[]
+            pagination?: { 
+              current_page?: number
+              total_pages?: number
+              next?: string | null
+            }
+          }>('/app/memberships', {
+            ...params,
+            limit,
+            page,
+          }, accessToken)
+          
+          if (pageResponse.data) {
+            allMemberships = allMemberships.concat(pageResponse.data)
+          }
+          
+          if (pageResponse.pagination?.next) {
+            page++
+          } else if (pageResponse.pagination?.current_page && pageResponse.pagination?.total_pages) {
+            if (pageResponse.pagination.current_page < pageResponse.pagination.total_pages) {
+              page++
+            } else {
+              hasMorePages = false
+            }
+          } else {
+            hasMorePages = false
+          }
+          
+          if (page > 100) {
+            console.warn('[Whoplytics]   ⚠️  Reached max pagination limit (100 pages)')
+            hasMorePages = false
+          }
+        }
+        
+        // Additional client-side filtering by companyId for safety
+        const filteredMemberships = allMemberships.filter(m => {
+          const mCompanyId = m.company_id || m.companyId || m.company?.id || m.product?.company_id || m.product?.companyId
+          return mCompanyId === companyId
+        })
+        
+        const count = filteredMemberships.length
+        console.log(`[Whoplytics] ✅ Active memberships via pagination: ${count} (total fetched: ${allMemberships.length}, filtered: ${filteredMemberships.length})`)
+        return count
       }
     } catch (statusError) {
       console.log('[Whoplytics]   ℹ️  Status filter approach not available, using calculation fallback')
