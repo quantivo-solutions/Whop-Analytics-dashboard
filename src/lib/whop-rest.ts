@@ -44,6 +44,72 @@ export async function whopGET<T = any>(
 }
 
 /**
+ * GET request that tries v2 first, then falls back to v5
+ * Used for endpoints like /payments and /memberships that may be in v2
+ */
+export async function whopGETWithVersionFallback<T = any>(
+  endpoint: string,
+  params?: Record<string, any>,
+  accessToken?: string
+): Promise<T> {
+  const token = accessToken || process.env.WHOP_APP_SERVER_KEY || process.env.WHOP_API_KEY
+
+  if (!token) {
+    throw new Error("Missing WHOP_APP_SERVER_KEY/WHOP_API_KEY - required for Whop API calls")
+  }
+
+  // Try v2 first
+  const versions = ['v2', 'v5']
+  let lastError: Error | null = null
+
+  for (const version of versions) {
+    try {
+      const url = new URL(`https://api.whop.com/api/${version}${endpoint}`)
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            url.searchParams.append(key, String(value))
+          }
+        })
+      }
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+
+      if (res.ok) {
+        return res.json()
+      }
+
+      // If 404, try next version
+      if (res.status === 404) {
+        const text = await res.text().catch(() => "")
+        lastError = new Error(`Whop API ${endpoint} failed: ${res.status} ${text}`)
+        continue
+      }
+
+      // For other errors, throw immediately
+      const text = await res.text().catch(() => "")
+      throw new Error(`Whop API ${endpoint} failed: ${res.status} ${text}`)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('404')) {
+        lastError = error
+        continue
+      }
+      throw error
+    }
+  }
+
+  // If all versions failed, throw the last error
+  if (lastError) {
+    throw lastError
+  }
+
+  throw new Error(`Whop API ${endpoint} failed: All versions returned 404`)
+}
+
+/**
  * Get experience by ID
  */
 export async function getExperienceById(experienceId: string) {

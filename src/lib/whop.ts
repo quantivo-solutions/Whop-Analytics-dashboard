@@ -1,6 +1,6 @@
 import { prisma } from './prisma'
 import { WhopServerSdk } from '@whop/api'
-import { whopGET } from './whop-rest'
+import { whopGET, whopGETWithVersionFallback } from './whop-rest'
 import { getWhopToken } from './whop-installation'
 
 /**
@@ -309,18 +309,20 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string,
     while (hasMorePages) {
       console.log(`[Whoplytics]   Fetching page ${page} of payments...`)
       
-      // Fetch payments for the date range using company-scoped endpoint
-      const response = await whopGET<{ 
+      // Fetch payments for the date range using root-level endpoint with company_id filter
+      // Try v2 first, then fallback to v5
+      const response = await whopGETWithVersionFallback<{ 
         data?: any[]
         pagination?: { 
           current_page?: number
           total_pages?: number
           next?: string | null
         }
-      }>(`/companies/${companyId}/payments`, {
+      }>('/payments', {
         status: 'paid',
         created_after: startTime,
         created_before: endTime,
+        company_id: companyId, // Filter by company_id
         limit,
         page,
       }, accessToken)
@@ -417,17 +419,19 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
     while (hasMorePages) {
       console.log(`[Whoplytics]   Fetching page ${page} of memberships...`)
       
-      // Fetch memberships for the date range using company-scoped endpoint
-      const response = await whopGET<{ 
+      // Fetch memberships for the date range using root-level endpoint with company_id filter
+      // Try v2 first, then fallback to v5
+      const response = await whopGETWithVersionFallback<{ 
         data?: any[]
         pagination?: { 
           current_page?: number
           total_pages?: number
           next?: string | null
         }
-      }>(`/companies/${companyId}/memberships`, {
+      }>('/memberships', {
         created_after: startTime,
         created_before: endTime,
+        company_id: companyId, // Filter by company_id
         limit,
         page,
       }, accessToken)
@@ -505,17 +509,19 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
     while (hasMorePages) {
       console.log(`[Whoplytics]   Fetching page ${page} of cancellations...`)
       
-      // Fetch cancellations using company-scoped endpoint
-      const response = await whopGET<{ 
+      // Fetch cancellations using root-level endpoint with company_id filter
+      // Try v2 first, then fallback to v5
+      const response = await whopGETWithVersionFallback<{ 
         data?: any[]
         pagination?: { 
           current_page?: number
           total_pages?: number
           next?: string | null
         }
-      }>(`/companies/${companyId}/memberships`, {
+      }>('/memberships', {
         canceled_after: startTime,
         canceled_before: endTime,
+        company_id: companyId, // Filter by company_id
         limit,
         page,
       }, accessToken)
@@ -609,8 +615,9 @@ export async function countActiveAtEndOfDay(dateStr: string, accessToken: string
     try {
       console.log('[Whoplytics]   Attempting to fetch active memberships with status filters...')
       
-      // Try company-scoped endpoint first
-      const response = await whopGET<{ 
+      // Try root-level endpoint with company_id filter
+      // Try v2 first, then fallback to v5
+      const response = await whopGETWithVersionFallback<{ 
         data?: any[]
         pagination?: { 
           total?: number
