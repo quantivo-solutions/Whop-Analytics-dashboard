@@ -94,16 +94,13 @@ export async function getCompanySeries(
     const isDataFresh = latestMetric !== null
 
     // Build KPIs
-    // For period-based stats (newMembers, cancellations), sum across the period
-    // For snapshot stats (activeMembers, grossRevenue), use latest value
-    const totalNewMembers = series.reduce((sum, d) => sum + d.newMembers, 0)
-    const totalCancellations = series.reduce((sum, d) => sum + d.cancellations, 0)
-    
+    // Show latest snapshot values (not sums) to match Whop dashboard behavior
+    // Whop shows current active members, not sum of historical daily counts
     const kpis: DashboardKPIs = {
       grossRevenue: latestMetric ? Number(latestMetric.grossRevenue) : 0,
-      activeMembers: latestMetric?.activeMembers ?? 0, // Current snapshot
-      newMembers: totalNewMembers, // Sum of all new members in period
-      cancellations: totalCancellations, // Sum of all cancellations in period
+      activeMembers: latestMetric?.activeMembers ?? 0, // Current active members snapshot
+      newMembers: latestMetric?.newMembers ?? 0, // Latest day's new members (not sum)
+      cancellations: latestMetric?.cancellations ?? 0, // Latest day's cancellations (not sum)
       trialsPaid: latestMetric?.trialsPaid ?? 0,
       latestDate,
       isDataFresh,
