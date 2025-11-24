@@ -620,26 +620,24 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
  * According to Whop docs: "Total number of new users" = unique users who have made their first purchase
  * This includes all users regardless of membership status (active, cancelled, or inactive)
  * 
- * We need to fetch ALL memberships (not just app-scoped) to get the complete count
+ * IMPORTANT: We need to fetch ALL memberships (not just app-scoped) to get the complete count.
+ * The CSV shows 60 memberships but API only returns 23, suggesting we're missing data.
  */
 export async function countUniqueUsers(accessToken: string, companyId: string): Promise<number> {
   try {
     console.log(`[Whoplytics] 👥 Counting unique users for company ${companyId}...`)
     
-    // According to Whop docs, we should use /company/memberships endpoint, not /app/memberships
-    // /app/memberships only returns memberships for the app, not all company memberships
-    // Try both endpoints to get complete data
-    
     let allMemberships: any[] = []
     const limit = 100
     
-    // Approach 1: Try /company/memberships endpoint (company-scoped, gets ALL memberships)
+    // Approach 1: Try /companies/{id}/memberships endpoint (company-scoped, gets ALL memberships)
+    // This should return ALL memberships for the company, not just app-scoped ones
     try {
-      console.log('[Whoplytics]   Trying /company/memberships endpoint (company-scoped)...')
+      console.log(`[Whoplytics]   Trying /companies/${companyId}/memberships endpoint (company-scoped)...`)
       let page = 1
       let hasMorePages = true
       
-      while (hasMorePages && page <= 50) { // Limit to 50 pages
+      while (hasMorePages && page <= 100) {
         const response = await whopGET<{ 
           data?: any[]
           pagination?: { 
@@ -651,16 +649,20 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
         }>(`/companies/${companyId}/memberships`, {
           limit,
           page,
-          // No filters - get ALL memberships (active, cancelled, inactive)
+          // No filters - get ALL memberships (active, cancelled, inactive, all products)
         }, accessToken)
         
         if (response.data) {
           allMemberships = allMemberships.concat(response.data)
-          console.log(`[Whoplytics]   Fetched ${response.data.length} memberships from /companies/${companyId}/memberships (page ${page})`)
+          console.log(`[Whoplytics]   Fetched ${response.data.length} memberships (page ${page}, total so far: ${allMemberships.length})`)
         }
         
         if (response.pagination?.total !== undefined) {
-          console.log(`[Whoplytics]   API reports total memberships: ${response.pagination.total}`)
+          console.log(`[Whoplytics]   API reports total: ${response.pagination.total}`)
+          // If we've fetched all pages, stop
+          if (allMemberships.length >= response.pagination.total) {
+            hasMorePages = false
+          }
         }
         
         if (response.pagination?.next) {
@@ -675,16 +677,21 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
           hasMorePages = false
         }
       }
+      
+      console.log(`[Whoplytics]   ✅ Company endpoint: Fetched ${allMemberships.length} total memberships`)
     } catch (error: any) {
-      console.log(`[Whoplytics]   /companies/${companyId}/memberships endpoint failed: ${error.message}`)
+      console.log(`[Whoplytics]   ⚠️  /companies/${companyId}/memberships failed: ${error.message}`)
       console.log('[Whoplytics]   Falling back to /app/memberships endpoint...')
     }
     
-    // Approach 2: Fallback to /app/memberships if company endpoint doesn't work
-    if (allMemberships.length === 0) {
-      console.log('[Whoplytics]   Using /app/memberships endpoint (app-scoped)...')
+    // Approach 2: Also try /app/memberships to supplement (in case company endpoint doesn't return all)
+    // This gets app-scoped memberships which might include additional data
+    try {
+      console.log('[Whoplytics]   Also fetching from /app/memberships endpoint (app-scoped)...')
+      const existingIds = new Set(allMemberships.map(m => m.id))
       let page = 1
       let hasMorePages = true
+      let fetchedFromApp = 0
       
       while (hasMorePages && page <= 50) {
         const response = await whopGET<{ 
@@ -703,7 +710,11 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
         }, accessToken)
         
         if (response.data) {
-          allMemberships = allMemberships.concat(response.data)
+          const newMemberships = response.data.filter(m => !existingIds.has(m.id))
+          allMemberships = allMemberships.concat(newMemberships)
+          fetchedFromApp += newMemberships.length
+          existingIds.clear() // Rebuild set
+          allMemberships.forEach(m => existingIds.add(m.id))
         }
         
         if (response.pagination?.next) {
@@ -719,12 +730,16 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
         }
       }
       
-      // Also fetch cancelled/inactive memberships
+      if (fetchedFromApp > 0) {
+        console.log(`[Whoplytics]   ✅ App endpoint: Added ${fetchedFromApp} additional memberships`)
+      }
+      
+      // Also fetch cancelled/inactive memberships from app endpoint
       try {
         page = 1
         hasMorePages = true
         
-        while (hasMorePages && page <= 10) {
+        while (hasMorePages && page <= 20) {
           const response = await whopGET<{ 
             data?: any[]
             pagination?: { 
@@ -740,10 +755,11 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
           }, accessToken)
           
           if (response.data && response.data.length > 0) {
-            const existingIds = new Set(allMemberships.map(m => m.id))
             const newMemberships = response.data.filter(m => !existingIds.has(m.id))
             allMemberships = allMemberships.concat(newMemberships)
-            console.log(`[Whoplytics]   Added ${newMemberships.length} cancelled/inactive memberships`)
+            existingIds.clear()
+            allMemberships.forEach(m => existingIds.add(m.id))
+            console.log(`[Whoplytics]   Added ${newMemberships.length} cancelled/inactive memberships from app endpoint`)
           }
           
           if (response.pagination?.next) {
@@ -753,8 +769,10 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
           }
         }
       } catch (error) {
-        console.log('[Whoplytics]   Could not fetch invalid memberships')
+        console.log('[Whoplytics]   Could not fetch invalid memberships from app endpoint')
       }
+    } catch (error: any) {
+      console.log(`[Whoplytics]   ⚠️  /app/memberships failed: ${error.message}`)
     }
     
     // Remove duplicates by membership ID
@@ -762,13 +780,55 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
       new Map(allMemberships.map(m => [m.id, m])).values()
     )
     
-    // Count unique users (Whop's "New users" = unique users who have ever created a membership)
-    const uniqueUserIds = new Set(uniqueMemberships.map(m => m.user_id).filter(Boolean))
-    const uniqueUserCount = uniqueUserIds.size
+    // Count unique users by user_id (primary) and email (fallback for anonymous users)
+    const uniqueUserIds = new Set<string>()
+    const uniqueEmails = new Set<string>()
+    const emailToUserId = new Map<string, string>() // Track which emails belong to which user_ids
     
-    console.log(`[Whoplytics] ✅ Unique users: ${uniqueUserCount} (from ${uniqueMemberships.length} total memberships)`)
+    for (const m of uniqueMemberships) {
+      // Try multiple possible fields for user_id
+      const userId = m.user_id || m.userId || m.user?.id || m.user_id
+      // Try multiple possible fields for email
+      const email = m.email || m.user?.email || m.customer_email
+      
+      if (userId) {
+        uniqueUserIds.add(userId)
+        // If we also have email, map it to this user_id
+        if (email) {
+          emailToUserId.set(email.toLowerCase(), userId)
+        }
+      } else if (email) {
+        // No user_id but has email - check if this email is already mapped to a user_id
+        const normalizedEmail = email.toLowerCase()
+        if (!emailToUserId.has(normalizedEmail)) {
+          // This is a new email that doesn't map to any user_id
+          uniqueEmails.add(normalizedEmail)
+        }
+        // If email is already mapped to a user_id, we don't count it again
+      }
+    }
     
-    return uniqueUserCount
+    // Total unique users = unique user_ids + unique emails (that don't map to a user_id)
+    const totalUniqueUsers = uniqueUserIds.size + uniqueEmails.size
+    
+    console.log(`[Whoplytics] ✅ Unique users breakdown:`)
+    console.log(`[Whoplytics]   - Total memberships fetched: ${uniqueMemberships.length}`)
+    console.log(`[Whoplytics]   - Unique users by user_id: ${uniqueUserIds.size}`)
+    console.log(`[Whoplytics]   - Unique users by email (no user_id): ${uniqueEmails.size}`)
+    console.log(`[Whoplytics]   - Total unique users: ${totalUniqueUsers}`)
+    
+    // Log sample of memberships without user_id for debugging
+    const membershipsWithoutUserId = uniqueMemberships.filter(m => !(m.user_id || m.userId || m.user?.id))
+    if (membershipsWithoutUserId.length > 0) {
+      console.log(`[Whoplytics]   ⚠️  Found ${membershipsWithoutUserId.length} memberships without user_id`)
+      if (membershipsWithoutUserId.length <= 5) {
+        console.log(`[Whoplytics]   Sample memberships without user_id:`, 
+          membershipsWithoutUserId.map(m => ({ id: m.id, email: m.email || m.user?.email, keys: Object.keys(m).slice(0, 10) }))
+        )
+      }
+    }
+    
+    return totalUniqueUsers
   } catch (error) {
     console.error(`[Whoplytics] ❌ Error counting unique users:`, error)
     return 0
