@@ -106,6 +106,14 @@ export async function getCompanySeries(
     const todayStr = new Date().toISOString().split('T')[0]
     const latestDateStr = latestDate ? latestDate.toISOString().split('T')[0] : null
     
+    // Calculate date range for unique users (match the dashboard's date range)
+    // This ensures "New Members" matches Whop's "New users" for the selected period
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - days)
+    startDate.setHours(0, 0, 0, 0)
+    const startDateStr = startDate.toISOString().split('T')[0]
+    const endDateStr = new Date().toISOString().split('T')[0]
+    
     if (latestDateStr !== todayStr) {
       // Latest metric is not from today - fetch live counts from Whop API
       try {
@@ -117,22 +125,22 @@ export async function getCompanySeries(
           activeMembers = await countActiveAtEndOfDay(todayStr, accessToken, companyId)
           console.log(`[Metrics] Live active members count: ${activeMembers}`)
           
-          // Fetch unique users count (Whop's "New users" = unique users who have ever created a membership)
-          newMembers = await countUniqueUsers(accessToken, companyId)
-          console.log(`[Metrics] Live unique users count (New users): ${newMembers}`)
+          // Fetch unique users count filtered by date range (matches dashboard period)
+          newMembers = await countUniqueUsers(accessToken, companyId, startDateStr, endDateStr)
+          console.log(`[Metrics] Live unique users count (New users) for ${days} days: ${newMembers}`)
         }
       } catch (error) {
         console.error(`[Metrics] Error fetching live counts:`, error)
         // Fall back to stored values
       }
     } else {
-      // If we have today's data, try to fetch unique users count anyway (it's a cumulative metric)
+      // If we have today's data, still fetch unique users count with date range filter
       try {
         const accessToken = await getWhopToken(companyId)
         if (accessToken) {
-          // "New users" is cumulative (all-time unique users), so fetch it live
-          newMembers = await countUniqueUsers(accessToken, companyId)
-          console.log(`[Metrics] Live unique users count (New users): ${newMembers}`)
+          // "New users" should be filtered by date range to match Whop's dashboard
+          newMembers = await countUniqueUsers(accessToken, companyId, startDateStr, endDateStr)
+          console.log(`[Metrics] Live unique users count (New users) for ${days} days: ${newMembers}`)
         }
       } catch (error) {
         console.error(`[Metrics] Error fetching unique users count:`, error)

@@ -616,16 +616,35 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
  * console.log(`Active members: ${activeCount}`)
  */
 /**
- * Count unique users who have ever created a membership (for "New users" metric)
- * According to Whop docs: "Total number of new users" = unique users who have made their first purchase
- * This includes all users regardless of membership status (active, cancelled, or inactive)
+ * Count unique users who have created a membership within a date range (for "New users" metric)
+ * According to Whop docs: "Total number of new users" = unique users who made their first purchase
+ * This should be filtered by the date range that matches the dashboard view period
  * 
  * IMPORTANT: We need to fetch ALL memberships (not just app-scoped) to get the complete count.
  * The CSV shows 60 memberships but API only returns 23, suggesting we're missing data.
+ * 
+ * @param accessToken - Whop access token
+ * @param companyId - Company ID
+ * @param startDate - Optional start date (YYYY-MM-DD) - if provided, only count users who joined on or after this date
+ * @param endDate - Optional end date (YYYY-MM-DD) - if provided, only count users who joined on or before this date
  */
-export async function countUniqueUsers(accessToken: string, companyId: string): Promise<number> {
+export async function countUniqueUsers(
+  accessToken: string, 
+  companyId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<number> {
   try {
     console.log(`[Whoplytics] 👥 Counting unique users for company ${companyId}...`)
+    if (startDate && endDate) {
+      console.log(`[Whoplytics]   Date range: ${startDate} to ${endDate}`)
+    } else if (startDate) {
+      console.log(`[Whoplytics]   Date range: from ${startDate} onwards`)
+    } else if (endDate) {
+      console.log(`[Whoplytics]   Date range: up to ${endDate}`)
+    } else {
+      console.log(`[Whoplytics]   No date range specified - counting all-time unique users`)
+    }
     
     let allMemberships: any[] = []
     const limit = 100
@@ -827,6 +846,32 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
       }
     } catch (error: any) {
       console.log(`[Whoplytics]   ⚠️  /app/memberships failed: ${error.message}`)
+    }
+    
+    // Filter by date range if provided (before deduplication to reduce processing)
+    if (startDate || endDate) {
+      const startDateObj = startDate ? new Date(startDate + 'T00:00:00.000Z') : null
+      const endDateObj = endDate ? new Date(endDate + 'T23:59:59.999Z') : null
+      
+      const beforeFilter = allMemberships.length
+      allMemberships = allMemberships.filter(m => {
+        // Try multiple possible fields for created_at date
+        const createdAt = m.created_at || m.createdAt || m.joined_at || m.created
+        if (!createdAt) {
+          // If no created_at date, exclude from filtered results
+          return false
+        }
+        
+        const createdDate = new Date(createdAt)
+        
+        // Filter by date range
+        if (startDateObj && createdDate < startDateObj) return false
+        if (endDateObj && createdDate > endDateObj) return false
+        
+        return true
+      })
+      
+      console.log(`[Whoplytics]   Filtered from ${beforeFilter} to ${allMemberships.length} memberships within date range`)
     }
     
     // Remove duplicates by membership ID
