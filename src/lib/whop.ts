@@ -854,6 +854,17 @@ export async function countUniqueUsers(
       const endDateObj = endDate ? new Date(endDate + 'T23:59:59.999Z') : null
       
       const beforeFilter = allMemberships.length
+      
+      // Log sample dates for debugging
+      if (allMemberships.length > 0) {
+        const sampleMemberships = allMemberships.slice(0, 3)
+        console.log(`[Whoplytics]   Sample membership dates before filtering:`)
+        sampleMemberships.forEach((m, i) => {
+          const createdAt = m.created_at || m.createdAt || m.joined_at || m.created
+          console.log(`[Whoplytics]     Membership ${i + 1}: created_at=${createdAt}, allKeys=${Object.keys(m).filter(k => k.includes('date') || k.includes('created') || k.includes('joined')).join(', ')}`)
+        })
+      }
+      
       allMemberships = allMemberships.filter(m => {
         // Try multiple possible fields for created_at date
         const createdAt = m.created_at || m.createdAt || m.joined_at || m.created
@@ -864,14 +875,42 @@ export async function countUniqueUsers(
         
         const createdDate = new Date(createdAt)
         
+        // Check if date is valid
+        if (isNaN(createdDate.getTime())) {
+          console.log(`[Whoplytics]     ⚠️ Invalid date format: ${createdAt}`)
+          return false
+        }
+        
         // Filter by date range
-        if (startDateObj && createdDate < startDateObj) return false
-        if (endDateObj && createdDate > endDateObj) return false
+        if (startDateObj && createdDate < startDateObj) {
+          return false
+        }
+        if (endDateObj && createdDate > endDateObj) {
+          return false
+        }
         
         return true
       })
       
-      console.log(`[Whoplytics]   Filtered from ${beforeFilter} to ${allMemberships.length} memberships within date range`)
+      console.log(`[Whoplytics]   Filtered from ${beforeFilter} to ${allMemberships.length} memberships within date range ${startDate} to ${endDate}`)
+      
+      // Log sample dates after filtering for debugging
+      if (allMemberships.length > 0) {
+        const sampleMemberships = allMemberships.slice(0, 3)
+        console.log(`[Whoplytics]   Sample membership dates after filtering:`)
+        sampleMemberships.forEach((m, i) => {
+          const createdAt = m.created_at || m.createdAt || m.joined_at || m.created
+          console.log(`[Whoplytics]     Membership ${i + 1}: created_at=${createdAt}`)
+        })
+      } else if (beforeFilter > 0) {
+        // All were filtered out - log why
+        const sample = allMemberships.length === 0 ? (await Promise.resolve(Array.from(new Map(allMemberships.map(m => [m.id, m])).values()).slice(0, 1)))[0] : null
+        if (sample) {
+          const createdAt = sample.created_at || sample.createdAt || sample.joined_at || sample.created
+          const createdDate = createdAt ? new Date(createdAt) : null
+          console.log(`[Whoplytics]     ⚠️ All memberships filtered out. Sample: created_at=${createdAt}, parsed=${createdDate?.toISOString()}, startDate=${startDateObj?.toISOString()}, endDate=${endDateObj?.toISOString()}`)
+        }
+      }
     }
     
     // Remove duplicates by membership ID
