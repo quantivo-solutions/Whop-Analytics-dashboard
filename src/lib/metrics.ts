@@ -4,7 +4,7 @@
  */
 
 import { prisma } from './prisma'
-import { countActiveAtEndOfDay } from './whop'
+import { countActiveAtEndOfDay, countUniqueUsers } from './whop'
 import { getWhopToken } from './whop-installation'
 
 export interface DashboardKPIs {
@@ -102,20 +102,40 @@ export async function getCompanySeries(
     // For active members: If latest metric is not from today, fetch live count from API
     // This ensures we match Whop's dashboard exactly (which shows current active members)
     let activeMembers = latestMetric?.activeMembers ?? 0
+    let newMembers = latestMetric?.newMembers ?? 0
     const todayStr = new Date().toISOString().split('T')[0]
     const latestDateStr = latestDate ? latestDate.toISOString().split('T')[0] : null
     
     if (latestDateStr !== todayStr) {
-      // Latest metric is not from today - fetch live active count from Whop API
+      // Latest metric is not from today - fetch live counts from Whop API
       try {
         const accessToken = await getWhopToken(companyId)
         if (accessToken) {
-          console.log(`[Metrics] Fetching live active members count for today (${todayStr})...`)
+          console.log(`[Metrics] Fetching live counts for today (${todayStr})...`)
+          
+          // Fetch live active members count
           activeMembers = await countActiveAtEndOfDay(todayStr, accessToken, companyId)
           console.log(`[Metrics] Live active members count: ${activeMembers}`)
+          
+          // Fetch unique users count (Whop's "New users" = unique users who have ever created a membership)
+          newMembers = await countUniqueUsers(accessToken, companyId)
+          console.log(`[Metrics] Live unique users count (New users): ${newMembers}`)
         }
       } catch (error) {
-        console.error(`[Metrics] Error fetching live active members count:`, error)
+        console.error(`[Metrics] Error fetching live counts:`, error)
+        // Fall back to stored values
+      }
+    } else {
+      // If we have today's data, try to fetch unique users count anyway (it's a cumulative metric)
+      try {
+        const accessToken = await getWhopToken(companyId)
+        if (accessToken) {
+          // "New users" is cumulative (all-time unique users), so fetch it live
+          newMembers = await countUniqueUsers(accessToken, companyId)
+          console.log(`[Metrics] Live unique users count (New users): ${newMembers}`)
+        }
+      } catch (error) {
+        console.error(`[Metrics] Error fetching unique users count:`, error)
         // Fall back to stored value
       }
     }
@@ -123,7 +143,7 @@ export async function getCompanySeries(
     const kpis: DashboardKPIs = {
       grossRevenue: latestMetric ? Number(latestMetric.grossRevenue) : 0,
       activeMembers, // Current active members (live if today, else from DB)
-      newMembers: latestMetric?.newMembers ?? 0, // Latest day's new members (not sum)
+      newMembers, // Unique users who have ever created a membership (matches Whop's "New users")
       cancellations: latestMetric?.cancellations ?? 0, // Latest day's cancellations (not sum)
       trialsPaid: latestMetric?.trialsPaid ?? 0,
       latestDate,

@@ -615,6 +615,74 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
  * const activeCount = await countActiveAtEndOfDay('2025-10-24', 'whop_access_token')
  * console.log(`Active members: ${activeCount}`)
  */
+/**
+ * Count unique users who have ever created a membership (for "New users" metric)
+ * This matches Whop's definition: "Total number of new users"
+ */
+export async function countUniqueUsers(accessToken: string, companyId: string): Promise<number> {
+  try {
+    console.log(`[Whoplytics] 👥 Counting unique users for company ${companyId}...`)
+    
+    // Fetch ALL memberships ever created (including cancelled/inactive) for this company
+    let allMemberships: any[] = []
+    let page = 1
+    let hasMorePages = true
+    const limit = 100
+    
+    while (hasMorePages) {
+      const response = await whopGET<{ 
+        data?: any[]
+        pagination?: { 
+          current_page?: number
+          total_pages?: number
+          next?: string | null
+          total?: number
+        }
+      }>('/app/memberships', {
+        company_id: companyId, // Filter by company
+        limit,
+        page,
+        // No valid filter - get ALL memberships (active and inactive)
+      }, accessToken)
+      
+      if (response.data) {
+        allMemberships = allMemberships.concat(response.data)
+      }
+      
+      if (response.pagination?.total !== undefined) {
+        console.log(`[Whoplytics]   API reports total memberships: ${response.pagination.total}`)
+      }
+      
+      if (response.pagination?.next) {
+        page++
+      } else if (response.pagination?.current_page && response.pagination?.total_pages) {
+        if (response.pagination.current_page < response.pagination.total_pages) {
+          page++
+        } else {
+          hasMorePages = false
+        }
+      } else {
+        hasMorePages = false
+      }
+      
+      if (page > 100) {
+        console.warn('[Whoplytics]   ⚠️  Reached max pagination limit (100 pages)')
+        hasMorePages = false
+      }
+    }
+    
+    // Count unique users (Whop's "New users" = unique users who have ever created a membership)
+    const uniqueUserIds = new Set(allMemberships.map(m => m.user_id).filter(Boolean))
+    const uniqueUserCount = uniqueUserIds.size
+    
+    console.log(`[Whoplytics] ✅ Unique users: ${uniqueUserCount} (from ${allMemberships.length} total memberships)`)
+    return uniqueUserCount
+  } catch (error) {
+    console.error(`[Whoplytics] ❌ Error counting unique users:`, error)
+    return 0
+  }
+}
+
 export async function countActiveAtEndOfDay(dateStr: string, accessToken: string, companyId: string): Promise<number> {
   try {
     console.log(`[Whoplytics] 🔢 Counting active memberships at end of ${dateStr} (company: ${companyId})...`)
