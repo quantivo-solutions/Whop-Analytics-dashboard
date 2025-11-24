@@ -617,113 +617,156 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
  */
 /**
  * Count unique users who have ever created a membership (for "New users" metric)
- * This matches Whop's definition: "Total number of new users"
+ * According to Whop docs: "Total number of new users" = unique users who have made their first purchase
+ * This includes all users regardless of membership status (active, cancelled, or inactive)
+ * 
+ * We need to fetch ALL memberships (not just app-scoped) to get the complete count
  */
 export async function countUniqueUsers(accessToken: string, companyId: string): Promise<number> {
   try {
     console.log(`[Whoplytics] 👥 Counting unique users for company ${companyId}...`)
     
-    // Fetch ALL memberships ever created (including cancelled/inactive) for this company
-    // Try multiple approaches since /app/memberships might only return active ones
+    // According to Whop docs, we should use /company/memberships endpoint, not /app/memberships
+    // /app/memberships only returns memberships for the app, not all company memberships
+    // Try both endpoints to get complete data
     
     let allMemberships: any[] = []
-    let page = 1
-    let hasMorePages = true
     const limit = 100
     
-    // Approach 1: Fetch all memberships without valid filter
-    while (hasMorePages) {
-      const response = await whopGET<{ 
-        data?: any[]
-        pagination?: { 
-          current_page?: number
-          total_pages?: number
-          next?: string | null
-          total?: number
-        }
-      }>('/app/memberships', {
-        company_id: companyId, // Filter by company
-        limit,
-        page,
-        // No valid filter - get ALL memberships (active and inactive)
-      }, accessToken)
-      
-      if (response.data) {
-        allMemberships = allMemberships.concat(response.data)
-      }
-      
-      if (response.pagination?.total !== undefined) {
-        console.log(`[Whoplytics]   API reports total memberships: ${response.pagination.total}`)
-      }
-      
-      if (response.pagination?.next) {
-        page++
-      } else if (response.pagination?.current_page && response.pagination?.total_pages) {
-        if (response.pagination.current_page < response.pagination.total_pages) {
-          page++
-        } else {
-          hasMorePages = false
-        }
-      } else {
-        hasMorePages = false
-      }
-      
-      if (page > 100) {
-        console.warn('[Whoplytics]   ⚠️  Reached max pagination limit (100 pages)')
-        hasMorePages = false
-      }
-    }
-    
-    // Approach 2: Also try fetching with valid=false to get cancelled/inactive memberships
-    // Some APIs require explicit filters to get inactive records
+    // Approach 1: Try /company/memberships endpoint (company-scoped, gets ALL memberships)
     try {
-      console.log('[Whoplytics]   Also fetching invalid/cancelled memberships...')
-      page = 1
-      hasMorePages = true
+      console.log('[Whoplytics]   Trying /company/memberships endpoint (company-scoped)...')
+      let page = 1
+      let hasMorePages = true
       
-      while (hasMorePages && page <= 10) { // Limit to 10 pages for this
+      while (hasMorePages && page <= 50) { // Limit to 50 pages
         const response = await whopGET<{ 
           data?: any[]
           pagination?: { 
             current_page?: number
             total_pages?: number
             next?: string | null
+            total?: number
           }
-        }>('/app/memberships', {
-          company_id: companyId,
-          valid: false, // Try to get invalid/cancelled memberships
+        }>(`/companies/${companyId}/memberships`, {
           limit,
           page,
+          // No filters - get ALL memberships (active, cancelled, inactive)
         }, accessToken)
         
-        if (response.data && response.data.length > 0) {
-          // Add to our collection, avoiding duplicates
-          const existingIds = new Set(allMemberships.map(m => m.id))
-          const newMemberships = response.data.filter(m => !existingIds.has(m.id))
-          allMemberships = allMemberships.concat(newMemberships)
-          console.log(`[Whoplytics]   Added ${newMemberships.length} cancelled/inactive memberships`)
+        if (response.data) {
+          allMemberships = allMemberships.concat(response.data)
+          console.log(`[Whoplytics]   Fetched ${response.data.length} memberships from /companies/${companyId}/memberships (page ${page})`)
+        }
+        
+        if (response.pagination?.total !== undefined) {
+          console.log(`[Whoplytics]   API reports total memberships: ${response.pagination.total}`)
         }
         
         if (response.pagination?.next) {
           page++
+        } else if (response.pagination?.current_page && response.pagination?.total_pages) {
+          if (response.pagination.current_page < response.pagination.total_pages) {
+            page++
+          } else {
+            hasMorePages = false
+          }
         } else {
           hasMorePages = false
         }
       }
-    } catch (error) {
-      console.log('[Whoplytics]   Could not fetch invalid memberships (this is OK if endpoint doesn\'t support it)')
+    } catch (error: any) {
+      console.log(`[Whoplytics]   /companies/${companyId}/memberships endpoint failed: ${error.message}`)
+      console.log('[Whoplytics]   Falling back to /app/memberships endpoint...')
     }
+    
+    // Approach 2: Fallback to /app/memberships if company endpoint doesn't work
+    if (allMemberships.length === 0) {
+      console.log('[Whoplytics]   Using /app/memberships endpoint (app-scoped)...')
+      let page = 1
+      let hasMorePages = true
+      
+      while (hasMorePages && page <= 50) {
+        const response = await whopGET<{ 
+          data?: any[]
+          pagination?: { 
+            current_page?: number
+            total_pages?: number
+            next?: string | null
+            total?: number
+          }
+        }>('/app/memberships', {
+          company_id: companyId,
+          limit,
+          page,
+          // No valid filter - get ALL memberships
+        }, accessToken)
+        
+        if (response.data) {
+          allMemberships = allMemberships.concat(response.data)
+        }
+        
+        if (response.pagination?.next) {
+          page++
+        } else if (response.pagination?.current_page && response.pagination?.total_pages) {
+          if (response.pagination.current_page < response.pagination.total_pages) {
+            page++
+          } else {
+            hasMorePages = false
+          }
+        } else {
+          hasMorePages = false
+        }
+      }
+      
+      // Also fetch cancelled/inactive memberships
+      try {
+        page = 1
+        hasMorePages = true
+        
+        while (hasMorePages && page <= 10) {
+          const response = await whopGET<{ 
+            data?: any[]
+            pagination?: { 
+              current_page?: number
+              total_pages?: number
+              next?: string | null
+            }
+          }>('/app/memberships', {
+            company_id: companyId,
+            valid: false,
+            limit,
+            page,
+          }, accessToken)
+          
+          if (response.data && response.data.length > 0) {
+            const existingIds = new Set(allMemberships.map(m => m.id))
+            const newMemberships = response.data.filter(m => !existingIds.has(m.id))
+            allMemberships = allMemberships.concat(newMemberships)
+            console.log(`[Whoplytics]   Added ${newMemberships.length} cancelled/inactive memberships`)
+          }
+          
+          if (response.pagination?.next) {
+            page++
+          } else {
+            hasMorePages = false
+          }
+        }
+      } catch (error) {
+        console.log('[Whoplytics]   Could not fetch invalid memberships')
+      }
+    }
+    
+    // Remove duplicates by membership ID
+    const uniqueMemberships = Array.from(
+      new Map(allMemberships.map(m => [m.id, m])).values()
+    )
     
     // Count unique users (Whop's "New users" = unique users who have ever created a membership)
-    const uniqueUserIds = new Set(allMemberships.map(m => m.user_id).filter(Boolean))
+    const uniqueUserIds = new Set(uniqueMemberships.map(m => m.user_id).filter(Boolean))
     const uniqueUserCount = uniqueUserIds.size
     
-    console.log(`[Whoplytics] ✅ Unique users: ${uniqueUserCount} (from ${allMemberships.length} total memberships)`)
-    
-    // If we still don't have enough, log a warning
-    if (uniqueUserCount < 16 && allMemberships.length === 10) {
-      console.warn(`[Whoplytics] ⚠️  Only found ${uniqueUserCount} unique users from ${allMemberships.length} memberships. Whop shows 16. The API might not return all historical memberships.`)
-    }
+    console.log(`[Whoplytics] ✅ Unique users: ${uniqueUserCount} (from ${uniqueMemberships.length} total memberships)`)
     
     return uniqueUserCount
   } catch (error) {
