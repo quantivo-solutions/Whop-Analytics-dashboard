@@ -119,6 +119,53 @@ export async function GET(request: Request) {
       if (page > 10) break // Safety limit
     }
     
+    // Test 2b: Fetch ALL memberships (no valid filter) with company_id filter
+    console.log('[DEBUG] Test 2b: Fetching ALL memberships WITH company_id filter (no valid filter)...')
+    let allMembershipsWithCompany: any[] = []
+    page = 1
+    hasMorePages = true
+    
+    while (hasMorePages) {
+      const response = await whopGET<{ 
+        data?: any[]
+        pagination?: { 
+          current_page?: number
+          total_pages?: number
+          next?: string | null
+          total?: number
+        }
+      }>('/app/memberships', {
+        company_id: companyId, // No valid filter - get ALL memberships
+        limit: 100,
+        page,
+      }, accessToken)
+      
+      if (response.data) {
+        allMembershipsWithCompany = allMembershipsWithCompany.concat(response.data)
+      }
+      
+      if (response.pagination?.total !== undefined) {
+        console.log(`[DEBUG] API reports total with company_id filter (all memberships): ${response.pagination.total}`)
+      }
+      
+      if (response.pagination?.next) {
+        page++
+      } else {
+        hasMorePages = false
+      }
+      
+      if (page > 10) break // Safety limit
+    }
+    
+    // Analyze the differences
+    const validCount = filteredActiveMemberships.filter(m => m.valid === true).length
+    const invalidCount = allMembershipsWithCompany.filter(m => m.valid === false || !m.valid).length
+    const statusBreakdown = allMembershipsWithCompany.reduce((acc: any, m: any) => {
+      const status = m.status || 'unknown'
+      acc[status] = (acc[status] || 0) + 1
+      return acc
+    }, {})
+    
     // Test 3: Get our database stats
     const latestMetric = await prisma.metricsDaily.findFirst({
       where: { companyId },
