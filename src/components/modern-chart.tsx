@@ -35,11 +35,16 @@ export function ModernChart({ data }: ModernChartProps) {
   const totalNewMembers = data.reduce((sum, d) => sum + d.newMembers, 0)
   
   // Calculate trends
+  // Handle division by zero: if first value is 0, show 0% change (or 100% if current > 0)
   const revenueChange = revenueData.length > 1
-    ? ((revenueData[revenueData.length - 1] - revenueData[0]) / revenueData[0]) * 100
+    ? revenueData[0] === 0
+      ? (revenueData[revenueData.length - 1] > 0 ? 100 : 0)
+      : ((revenueData[revenueData.length - 1] - revenueData[0]) / revenueData[0]) * 100
     : 0
   const membersChange = membersData.length > 1
-    ? ((membersData[membersData.length - 1] - membersData[0]) / membersData[0]) * 100
+    ? membersData[0] === 0
+      ? (membersData[membersData.length - 1] > 0 ? 100 : 0)
+      : ((membersData[membersData.length - 1] - membersData[0]) / membersData[0]) * 100
     : 0
 
   const currentData = selectedMetric === 'revenue' ? revenueData : membersData
