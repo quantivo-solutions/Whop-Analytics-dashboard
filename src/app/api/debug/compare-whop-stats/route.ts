@@ -52,7 +52,7 @@ export async function GET(request: Request) {
           total?: number
         }
       }>('/app/memberships', {
-        status: 'active,trialing,past_due',
+        valid: true, // Match Whop's definition: valid=true means active
         limit: 100,
         page,
       }, accessToken)
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
           total?: number
         }
       }>('/app/memberships', {
-        status: 'active,trialing,past_due',
+        valid: true, // Match Whop's definition: valid=true means active
         company_id: companyId,
         limit: 100,
         page,

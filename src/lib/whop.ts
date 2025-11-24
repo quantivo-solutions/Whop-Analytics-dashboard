@@ -453,17 +453,9 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
       const memberships = response.data || []
       console.log(`[Whoplytics]   Found ${memberships.length} memberships on page ${page}`)
       
-      // Additional safety: filter by companyId if membership has company_id field
-      const filteredMemberships = memberships.filter((m: any) => {
-        const membershipCompanyId = m.company_id || m.companyId || m.company?.id
-        if (membershipCompanyId && membershipCompanyId !== companyId) {
-          console.warn(`[Whoplytics]   ⚠️  Membership ${m.id} belongs to different company ${membershipCompanyId}, filtering out`)
-          return false
-        }
-        return true
-      })
-      
-      allMemberships = allMemberships.concat(filteredMemberships)
+      // Trust the API's company_id filter - memberships don't have company_id in their structure
+      // The API has already filtered by company_id query parameter
+      allMemberships = allMemberships.concat(memberships)
       
       // Check if there are more pages
       if (response.pagination) {
@@ -636,8 +628,10 @@ export async function countActiveAtEndOfDay(dateStr: string, accessToken: string
       
       // For TODAY: Fetch ALL active memberships (no date filter) to match Whop dashboard exactly
       // For HISTORICAL dates: Use created_before to get count as of that date
+      // IMPORTANT: Whop considers memberships with status='completed' and valid=true as active
+      // So we should filter by valid=true OR include 'completed' in status filter
       const params: Record<string, any> = {
-        status: 'active,trialing,past_due', // Common active statuses
+        valid: true, // Filter by valid=true to match Whop's definition of active
         company_id: companyId, // Filter by company
       }
       
@@ -714,14 +708,10 @@ export async function countActiveAtEndOfDay(dateStr: string, accessToken: string
           }
         }
         
-        // Additional client-side filtering by companyId for safety
-        const filteredMemberships = allMemberships.filter(m => {
-          const mCompanyId = m.company_id || m.companyId || m.company?.id || m.product?.company_id || m.product?.companyId
-          return mCompanyId === companyId
-        })
-        
-        const count = filteredMemberships.length
-        console.log(`[Whoplytics] ✅ Active memberships via pagination: ${count} (total fetched: ${allMemberships.length}, filtered: ${filteredMemberships.length})`)
+        // Trust the API's company_id filter - memberships don't have company_id in their structure
+        // The API has already filtered by company_id, so we can trust the count
+        const count = allMemberships.length
+        console.log(`[Whoplytics] ✅ Active memberships via pagination: ${count} (API already filtered by company_id)`)
         return count
       }
     } catch (statusError) {
