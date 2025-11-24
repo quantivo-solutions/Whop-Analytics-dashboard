@@ -133,7 +133,11 @@ export async function GET(request: Request) {
       comparison: {
         whopAllActive: allActiveMemberships.length,
         whopFilteredByCompany: filteredByCompany.length,
-        whopCompanyIdFilter: filteredActiveMemberships.length,
+        whopCompanyIdFilterActive: filteredActiveMemberships.length, // valid=true only
+        whopCompanyIdFilterAll: allMembershipsWithCompany.length, // ALL memberships
+        validCount,
+        invalidCount,
+        statusBreakdown,
         ourDatabaseActive: latestMetric?.activeMembers ?? 0,
         ourDatabaseNewMembers: latestMetric?.newMembers ?? 0,
         ourDatabaseCancellations: latestMetric?.cancellations ?? 0,
@@ -149,9 +153,13 @@ export async function GET(request: Request) {
         created_at: sampleMembership.created_at,
         allKeys: Object.keys(sampleMembership),
       } : null,
-      allMemberships: filteredActiveMemberships.map(m => ({
+      activeMemberships: filteredActiveMemberships.map(m => ({
         id: m.id,
-        company_id: m.company_id || m.companyId || m.company?.id,
+        status: m.status,
+        valid: m.valid,
+      })),
+      allMemberships: allMembershipsWithCompany.map(m => ({
+        id: m.id,
         status: m.status,
         valid: m.valid,
       })),
