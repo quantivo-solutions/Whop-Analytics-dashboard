@@ -309,7 +309,7 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string,
     while (hasMorePages) {
       console.log(`[Whoplytics]   Fetching page ${page} of payments...`)
       
-      // Fetch payments for the date range, filtered by company
+      // Fetch payments for the date range using company-scoped endpoint
       const response = await whopGET<{ 
         data?: any[]
         pagination?: { 
@@ -317,11 +317,10 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string,
           total_pages?: number
           next?: string | null
         }
-      }>('/payments', {
+      }>(`/companies/${companyId}/payments`, {
         status: 'paid',
         created_after: startTime,
         created_before: endTime,
-        company_id: companyId, // Filter by company
         limit,
         page,
       }, accessToken)
@@ -418,7 +417,7 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
     while (hasMorePages) {
       console.log(`[Whoplytics]   Fetching page ${page} of memberships...`)
       
-      // Fetch memberships for the date range, filtered by company
+      // Fetch memberships for the date range using company-scoped endpoint
       const response = await whopGET<{ 
         data?: any[]
         pagination?: { 
@@ -426,10 +425,9 @@ export async function listMembershipsForDay(dateStr: string, accessToken: string
           total_pages?: number
           next?: string | null
         }
-      }>('/memberships', {
+      }>(`/companies/${companyId}/memberships`, {
         created_after: startTime,
         created_before: endTime,
-        company_id: companyId, // Filter by company
         limit,
         page,
       }, accessToken)
@@ -507,8 +505,7 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
     while (hasMorePages) {
       console.log(`[Whoplytics]   Fetching page ${page} of cancellations...`)
       
-      // NOTE: Whop API may not support company_id filter for memberships
-      // Fetch all cancellations and filter client-side
+      // Fetch cancellations using company-scoped endpoint
       const response = await whopGET<{ 
         data?: any[]
         pagination?: { 
@@ -516,10 +513,9 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
           total_pages?: number
           next?: string | null
         }
-      }>('/memberships', {
+      }>(`/companies/${companyId}/memberships`, {
         canceled_after: startTime,
         canceled_before: endTime,
-        // Removed company_id filter - API may not support it
         limit,
         page,
       }, accessToken)
