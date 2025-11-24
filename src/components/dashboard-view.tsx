@@ -272,7 +272,7 @@ export function DashboardView({ data, showBadge = true, badgeType, plan = 'free'
               </Button>
             )}
           </div>
-          <ModernChart data={series} />
+          <ModernChart data={series} kpis={{ newMembers: kpis.newMembers }} />
         </div>
       )}
 

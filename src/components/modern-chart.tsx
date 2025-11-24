@@ -13,9 +13,12 @@ import { TrendingUp, TrendingDown } from 'lucide-react'
 
 interface ModernChartProps {
   data: DashboardSeries[]
+  kpis?: {
+    newMembers?: number
+  }
 }
 
-export function ModernChart({ data }: ModernChartProps) {
+export function ModernChart({ data, kpis }: ModernChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'members'>('revenue')
 
@@ -32,7 +35,8 @@ export function ModernChart({ data }: ModernChartProps) {
   
   const totalRevenue = revenueData.reduce((sum, v) => sum + v, 0)
   const avgRevenue = totalRevenue / revenueData.length
-  const totalNewMembers = data.reduce((sum, d) => sum + d.newMembers, 0)
+  // Use KPI value if provided (unique users), otherwise sum daily new members
+  const totalNewMembers = kpis?.newMembers ?? data.reduce((sum, d) => sum + d.newMembers, 0)
   
   // Calculate trends
   // Handle division by zero: if first value is 0, show 0% change (or 100% if current > 0)
