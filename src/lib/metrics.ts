@@ -4,6 +4,8 @@
  */
 
 import { prisma } from './prisma'
+import { countActiveAtEndOfDay } from './whop'
+import { getWhopToken } from './whop-installation'
 
 export interface DashboardKPIs {
   grossRevenue: number
@@ -96,9 +98,31 @@ export async function getCompanySeries(
     // Build KPIs
     // Show latest snapshot values (not sums) to match Whop dashboard behavior
     // Whop shows current active members, not sum of historical daily counts
+    
+    // For active members: If latest metric is not from today, fetch live count from API
+    // This ensures we match Whop's dashboard exactly (which shows current active members)
+    let activeMembers = latestMetric?.activeMembers ?? 0
+    const todayStr = new Date().toISOString().split('T')[0]
+    const latestDateStr = latestDate ? latestDate.toISOString().split('T')[0] : null
+    
+    if (latestDateStr !== todayStr) {
+      // Latest metric is not from today - fetch live active count from Whop API
+      try {
+        const accessToken = await getWhopToken(companyId)
+        if (accessToken) {
+          console.log(`[Metrics] Fetching live active members count for today (${todayStr})...`)
+          activeMembers = await countActiveAtEndOfDay(todayStr, accessToken, companyId)
+          console.log(`[Metrics] Live active members count: ${activeMembers}`)
+        }
+      } catch (error) {
+        console.error(`[Metrics] Error fetching live active members count:`, error)
+        // Fall back to stored value
+      }
+    }
+    
     const kpis: DashboardKPIs = {
       grossRevenue: latestMetric ? Number(latestMetric.grossRevenue) : 0,
-      activeMembers: latestMetric?.activeMembers ?? 0, // Current active members snapshot
+      activeMembers, // Current active members (live if today, else from DB)
       newMembers: latestMetric?.newMembers ?? 0, // Latest day's new members (not sum)
       cancellations: latestMetric?.cancellations ?? 0, // Latest day's cancellations (not sum)
       trialsPaid: latestMetric?.trialsPaid ?? 0,
