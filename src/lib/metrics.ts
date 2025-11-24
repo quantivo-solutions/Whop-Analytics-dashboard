@@ -94,11 +94,16 @@ export async function getCompanySeries(
     const isDataFresh = latestMetric !== null
 
     // Build KPIs
+    // For period-based stats (newMembers, cancellations), sum across the period
+    // For snapshot stats (activeMembers, grossRevenue), use latest value
+    const totalNewMembers = series.reduce((sum, d) => sum + d.newMembers, 0)
+    const totalCancellations = series.reduce((sum, d) => sum + d.cancellations, 0)
+    
     const kpis: DashboardKPIs = {
       grossRevenue: latestMetric ? Number(latestMetric.grossRevenue) : 0,
-      activeMembers: latestMetric?.activeMembers ?? 0,
-      newMembers: latestMetric?.newMembers ?? 0,
-      cancellations: latestMetric?.cancellations ?? 0,
+      activeMembers: latestMetric?.activeMembers ?? 0, // Current snapshot
+      newMembers: totalNewMembers, // Sum of all new members in period
+      cancellations: totalCancellations, // Sum of all cancellations in period
       trialsPaid: latestMetric?.trialsPaid ?? 0,
       latestDate,
       isDataFresh,

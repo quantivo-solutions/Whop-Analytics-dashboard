@@ -643,7 +643,9 @@ export async function countActiveAtEndOfDay(dateStr: string, accessToken: string
         }
       }>('/app/memberships', {
         status: 'active,trialing,past_due', // Common active statuses
-        created_before: endTime,
+        // For current date, don't filter by created_before to get ALL active members
+        // For historical dates, use created_before to get count as of that date
+        ...(dateStr !== new Date().toISOString().split('T')[0] ? { created_before: endTime } : {}),
         company_id: companyId, // Filter by company
         limit: 1, // We only need the count
       }, accessToken)
