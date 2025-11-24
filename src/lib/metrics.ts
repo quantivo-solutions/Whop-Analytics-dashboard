@@ -108,9 +108,7 @@ export async function getCompanySeries(
     
     // Calculate date range for unique users (match the dashboard's date range)
     // This ensures "New Members" matches Whop's "New users" for the selected period
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - days)
-    startDate.setHours(0, 0, 0, 0)
+    // Reuse the startDate already calculated above for the time series query
     const startDateStr = startDate.toISOString().split('T')[0]
     const endDateStr = new Date().toISOString().split('T')[0]
     
