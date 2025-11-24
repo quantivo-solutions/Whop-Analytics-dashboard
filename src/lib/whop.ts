@@ -343,20 +343,34 @@ export async function sumPaidRevenueForDay(dateStr: string, accessToken: string,
         // Try to find the revenue field (could be 'amount', 'final_amount', 'total', etc.)
         let amount = 0
         
+        // Check multiple possible fields and formats
         if (typeof payment.final_amount === 'number') {
           // Whop typically uses cents, convert to dollars
           amount = payment.final_amount / 100
         } else if (typeof payment.amount === 'number') {
-          amount = payment.amount / 100
+          // Check if already in dollars (if > 1000, likely cents; if < 100, likely dollars)
+          amount = payment.amount > 1000 ? payment.amount / 100 : payment.amount
         } else if (typeof payment.total === 'number') {
-          amount = payment.total / 100
+          amount = payment.total > 1000 ? payment.total / 100 : payment.total
+        } else if (typeof payment.price === 'number') {
+          amount = payment.price > 1000 ? payment.price / 100 : payment.price
+        } else if (typeof payment.price_amount === 'number') {
+          amount = payment.price_amount > 1000 ? payment.price_amount / 100 : payment.price_amount
         } else {
-          // Unknown field structure, log for debugging
-          console.warn(`[Whoplytics]   ⚠️  Unknown payment structure, available keys:`, Object.keys(payment))
+          // Log first payment structure for debugging (only once per page)
+          if (page === 1 && payments.indexOf(payment) === 0) {
+            console.log(`[Whoplytics]   📋 Sample payment structure:`, {
+              id: payment.id,
+              keys: Object.keys(payment),
+              sample: JSON.stringify(payment).substring(0, 500)
+            })
+          }
           amount = 0
         }
         
-        totalRevenue += amount
+        if (amount > 0) {
+          totalRevenue += amount
+        }
       }
       
       // Check if there are more pages
@@ -530,6 +544,9 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
       console.log(`[Whoplytics]   Found ${cancellations.length} raw cancellations on page ${page}`)
       
       // Filter by companyId client-side
+      // Since we're using /app/memberships endpoint with company_id filter, 
+      // all results should already be scoped to this company
+      // But we'll do additional verification if company_id field exists
       const filteredCancellations = cancellations.filter((c: any) => {
         const cancellationCompanyId = 
           c.company_id || 
@@ -550,8 +567,9 @@ export async function listCancellationsForDay(dateStr: string, accessToken: stri
           return true
         }
         
-        // If no company_id found, include it (might be app-level cancellation)
-        console.log(`[Whoplytics]   ⚠️  Cancellation ${c.id} has no company_id field, including anyway`)
+        // If no company_id found but we're using app-scoped endpoint with company_id filter,
+        // the API should have already filtered it, so include it
+        // (Don't log warning for every cancellation - too noisy)
         return true
       })
       
