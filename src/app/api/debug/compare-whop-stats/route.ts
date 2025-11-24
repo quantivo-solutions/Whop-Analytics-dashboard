@@ -166,6 +166,50 @@ export async function GET(request: Request) {
       return acc
     }, {})
     
+    // Test: Count unique users (maybe Whop counts users, not memberships?)
+    const uniqueUserIds = new Set(allMembershipsWithCompany.map(m => m.user_id).filter(Boolean))
+    const uniqueUserCount = uniqueUserIds.size
+    
+    // Test: Try fetching memberships without company_id filter to see total
+    console.log('[DEBUG] Test 3: Fetching ALL memberships (no filters at all)...')
+    let allMembershipsNoFilters: any[] = []
+    page = 1
+    hasMorePages = true
+    
+    while (hasMorePages && page <= 3) { // Limit to 3 pages for this test
+      try {
+        const response = await whopGET<{ 
+          data?: any[]
+          pagination?: { 
+            current_page?: number
+            total_pages?: number
+            next?: string | null
+            total?: number
+          }
+        }>('/app/memberships', {
+          limit: 100,
+          page,
+        }, accessToken)
+        
+        if (response.data) {
+          allMembershipsNoFilters = allMembershipsNoFilters.concat(response.data)
+        }
+        
+        if (response.pagination?.total !== undefined) {
+          console.log(`[DEBUG] API reports total (no filters): ${response.pagination.total}`)
+        }
+        
+        if (response.pagination?.next) {
+          page++
+        } else {
+          hasMorePages = false
+        }
+      } catch (error) {
+        console.log('[DEBUG] Error fetching without filters:', error)
+        hasMorePages = false
+      }
+    }
+    
     // Test 3: Get our database stats
     const latestMetric = await prisma.metricsDaily.findFirst({
       where: { companyId },
@@ -181,7 +225,9 @@ export async function GET(request: Request) {
         whopAllActive: allActiveMemberships.length,
         whopFilteredByCompany: filteredByCompany.length,
         whopCompanyIdFilterActive: filteredActiveMemberships.length, // valid=true only
-        whopCompanyIdFilterAll: allMembershipsWithCompany.length, // ALL memberships
+        whopCompanyIdFilterAll: allMembershipsWithCompany.length, // ALL memberships with company_id filter
+        uniqueUsers: uniqueUserCount, // Unique user count (maybe Whop counts users?)
+        allMembershipsNoFilters: allMembershipsNoFilters.length, // Total without any filters
         validCount,
         invalidCount,
         statusBreakdown,
