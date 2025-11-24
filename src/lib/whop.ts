@@ -630,15 +630,15 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
     let allMemberships: any[] = []
     const limit = 100
     
-    // Approach 1: Try /companies/{id}/memberships endpoint (company-scoped, gets ALL memberships)
+    // Approach 1: Try /companies/{id}/memberships endpoint with version fallback
     // This should return ALL memberships for the company, not just app-scoped ones
     try {
-      console.log(`[Whoplytics]   Trying /companies/${companyId}/memberships endpoint (company-scoped)...`)
+      console.log(`[Whoplytics]   Trying /companies/${companyId}/memberships endpoint (company-scoped) with version fallback...`)
       let page = 1
       let hasMorePages = true
       
       while (hasMorePages && page <= 100) {
-        const response = await whopGET<{ 
+        const response = await whopGETWithVersionFallback<{ 
           data?: any[]
           pagination?: { 
             current_page?: number
@@ -681,7 +681,61 @@ export async function countUniqueUsers(accessToken: string, companyId: string): 
       console.log(`[Whoplytics]   ✅ Company endpoint: Fetched ${allMemberships.length} total memberships`)
     } catch (error: any) {
       console.log(`[Whoplytics]   ⚠️  /companies/${companyId}/memberships failed: ${error.message}`)
-      console.log('[Whoplytics]   Falling back to /app/memberships endpoint...')
+      console.log('[Whoplytics]   Trying alternative endpoints...')
+      
+      // Try alternative: /memberships with company_id filter (might return all company memberships)
+      try {
+        console.log(`[Whoplytics]   Trying /memberships endpoint with company_id filter...`)
+        let page = 1
+        let hasMorePages = true
+        
+        while (hasMorePages && page <= 50) {
+          const response = await whopGETWithVersionFallback<{ 
+            data?: any[]
+            pagination?: { 
+              current_page?: number
+              total_pages?: number
+              next?: string | null
+              total?: number
+            }
+          }>(`/memberships`, {
+            company_id: companyId,
+            limit,
+            page,
+            // No valid filter - get ALL memberships
+          }, accessToken)
+          
+          if (response.data) {
+            allMemberships = allMemberships.concat(response.data)
+            console.log(`[Whoplytics]   Fetched ${response.data.length} memberships from /memberships (page ${page}, total so far: ${allMemberships.length})`)
+          }
+          
+          if (response.pagination?.total !== undefined) {
+            console.log(`[Whoplytics]   API reports total: ${response.pagination.total}`)
+            if (allMemberships.length >= response.pagination.total) {
+              hasMorePages = false
+            }
+          }
+          
+          if (response.pagination?.next) {
+            page++
+          } else if (response.pagination?.current_page && response.pagination?.total_pages) {
+            if (response.pagination.current_page < response.pagination.total_pages) {
+              page++
+            } else {
+              hasMorePages = false
+            }
+          } else {
+            hasMorePages = false
+          }
+        }
+        
+        if (allMemberships.length > 0) {
+          console.log(`[Whoplytics]   ✅ /memberships endpoint: Fetched ${allMemberships.length} total memberships`)
+        }
+      } catch (error2: any) {
+        console.log(`[Whoplytics]   ⚠️  /memberships with company_id filter failed: ${error2.message}`)
+      }
     }
     
     // Approach 2: Also try /app/memberships to supplement (in case company endpoint doesn't return all)
