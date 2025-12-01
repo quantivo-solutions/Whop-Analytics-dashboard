@@ -263,7 +263,7 @@ export function UpsellModal({ open, onClose, planFeatures = DEFAULT_FEATURES }: 
                 disabled={isLoading || !isSdkReady || checkingPlan}
                 className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-500 hover:to-sky-600 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] text-white font-medium shadow-lg shadow-cyan-500/20 transition-all duration-300"
               >
-                {isLoading ? 'Processing...' : checkingPlan ? 'Checking...' : 'Start 7-Day Free Trial'}
+                {isLoading ? 'Processing...' : checkingPlan ? 'Checking...' : 'Start 3-Day Free Trial'}
               </Button>
             </>
           )}

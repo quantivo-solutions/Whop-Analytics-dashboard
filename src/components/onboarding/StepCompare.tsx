@@ -143,7 +143,7 @@ export function StepCompare({ onChooseFree, onChoosePro }: StepCompareProps) {
                 onClick={handleProClick}
                 disabled={loading !== null}
               >
-                Start 7-Day Free Trial
+                Start 3-Day Free Trial
               </Button>
             </CardContent>
           </Card>
