@@ -52,7 +52,21 @@ export async function POST(request: Request) {
     console.log('[WHOP Webhook] Build ping at', new Date().toISOString())
     
     // Get webhook signature from headers
-    const signature = request.headers.get('whop-signature')
+    // Whop sends 'webhook-signature' header in format 'v1,<signature>'
+    const signatureHeader = request.headers.get('webhook-signature') || request.headers.get('whop-signature')
+    
+    // Extract signature from 'v1,<signature>' format
+    let signature: string | null = null
+    if (signatureHeader) {
+      // Whop sends signature as 'v1,<base64_signature>'
+      const parts = signatureHeader.split(',')
+      if (parts.length >= 2 && parts[0] === 'v1') {
+        signature = parts.slice(1).join(',') // Get everything after 'v1,'
+      } else {
+        // Fallback: assume it's just the signature (for backward compatibility)
+        signature = signatureHeader
+      }
+    }
     
     // Debug: Log raw body details
     console.log('[Webhook Debug] Raw body length:', rawBody.length)
@@ -64,10 +78,12 @@ export async function POST(request: Request) {
     if (env.WHOP_WEBHOOK_SECRET && env.WHOP_WEBHOOK_SECRET !== '') {
       if (!signature) {
         console.warn('⚠️  Missing webhook signature (WHOP_WEBHOOK_SECRET is set but no signature provided)')
+        console.warn('⚠️  Signature header received:', signatureHeader || 'none')
         // Don't reject - allow webhook to proceed for development
       } else {
         // Debug: Log signature details
-        console.log('[Webhook Debug] Received signature header:', signature.substring(0, 32) + '...')
+        console.log('[Webhook Debug] Received signature header:', signatureHeader?.substring(0, 50) + '...')
+        console.log('[Webhook Debug] Extracted signature:', signature.substring(0, 32) + '...')
         console.log('[Webhook Debug] Secret length:', env.WHOP_WEBHOOK_SECRET.length)
         console.log('[Webhook Debug] Secret preview:', env.WHOP_WEBHOOK_SECRET.substring(0, 8) + '...')
         
