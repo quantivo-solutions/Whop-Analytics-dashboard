@@ -17,15 +17,24 @@ export const runtime = 'nodejs'
  * Protected endpoint - requires CRON_SECRET
  */
 export async function POST(request: Request) {
+  const startTime = Date.now()
+  const requestId = Math.random().toString(36).substring(7)
+  
   try {
     // Check secret authentication
     const { searchParams } = new URL(request.url)
     const secret = searchParams.get('secret')
+    const userAgent = request.headers.get('user-agent') || 'unknown'
+    const isCronJob = userAgent.includes('vercel-cron') || userAgent.includes('cron')
+
+    console.log(`[Whoplytics] 📅 Daily ingestion cron triggered (requestId: ${requestId}, isCronJob: ${isCronJob}, userAgent: ${userAgent})`)
 
     if (!secret || secret !== env.CRON_SECRET) {
-      console.warn('Unauthorized ingestion request - invalid or missing secret')
+      console.warn(`[Whoplytics] ⚠️ Unauthorized ingestion request - invalid or missing secret (requestId: ${requestId})`)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    console.log(`[Whoplytics] ✅ Authentication successful (requestId: ${requestId})`)
 
     // TASK 3 - Ingestion: Iterate through all installations and use each installation's accessToken and companyId
     // INTEGRITY: Never use hardcoded or first installation - process all installations
@@ -259,12 +268,17 @@ export async function POST(request: Request) {
       }
     }
 
+    const duration = Date.now() - startTime
+    console.log(`[Whoplytics] ✅ Daily ingestion complete (requestId: ${requestId}, duration: ${duration}ms, processed: ${results.length} companies)`)
+
     return NextResponse.json({
       ok: true,
       wrote: true,
       date: yesterdayUTC,
       processed: results.length,
       results,
+      requestId,
+      duration: `${duration}ms`,
     })
   } catch (error) {
     console.error('Error ingesting Whop data:', error)
