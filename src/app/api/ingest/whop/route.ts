@@ -43,6 +43,7 @@ export async function POST(request: Request) {
     // Determine yesterday's date in UTC (YYYY-MM-DD)
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
+    yesterday.setHours(0, 0, 0, 0)
     const yesterdayUTC = yesterday.toISOString().split('T')[0]
 
     const results = []
@@ -62,6 +63,91 @@ export async function POST(request: Request) {
         continue
       }
 
+      // Check for gaps: Find the latest date in the database for this company
+      const latestMetric = await prisma.metricsDaily.findFirst({
+        where: { companyId },
+        orderBy: { date: 'desc' },
+      })
+
+      const latestDate = latestMetric ? new Date(latestMetric.date) : null
+      const latestDateStr = latestDate ? latestDate.toISOString().split('T')[0] : null
+      
+      // Calculate how many days are missing
+      let daysToBackfill = 0
+      if (latestDateStr) {
+        const latestDateObj = new Date(latestDateStr + 'T00:00:00.000Z')
+        const yesterdayObj = new Date(yesterdayUTC + 'T00:00:00.000Z')
+        const daysDiff = Math.floor((yesterdayObj.getTime() - latestDateObj.getTime()) / (1000 * 60 * 60 * 24))
+        
+        if (daysDiff > 1) {
+          // There's a gap - we need to backfill missing days
+          daysToBackfill = daysDiff - 1 // Exclude yesterday (will be processed separately)
+          console.log(`[Whoplytics] ⚠️  Gap detected for company ${companyId}: Latest date is ${latestDateStr}, yesterday is ${yesterdayUTC} (${daysDiff} days gap)`)
+          console.log(`[Whoplytics] 🔄 Auto-backfilling ${daysToBackfill} missing days...`)
+        }
+      } else {
+        // No data exists - backfill last 7 days
+        daysToBackfill = 7
+        console.log(`[Whoplytics] ⚠️  No data found for company ${companyId}. Auto-backfilling last 7 days...`)
+      }
+
+      // Auto-backfill missing days if there's a gap
+      if (daysToBackfill > 0) {
+        const maxBackfillDays = 30 // Limit to prevent excessive API calls
+        const daysToProcess = Math.min(daysToBackfill, maxBackfillDays)
+        
+        console.log(`[Whoplytics] 🔄 Backfilling ${daysToProcess} days for company ${companyId}...`)
+        
+        for (let i = daysToProcess; i >= 1; i--) {
+          const backfillDate = new Date(yesterday)
+          backfillDate.setDate(yesterday.getDate() - i)
+          const backfillDateStr = backfillDate.toISOString().split('T')[0]
+          
+          try {
+            console.log(`[Whoplytics]   Backfilling ${backfillDateStr}...`)
+            const summary = await fetchDailySummary(backfillDateStr, accessToken, companyId)
+            
+            await prisma.metricsDaily.upsert({
+              where: {
+                companyId_date: {
+                  companyId: companyId,
+                  date: new Date(backfillDateStr),
+                },
+              },
+              update: {
+                grossRevenue: summary.grossRevenue,
+                activeMembers: summary.activeMembers,
+                newMembers: summary.newMembers,
+                cancellations: summary.cancellations,
+                trialsStarted: summary.trialsStarted,
+                trialsPaid: summary.trialsPaid,
+              },
+              create: {
+                companyId: companyId,
+                date: new Date(backfillDateStr),
+                grossRevenue: summary.grossRevenue,
+                activeMembers: summary.activeMembers,
+                newMembers: summary.newMembers,
+                cancellations: summary.cancellations,
+                trialsStarted: summary.trialsStarted,
+                trialsPaid: summary.trialsPaid,
+              },
+            })
+            
+            console.log(`[Whoplytics]   ✅ Backfilled ${backfillDateStr}`)
+            
+            // Rate-limit to avoid throttling
+            await new Promise(resolve => setTimeout(resolve, 200))
+          } catch (error) {
+            console.error(`[Whoplytics]   ❌ Error backfilling ${backfillDateStr}:`, error)
+            // Continue with other days even if one fails
+          }
+        }
+        
+        console.log(`[Whoplytics] ✅ Auto-backfill complete for company ${companyId}`)
+      }
+
+      // Now process yesterday's data (normal daily ingestion)
       console.log(`[Whoplytics] fetch`, { path: 'daily-summary', companyId, dateStr: yesterdayUTC })
       console.log(`[Whoplytics] 🚀 Starting daily Whop data ingestion for company ${companyId} for date: ${yesterdayUTC}`)
 
