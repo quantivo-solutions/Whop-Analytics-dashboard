@@ -873,11 +873,34 @@ export async function countUniqueUsers(
           return false
         }
         
-        const createdDate = new Date(createdAt)
+        // Handle different date formats:
+        // 1. Unix timestamp (seconds) - e.g., 1761441169
+        // 2. Unix timestamp (milliseconds) - e.g., 1761441169000
+        // 3. ISO string - e.g., "2025-11-24T00:00:00.000Z"
+        let createdDate: Date
+        
+        if (typeof createdAt === 'number') {
+          // Unix timestamp - check if it's seconds or milliseconds
+          // If less than 1e12, it's likely seconds; otherwise milliseconds
+          createdDate = new Date(createdAt < 1e12 ? createdAt * 1000 : createdAt)
+        } else if (typeof createdAt === 'string') {
+          // Check if it's a Unix timestamp string
+          const numValue = Number(createdAt)
+          if (!isNaN(numValue) && createdAt === String(numValue)) {
+            // It's a numeric string (Unix timestamp)
+            createdDate = new Date(numValue < 1e12 ? numValue * 1000 : numValue)
+          } else {
+            // Try parsing as ISO string
+            createdDate = new Date(createdAt)
+          }
+        } else {
+          // Fallback: try to convert to Date
+          createdDate = new Date(createdAt)
+        }
         
         // Check if date is valid
         if (isNaN(createdDate.getTime())) {
-          console.log(`[Whoplytics]     ⚠️ Invalid date format: ${createdAt}`)
+          console.log(`[Whoplytics]     ⚠️ Invalid date format: ${createdAt} (type: ${typeof createdAt})`)
           return false
         }
         
