@@ -260,27 +260,53 @@ export async function POST(request: Request) {
 
 /**
  * Verify webhook signature using HMAC SHA-256
+ * Whop sends signatures as base64 in format 'v1,<base64_signature>'
  */
 function verifyWebhookSignature(payload: string, signature: string): boolean {
   try {
-    const expectedSignature = crypto
+    // Compute expected signature as base64 (Whop sends base64)
+    const expectedSignatureBase64 = crypto
+      .createHmac('sha256', env.WHOP_WEBHOOK_SECRET)
+      .update(payload)
+      .digest('base64')
+    
+    // Compute expected signature as hex (for backward compatibility)
+    const expectedSignatureHex = crypto
       .createHmac('sha256', env.WHOP_WEBHOOK_SECRET)
       .update(payload)
       .digest('hex')
     
-    // Debug logging for signature verification issues
-    if (signature !== expectedSignature) {
-      console.log('[Webhook Signature Debug]')
-      console.log('  Received signature:', signature.substring(0, 32) + '...')
-      console.log('  Expected signature:', expectedSignature.substring(0, 32) + '...')
-      console.log('  Payload length:', payload.length)
-      console.log('  Payload preview:', payload.substring(0, 100))
+    // Try comparing as base64 first (Whop's format)
+    try {
+      const signatureBuffer = Buffer.from(signature, 'base64')
+      const expectedBuffer = Buffer.from(expectedSignatureBase64, 'base64')
+      if (crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+        return true
+      }
+    } catch (e) {
+      // If base64 decode fails, try hex comparison
     }
     
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    )
+    // Fallback: try hex comparison
+    try {
+      const signatureBuffer = Buffer.from(signature, 'hex')
+      const expectedBuffer = Buffer.from(expectedSignatureHex, 'hex')
+      if (crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+        return true
+      }
+    } catch (e) {
+      // If hex decode fails, log error
+    }
+    
+    // Debug logging for signature verification issues
+    console.log('[Webhook Signature Debug]')
+    console.log('  Received signature:', signature.substring(0, 32) + '...')
+    console.log('  Expected signature (base64):', expectedSignatureBase64.substring(0, 32) + '...')
+    console.log('  Expected signature (hex):', expectedSignatureHex.substring(0, 32) + '...')
+    console.log('  Payload length:', payload.length)
+    console.log('  Payload preview:', payload.substring(0, 100))
+    
+    return false
   } catch (error) {
     console.error('Error verifying signature:', error)
     return false
