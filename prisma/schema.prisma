@@ -52,23 +52,26 @@ model WorkspaceSettings {
 }
 
 model WhopInstallation {
-  id             String         @id @default(cuid())
-  companyId      String
-  userId         String // Whop user ID - REQUIRED for user-level plan tracking
-  experienceId   String?        @unique
-  experienceName String? // Experience/company name for display
-  plan           String? // DEPRECATED: Use UserPlan table instead. Kept for migration period.
-  accessToken    String
-  username       String? // User's Whop username
-  email          String? // User's email
-  profilePicUrl  String? // User's profile picture URL
-  reportEmail    String? // Per-company email for reports
-  weeklyEmail    Boolean        @default(true)
-  dailyEmail     Boolean        @default(false)
-  discordWebhook String? // Per-company Discord webhook
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  metrics        MetricsDaily[]
+  id                   String         @id @default(cuid())
+  companyId            String
+  userId               String // Whop user ID - REQUIRED for user-level plan tracking
+  experienceId         String?        @unique
+  experienceName       String? // Experience/company name for display
+  plan                 String? // DEPRECATED: Use UserPlan table instead. Kept for migration period.
+  accessToken          String
+  username             String? // User's Whop username
+  email                String? // User's email
+  profilePicUrl        String? // User's profile picture URL
+  reportEmail          String? // Per-company email for reports
+  weeklyEmail          Boolean        @default(true)
+  dailyEmail           Boolean        @default(false)
+  discordWebhook       String? // Per-company Discord webhook
+  bootstrapStartedAt   DateTime? // When bootstrap/backfill started
+  bootstrapCompletedAt DateTime? // When bootstrap/backfill completed successfully
+  bootstrapError       String? // Bootstrap error message if failed
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  metrics              MetricsDaily[]
 
   @@unique([companyId, userId], name: "companyId_userId") // Multiple users can install app in same company
   @@index([userId])

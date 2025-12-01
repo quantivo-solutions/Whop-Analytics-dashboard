@@ -39,6 +39,8 @@ import { ProWelcomeWrapper } from '@/components/pro-welcome/ProWelcomeWrapper'
 import { InsightsPanel } from '@/components/insights/InsightsPanel'
 import { env } from '@/lib/env'
 import { RemoveScopeBadge } from '@/components/remove-scope-badge'
+import { BootstrapLoading } from '@/components/bootstrap-loading'
+import { BootstrapRefresh } from '@/components/bootstrap-refresh'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -777,6 +779,25 @@ export default async function CompanyDashboardPage({ params, searchParams }: Pag
   }
   
   console.log('[Dashboard View] Onboarding complete - proceeding to dashboard')
+
+  // STEP 5.5: Check bootstrap status before fetching dashboard data
+  // If bootstrap is running, show loading state instead of empty dashboard
+  const bootstrapRunning = installation && 
+    installation.bootstrapStartedAt && 
+    !installation.bootstrapCompletedAt && 
+    !installation.bootstrapError
+  
+  if (bootstrapRunning) {
+    console.log('[Dashboard View] ⏳ Bootstrap is running - showing loading state')
+    const sessionTokenForClient = (global as any).__whopSessionToken
+    return (
+      <div className="min-h-screen bg-background">
+        {sessionTokenForClient && <SessionSetter sessionToken={sessionTokenForClient} />}
+        <BootstrapRefresh companyId={finalCompanyId} />
+        <BootstrapLoading companyId={finalCompanyId} />
+      </div>
+    )
+  }
 
   // STEP 6: Fetch dashboard data (only after onboarding check)
   // Use currentPlan from verification step above

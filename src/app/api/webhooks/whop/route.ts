@@ -369,27 +369,28 @@ async function handleAppInstalled(data: any) {
       // Non-critical, continue
     }
 
-    // Trigger bootstrap backfill asynchronously (don't block webhook response)
+    // Trigger bootstrap asynchronously (don't block webhook response)
     if (isNewInstallation) {
       try {
-        // Use backfill endpoint (bootstrap route may not be deployed yet)
-        const backfillUrl = new URL('/api/ingest/whop/backfill', process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app')
-        backfillUrl.searchParams.set('secret', env.CRON_SECRET)
-        backfillUrl.searchParams.set('companyId', company_id)
-        backfillUrl.searchParams.set('days', '30') // Backfill last 30 days on install
+        // Use bootstrap endpoint (standardized endpoint for historical data ingestion)
+        const requestUrl = new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://whop-analytics-dashboard-omega.vercel.app')
+        const bootstrapUrl = new URL('/api/ingest/whop/bootstrap', requestUrl.origin)
+        bootstrapUrl.searchParams.set('secret', env.CRON_SECRET)
+        bootstrapUrl.searchParams.set('companyId', company_id)
+        bootstrapUrl.searchParams.set('days', '90') // Backfill last 90 days on install
 
-        console.log(`[WHOP] 🚀 Triggering bootstrap backfill for new installation: ${company_id}`)
+        console.log(`[Bootstrap] 🚀 Triggering bootstrap for new installation: ${company_id}`)
         
         // Fire and forget - don't await to avoid blocking webhook response
-        fetch(backfillUrl.toString(), {
+        fetch(bootstrapUrl.toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         }).catch((bootstrapError) => {
-          console.error(`[WHOP] ⚠️ Bootstrap backfill request failed (non-critical):`, bootstrapError)
-          // Non-critical - backfill can be retried manually
+          console.error(`[Bootstrap] ⚠️ Bootstrap request failed (non-critical):`, bootstrapError)
+          // Non-critical - bootstrap can be retried manually
         })
       } catch (bootstrapError) {
-        console.error(`[WHOP] ⚠️ Error triggering bootstrap backfill:`, bootstrapError)
+        console.error(`[Bootstrap] ⚠️ Error triggering bootstrap:`, bootstrapError)
         // Non-critical - webhook should still succeed
       }
     }
@@ -487,10 +488,8 @@ async function handleAppInstalled(data: any) {
     // Continue - getCompanyPrefs will try again when user accesses the app
   }
 
-  // Trigger backfill asynchronously (don't await to avoid blocking webhook response)
-  triggerBackfill(company_id).catch((error) => {
-    console.error(`❌ Backfill failed for ${company_id}:`, error)
-  })
+  // Note: Bootstrap is already triggered earlier in the webhook handler (around line 373)
+  // This duplicate triggerBackfill call has been removed to avoid duplicate bootstrap runs
 }
 
 /**
@@ -561,35 +560,10 @@ async function handlePlanUpdated(data: any) {
 }
 
 /**
- * Trigger a 7-day backfill for a newly installed company
- * Calls the backfill function directly to avoid Vercel auth issues
+ * DEPRECATED: triggerBackfill function removed
+ * Bootstrap is now handled via the /api/ingest/whop/bootstrap endpoint
+ * This ensures consistent bootstrap status tracking and avoids duplicate runs
  */
-async function triggerBackfill(companyId: string) {
-  try {
-    console.log(`📊 Starting 7-day backfill for companyId=${companyId}`)
-    
-    // Get the installation to fetch the access token (use findFirst since companyId is not unique alone)
-    const installation = await prisma.whopInstallation.findFirst({
-      where: { companyId },
-      orderBy: { updatedAt: 'desc' },
-    })
-    
-    if (!installation) {
-      throw new Error(`No installation found for companyId=${companyId}`)
-    }
-    
-    // Import the backfill function dynamically to avoid circular dependencies
-    const { performBackfill } = await import('@/lib/backfill')
-    
-    // Perform backfill directly (no HTTP request needed)
-    const result = await performBackfill(companyId, installation.accessToken, 7)
-    
-    console.log(`✅ Backfill complete for companyId=${companyId}: ${result.daysWritten} days`)
-  } catch (error) {
-    console.error(`❌ Backfill error for companyId=${companyId}:`, error)
-    throw error
-  }
-}
 
 /**
  * Handle membership.activated event
