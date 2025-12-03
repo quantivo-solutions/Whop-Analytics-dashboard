@@ -308,13 +308,6 @@ export async function POST(request: Request) {
           success: true,
         });
       }
-
-      results.push({
-        companyId,
-        daysWritten: result.daysWritten,
-        totalDays: result.totalDays,
-        success: true,
-      });
     }
 
     const duration = Date.now() - startTime;
